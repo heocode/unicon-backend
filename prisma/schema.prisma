@@ -1,8 +1,48 @@
 generator client {
   provider = "prisma-client"
-  output   = "../generated/prisma"
+  output = "../src/generated/prisma"
+  moduleFormat = "cjs"
 }
 
 datasource db {
   provider = "postgresql"
+}
+
+enum UserRole {
+  MEMBER
+  UNIVERSITY
+  ADMIN
+}
+
+model User {
+  id String @id @default(cuid())
+  email String @unique
+  username String @unique
+  passwordHash String
+  emailVerified Boolean @default(false)
+  role UserRole @default(MEMBER)
+  universityId String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  university University @relation(fields: [universityId], references: [id])
+}
+
+model University {
+  id String @id @default(cuid())
+  name String @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users User[]
+  allowedDomains AllowedDomain[]
+}
+
+model AllowedDomain {
+  id String @id @default(cuid())
+  domain String @unique
+  active Boolean @default(true)
+  universityId String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  university University @relation(fields: [universityId], references: [id])
 }
