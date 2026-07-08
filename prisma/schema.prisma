@@ -10,20 +10,48 @@ datasource db {
 
 enum UserRole {
   MEMBER
-  UNIVERSITY
   ADMIN
+  UNIVERSITY
+}
+
+enum UserStatus {
+  ACTIVE
+  BLOCKED
+  PENDING
+  DELETED
 }
 
 model User {
+  // core
   id String @id @default(cuid())
-  email String @unique
   username String @unique
-  passwordHash String
+  email String @unique
   emailVerified Boolean @default(false)
-  role UserRole @default(MEMBER)
+  passwordHash String
   universityId String
+
+  // service
+  hashedRefreshToken String?
+  role UserRole @default(MEMBER)
+  status UserStatus @default(PENDING)
+
+  // security
+  lastLoginAt DateTime?
+  loginAttempts Int?
+  lockoutUntil DateTime?
+
+  // tokens
+  hashedVerificationToken String?
+  verificationTokenExpires DateTime?
+  hashedResetPasswordToken String?
+  resetPasswordExpires DateTime?
+
+  // timestamps
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  deletedAt DateTime?
+
+  // foreign keys
   university University @relation(fields: [universityId], references: [id])
 }
 

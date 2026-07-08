@@ -11,8 +11,18 @@
 
 export const UserRole = {
   MEMBER: 'MEMBER',
-  UNIVERSITY: 'UNIVERSITY',
-  ADMIN: 'ADMIN'
+  ADMIN: 'ADMIN',
+  UNIVERSITY: 'UNIVERSITY'
 } as const
 
 export type UserRole = (typeof UserRole)[keyof typeof UserRole]
+
+
+export const UserStatus = {
+  ACTIVE: 'ACTIVE',
+  BLOCKED: 'BLOCKED',
+  PENDING: 'PENDING',
+  DELETED: 'DELETED'
+} as const
+
+export type UserStatus = (typeof UserStatus)[keyof typeof UserStatus]
