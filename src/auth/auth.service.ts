@@ -1,69 +1,46 @@
+// NestJS
 import {
-  Injectable,
-  ConflictException,
-  UnauthorizedException,
   BadRequestException,
+  ConflictException,
+  Injectable,
+  UnauthorizedException,
 } from '@nestjs/common';
-import { PrismaService } from 'src/prisma/prisma.service';
-import { RegisterDto } from './dto/register.dto';
-import * as bcrypt from 'bcrypt';
+
+// Prisma
+import { Prisma } from '../generated/prisma/client';
+
+// Internal services
+import { PrismaService } from '../prisma/prisma.service';
+import { PasswordService } from './services/password.service';
+import { SecureTokenService } from './services/secure-token.service';
+import { UsernameService } from './services/username.service';
+import { SessionService } from './services/session.service';
+
+// Internal types
+import { SecureToken } from './types/secure-token.type';
+
+// DTOs
 import { LoginDto } from './dto/login.dto';
-import { JwtService } from '@nestjs/jwt';
-import { ConfigService } from '@nestjs/config';
-import { randomBytes } from 'crypto';
+import { RegisterDto } from './dto/register.dto';
+
+type CreatePendingUserParams = {
+  email: string;
+  passwordHash: string;
+  universityId: string;
+  verification: SecureToken;
+};
 
 @Injectable()
 export class AuthService {
   constructor(
-    private prisma: PrismaService,
-    private jwtService: JwtService,
-    private configService: ConfigService,
+    private readonly prisma: PrismaService,
+    private readonly passwordService: PasswordService,
+    private readonly secureTokenService: SecureTokenService,
+    private readonly usernameService: UsernameService,
+    private readonly sessionService: SessionService,
   ) {}
 
-  async login(
-    dto: LoginDto,
-  ): Promise<{ accessToken: string; refreshToken: string }> {
-    const email = dto.email.trim().toLowerCase();
-    const password = dto.password;
-    const existingUser = await this.prisma.user.findUnique({
-      where: { email },
-    });
-
-    if (!existingUser) {
-      throw new UnauthorizedException('Invalid email or password.');
-    }
-
-    const isPasswordMatch = await bcrypt.compare(
-      password,
-      existingUser.passwordHash,
-    );
-
-    if (!isPasswordMatch) {
-      throw new UnauthorizedException('Invalid email or password.');
-    }
-
-    if (existingUser.status === 'PENDING') {
-      throw new UnauthorizedException(
-        'Please verify your email before logging in.',
-      );
-    }
-
-    if (existingUser.status === 'BLOCKED') {
-      throw new UnauthorizedException(
-        'Your account has been blocked. Please contact support.',
-      );
-    }
-
-    if (existingUser.status === 'DELETED') {
-      throw new UnauthorizedException('This account is no longer available.');
-    }
-
-    const tokens = await this.getTokens(existingUser.id, existingUser.username);
-    await this.updateRefreshTokenHash(existingUser.id, tokens.refreshToken);
-
-    return tokens;
-  }
-
+  // public methods
   async register(dto: RegisterDto) {
     const email = dto.email.trim().toLowerCase();
 
@@ -94,34 +71,17 @@ export class AuthService {
     }
 
     // password bcrypt
-    const salt = await bcrypt.genSalt(10);
-    const passwordHash = await bcrypt.hash(dto.password, salt);
-
-    // creating username
-    const username = await this.generateUsername(email);
+    const passwordHash = await this.passwordService.hash(dto.password);
 
     // creating verification token
-    const verification = await this.generateVerificationToken();
+    const verification = this.secureTokenService.generate();
 
     // insterting newUser
-    const newUser = await this.prisma.user.create({
-      data: {
-        email: email,
-        username: username,
-        passwordHash: passwordHash,
-        universityId: allowedDomain.universityId,
-        status: 'PENDING',
-        hashedVerificationToken: verification.hashedToken,
-        verificationTokenExpires: verification.expiresAt,
-      },
-      select: {
-        id: true,
-        email: true,
-        username: true,
-        role: true,
-        universityId: true,
-        createdAt: true,
-      },
+    const newUser = await this.createPendingUser({
+      email,
+      passwordHash,
+      verification,
+      universityId: allowedDomain.universityId,
     });
 
     return {
@@ -130,101 +90,106 @@ export class AuthService {
     };
   }
 
-  private async generateUsername(email: string): Promise<string> {
-    const username = email.split('@')[0];
+  async login(
+    dto: LoginDto,
+  ): Promise<{ accessToken: string; refreshToken: string }> {
+    const email = dto.email.trim().toLowerCase();
+    const password = dto.password;
+    const existingUser = await this.prisma.user.findUnique({
+      where: { email },
+    });
 
-    for (let i = 0; i < 10; i++) {
-      const randomDigits = Math.floor(1000 + Math.random() * 9000);
-      const candidateUsername = `${username}${randomDigits}`;
-
-      const existingUsername = await this.prisma.user.findUnique({
-        where: { username: candidateUsername },
-      });
-
-      if (!existingUsername) {
-        return candidateUsername;
-      }
+    if (!existingUser) {
+      throw new UnauthorizedException('Invalid email or password.');
     }
 
-    return `${username}${Date.now()}`;
+    const isPasswordMatch = await this.passwordService.compare(
+      password,
+      existingUser.passwordHash,
+    );
+
+    if (!isPasswordMatch) {
+      throw new UnauthorizedException('Invalid email or password.');
+    }
+
+    if (existingUser.status === 'PENDING') {
+      throw new UnauthorizedException(
+        'Please verify your email before logging in.',
+      );
+    }
+
+    if (existingUser.status === 'BLOCKED') {
+      throw new UnauthorizedException(
+        'Your account has been blocked. Please contact support.',
+      );
+    }
+
+    if (existingUser.status === 'DELETED') {
+      throw new UnauthorizedException('This account is no longer available.');
+    }
+
+    return this.sessionService.create(existingUser);
   }
 
-  private async generateVerificationToken(): Promise<{
-    token: string;
-    hashedToken: string;
-    expiresAt: Date;
-  }> {
-    const token = randomBytes(32).toString('hex');
-
-    const salt = await bcrypt.genSalt(10);
-    const hashedToken = await bcrypt.hash(token, salt);
-
-    const expiresAt = new Date();
-    expiresAt.setHours(expiresAt.getHours() + 24);
+  async logout(userId: string, sessionId: string) {
+    await this.sessionService.revoke(userId, sessionId);
 
     return {
-      token,
-      hashedToken,
-      expiresAt,
+      message: 'Logged out successfully.',
     };
   }
 
-  async refreshTokens(userId: string, refreshToken: string) {
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-    });
+  async refreshTokens(userId: string, sessionId: string, refreshToken: string) {
+    return this.sessionService.refresh(userId, sessionId, refreshToken);
+  }
 
-    if (!user || !user.hashedRefreshToken) {
-      throw new UnauthorizedException('Access Denied. Please log in again.');
+  private async createPendingUser({
+    email,
+    passwordHash,
+    universityId,
+    verification,
+  }: CreatePendingUserParams) {
+    for (let attempt = 0; attempt < 10; attempt++) {
+      const username = this.usernameService.generate(email);
+
+      try {
+        return await this.prisma.user.create({
+          data: {
+            email,
+            username,
+            passwordHash,
+            universityId,
+            status: 'PENDING',
+            hashedVerificationToken: verification.hashedToken,
+            verificationTokenExpires: verification.expiresAt,
+          },
+          select: {
+            id: true,
+            email: true,
+            username: true,
+            role: true,
+            universityId: true,
+            createdAt: true,
+          },
+        });
+      } catch (error) {
+        if (
+          error instanceof Prisma.PrismaClientKnownRequestError &&
+          error.code === 'P2002'
+        ) {
+          const target = error.meta?.target;
+
+          if (Array.isArray(target) && target.includes('username')) {
+            continue;
+          }
+        }
+
+        throw error;
+      }
     }
 
-    const isRefreshedTokenMatch = await bcrypt.compare(
-      refreshToken,
-      user.hashedRefreshToken,
+    throw new ConflictException(
+      'Unable to generate a unique username. Please try again.',
     );
-
-    if (!isRefreshedTokenMatch) {
-      throw new UnauthorizedException('Access Denied. Invalid token.');
-    }
-
-    const tokens = await this.getTokens(user.id, user.username);
-    await this.updateRefreshTokenHash(user.id, tokens.refreshToken);
-
-    return tokens;
-  }
-
-  async logout(userId: string) {
-    await this.prisma.user.update({
-      where: { id: userId },
-      data: { hashedRefreshToken: null },
-    });
-    return { message: 'Logged out successfully.' };
-  }
-
-  private async getTokens(userId: string, username: string) {
-    const jwtPayload = { sub: userId, username };
-
-    const [accessToken, refreshToken] = await Promise.all([
-      this.jwtService.signAsync(jwtPayload, {
-        secret: this.configService.getOrThrow<string>('JWT_ACCESS_SECRET'),
-        expiresIn: '15m',
-      }),
-      this.jwtService.signAsync(jwtPayload, {
-        secret: this.configService.getOrThrow<string>('JWT_REFRESH_SECRET'),
-        expiresIn: '7d',
-      }),
-    ]);
-
-    return { accessToken, refreshToken };
-  }
-
-  private async updateRefreshTokenHash(userId: string, refreshToken: string) {
-    const salt = await bcrypt.genSalt(10);
-    const hash = await bcrypt.hash(refreshToken, salt);
-
-    await this.prisma.user.update({
-      where: { id: userId },
-      data: { hashedRefreshToken: hash },
-    });
   }
 }

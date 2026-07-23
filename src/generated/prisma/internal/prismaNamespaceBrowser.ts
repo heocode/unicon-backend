@@ -53,7 +53,8 @@ export const AnyNull = runtime.AnyNull
 export const ModelName = {
   User: 'User',
   University: 'University',
-  AllowedDomain: 'AllowedDomain'
+  AllowedDomain: 'AllowedDomain',
+  Session: 'Session'
 } as const
 
 export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -79,16 +80,14 @@ export const UserScalarFieldEnum = {
   emailVerified: 'emailVerified',
   passwordHash: 'passwordHash',
   universityId: 'universityId',
-  hashedRefreshToken: 'hashedRefreshToken',
   role: 'role',
   status: 'status',
   lastLoginAt: 'lastLoginAt',
   loginAttempts: 'loginAttempts',
   lockoutUntil: 'lockoutUntil',
-  verificationToken: 'verificationToken',
   hashedVerificationToken: 'hashedVerificationToken',
   verificationTokenExpires: 'verificationTokenExpires',
-  resetPasswordToken: 'resetPasswordToken',
+  hashedResetPasswordToken: 'hashedResetPasswordToken',
   resetPasswordExpires: 'resetPasswordExpires',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt',
@@ -118,6 +117,22 @@ export const AllowedDomainScalarFieldEnum = {
 } as const
 
 export type AllowedDomainScalarFieldEnum = (typeof AllowedDomainScalarFieldEnum)[keyof typeof AllowedDomainScalarFieldEnum]
+
+
+export const SessionScalarFieldEnum = {
+  id: 'id',
+  userId: 'userId',
+  hashedRefreshToken: 'hashedRefreshToken',
+  ipAddress: 'ipAddress',
+  userAgent: 'userAgent',
+  deviceName: 'deviceName',
+  expiresAt: 'expiresAt',
+  revokedAt: 'revokedAt',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type SessionScalarFieldEnum = (typeof SessionScalarFieldEnum)[keyof typeof SessionScalarFieldEnum]
 
 
 export const SortOrder = {

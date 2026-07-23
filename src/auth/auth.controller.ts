@@ -1,4 +1,4 @@
-import { Controller, Post, Body } from '@nestjs/common';
+import { Controller, Post, Body, UseGuards, Req } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
@@ -9,8 +9,10 @@ import {
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
-import { ApiRegister } from 'src/swagger/auth/register.decorator';
-import { ApiLogin } from 'src/swagger/auth/login.decorator';
+import { ApiRegister } from '../swagger/auth/register.decorator';
+import { ApiLogin } from '../swagger/auth/login.decorator';
+import { AccessTokenGuard } from './guard/access-token.guard';
+import { RefreshTokenGuard } from './guard/refresh-token.guard';
 
 @ApiTags('Authentication')
 @Controller('auth')
@@ -30,15 +32,18 @@ export class AuthController {
   }
 
   @Post('refresh')
-  async refresh(
-    @Body('userId') userId: string,
-    @Body('refreshToken') refreshToken: string,
-  ) {
-    return this.authService.refreshTokens(userId, refreshToken);
+  @UseGuards(RefreshTokenGuard)
+  refresh(@Req() req) {
+    return this.authService.refreshTokens(
+      req.user.sub,
+      req.user.sessionId,
+      req.refreshToken,
+    );
   }
 
   @Post('logout')
-  async logout(@Body('userId') userId: string) {
-    return this.authService.logout(userId);
+  @UseGuards(AccessTokenGuard)
+  logout(@Req() req) {
+    return this.authService.logout(req.user.sub, req.user.sessionId);
   }
 }

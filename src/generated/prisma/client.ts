@@ -54,3 +54,8 @@ export type University = Prisma.UniversityModel
  * 
  */
 export type AllowedDomain = Prisma.AllowedDomainModel
+/**
+ * Model Session
+ * 
+ */
+export type Session = Prisma.SessionModel

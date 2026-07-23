@@ -31,13 +31,12 @@ model User {
   universityId String
 
   // service
-  hashedRefreshToken String?
   role UserRole @default(MEMBER)
   status UserStatus @default(PENDING)
 
   // security
   lastLoginAt DateTime?
-  loginAttempts Int?
+  loginAttempts Int @default(0)
   lockoutUntil DateTime?
 
   // tokens
@@ -53,6 +52,9 @@ model User {
 
   // foreign keys
   university University @relation(fields: [universityId], references: [id])
+
+  // relations
+  session Session[]
 }
 
 model University {
@@ -61,6 +63,7 @@ model University {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  // relations
   users User[]
   allowedDomains AllowedDomain[]
 }
@@ -73,4 +76,24 @@ model AllowedDomain {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   university University @relation(fields: [universityId], references: [id])
+}
+
+model Session {
+  // core
+  id String @id @default(cuid())
+  userId String 
+  hashedRefreshToken String
+
+  // userInfo
+  ipAddress String?
+  userAgent String?
+  deviceName String?
+
+  // timestamps
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }

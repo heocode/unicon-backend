@@ -7,7 +7,7 @@ export class LoginDto {
     description: 'University email address.',
   })
   @IsEmail({}, { message: 'Incorrect email.' })
-  email: string;
+  email!: string;
 
   @ApiProperty({
     example: 'Password123!',
@@ -15,5 +15,5 @@ export class LoginDto {
   })
   @IsString()
   @IsNotEmpty()
-  password: string;
+  password!: string;
 }
