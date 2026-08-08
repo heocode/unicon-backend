@@ -9,11 +9,6 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { JwtTokenService } from './jwt-token.service';
 import { SecureTokenService } from './secure-token.service';
 
-type SessionUser = {
-  id: string;
-  username: string;
-};
-
 type AuthTokens = {
   accessToken: string;
   refreshToken: string;
@@ -27,32 +22,31 @@ export class SessionService {
     private readonly secureTokenService: SecureTokenService,
   ) {}
 
-  async create(user: SessionUser): Promise<AuthTokens> {
+  async create(userId: string): Promise<AuthTokens> {
     const sessionId = randomUUID();
 
-    const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + 7);
-
-    const tokens = await this.jwtTokenService.generateTokens(
-      user.id,
-      user.username,
+    const generatedTokens = await this.jwtTokenService.generateTokens(
+      userId,
       sessionId,
     );
 
     const hashedRefreshToken = this.secureTokenService.hash(
-      tokens.refreshToken,
+      generatedTokens.refreshToken,
     );
 
     await this.prisma.session.create({
       data: {
         id: sessionId,
-        userId: user.id,
+        userId,
         hashedRefreshToken,
-        expiresAt,
+        expiresAt: generatedTokens.refreshTokenExpiresAt,
       },
     });
 
-    return tokens;
+    return {
+      accessToken: generatedTokens.accessToken,
+      refreshToken: generatedTokens.refreshToken,
+    };
   }
 
   async refresh(
@@ -66,8 +60,15 @@ export class SessionService {
         userId,
         revokedAt: null,
       },
-      include: {
-        user: true,
+      select: {
+        id: true,
+        hashedRefreshToken: true,
+        expiresAt: true,
+        user: {
+          select: {
+            status: true,
+          },
+        },
       },
     });
 
@@ -75,7 +76,7 @@ export class SessionService {
       throw new UnauthorizedException('Access Denied. Please log in again.');
     }
 
-    if (session.expiresAt < new Date()) {
+    if (session.expiresAt <= new Date()) {
       throw new UnauthorizedException('Access Denied. Session expired.');
     }
 
@@ -95,15 +96,18 @@ export class SessionService {
       throw new UnauthorizedException('Access Denied. Invalid token.');
     }
 
-    const tokens = await this.jwtTokenService.generateTokens(
-      session.user.id,
-      session.user.username,
+    const generatedTokens = await this.jwtTokenService.generateTokens(
+      userId,
       session.id,
+      session.expiresAt,
     );
 
-    await this.updateRefreshTokenHash(session.id, tokens.refreshToken);
+    await this.updateRefreshTokenHash(session.id, generatedTokens.refreshToken);
 
-    return tokens;
+    return {
+      accessToken: generatedTokens.accessToken,
+      refreshToken: generatedTokens.refreshToken,
+    };
   }
 
   async revoke(userId: string, sessionId: string): Promise<void> {

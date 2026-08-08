@@ -6,94 +6,43 @@ const adapter = new PrismaPg({
   connectionString: process.env.DATABASE_URL!,
 });
 
-export const prisma = new PrismaClient({ adapter });
-
-const universities = [
-  // 1
-  {
-    name: 'Centennial College',
-    domains: ['my.centennialcollege.ca'],
-    users: [
-      {
-        email: 'vadim@my.centennialcollege.ca',
-        username: 'heoposit',
-        password: 'password1234',
-      },
-      {
-        email: 'nikita@my.centennialcollege.ca',
-        username: 'soulbind',
-        password: 'password1234',
-      },
-    ],
-  },
-  // 2
-  {
-    name: 'Seneca Polytech',
-    domains: ['my.senecapolytech.ca'],
-    users: [
-      {
-        email: 'iliya@my.senecapolytech.ca',
-        username: 'iliya',
-        password: 'password1234',
-      },
-      {
-        email: 'zhenya@my.senecapolytech.ca',
-        username: 'zhenya',
-        password: 'password1234',
-      },
-    ],
-  },
-  // 3
-  {
-    name: 'Humbler College',
-    domains: ['my.humblercollege.ca'],
-    users: [
-      {
-        email: 'veronika@my.humblercollege.ca',
-        username: 'veronika',
-        password: 'password1234',
-      },
-      {
-        email: 'rinat@my.humblercollege.ca',
-        username: 'rinat',
-        password: 'password1234',
-      },
-    ],
-  },
-];
+const prisma = new PrismaClient({ adapter });
 
 async function main() {
-  for (const university of universities) {
-    const createdUniversity = await prisma.university.create({
-      data: {
-        name: university.name,
+  const university = await prisma.university.upsert({
+    where: {
+      name: 'Centennial College',
+    },
+    update: {},
+    create: {
+      name: 'Centennial College',
+    },
+  });
+
+  const domains = ['my.centennialcollege.ca', 'gmail.com'];
+
+  for (const domain of domains) {
+    await prisma.allowedDomain.upsert({
+      where: {
+        domain,
+      },
+      update: {
+        active: true,
+        universityId: university.id,
+      },
+      create: {
+        domain,
+        universityId: university.id,
       },
     });
-
-    for (const user of university.users) {
-      await prisma.user.create({
-        data: {
-          email: user.email,
-          username: user.username,
-          passwordHash: user.password,
-          universityId: createdUniversity.id,
-        },
-      });
-    }
-
-    for (const domain of university.domains) {
-      await prisma.allowedDomain.create({
-        data: {
-          domain: domain,
-          universityId: createdUniversity.id,
-        },
-      });
-    }
   }
 }
 
 main()
-  .catch(console.error)
+  .catch((error) => {
+    console.error(error);
+    process.exit(1);
+  })
   .finally(async () => {
     await prisma.$disconnect();
   });

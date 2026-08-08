@@ -4,6 +4,7 @@ import {
   ConflictException,
   Injectable,
   UnauthorizedException,
+  ForbiddenException,
 } from '@nestjs/common';
 
 // Prisma
@@ -15,13 +16,19 @@ import { PasswordService } from './services/password.service';
 import { SecureTokenService } from './services/secure-token.service';
 import { UsernameService } from './services/username.service';
 import { SessionService } from './services/session.service';
+import { EmailVerificationService } from './services/email-verification.service';
+
+// Internal utils
+import { getVerificationCooldownSeconds } from './utils/get-verification-cooldown.util';
 
 // Internal types
-import { SecureToken } from './types/secure-token.type';
+import type { SecureToken } from './types/secure-token.type';
 
 // DTOs
-import { LoginDto } from './dto/login.dto';
-import { RegisterDto } from './dto/register.dto';
+import type { LoginDto } from './dtos/login.dto';
+import type { RegisterDto } from './dtos/register.dto';
+import type { VerifyEmailDto } from './dtos/verify-email.dto';
+import type { ResendVerificationDto } from './dtos/resend-verification.dto';
 
 type CreatePendingUserParams = {
   email: string;
@@ -38,45 +45,48 @@ export class AuthService {
     private readonly secureTokenService: SecureTokenService,
     private readonly usernameService: UsernameService,
     private readonly sessionService: SessionService,
+    private readonly emailVerificationService: EmailVerificationService,
   ) {}
 
-  // public methods
   async register(dto: RegisterDto) {
-    const email = dto.email.trim().toLowerCase();
+    const email = dto.email;
 
-    // password comparing
     if (dto.password !== dto.confirmedPassword) {
       throw new BadRequestException('Passwords do not match.');
     }
 
     const existingUser = await this.prisma.user.findUnique({
       where: { email },
+      select: {
+        id: true,
+      },
     });
 
-    // user already in db checking
     if (existingUser) {
       throw new ConflictException('Email is already taken.');
     }
 
-    // email domain checking (e.g my.centennialcollege.ca)
     const emailDomain = email.split('@')[1];
     const allowedDomain = await this.prisma.allowedDomain.findFirst({
-      where: { domain: emailDomain },
+      where: {
+        domain: emailDomain,
+        active: true,
+      },
+      select: {
+        universityId: true,
+      },
     });
 
-    if (!allowedDomain || !allowedDomain.active) {
+    if (!allowedDomain) {
       throw new BadRequestException(
         'Registration with this email domain is not available.',
       );
     }
 
-    // password bcrypt
     const passwordHash = await this.passwordService.hash(dto.password);
 
-    // creating verification token
     const verification = this.secureTokenService.generate();
 
-    // insterting newUser
     const newUser = await this.createPendingUser({
       email,
       passwordHash,
@@ -84,51 +94,61 @@ export class AuthService {
       universityId: allowedDomain.universityId,
     });
 
-    return {
-      message: 'Registration completed successfully. Please verify your email.',
-      user: newUser,
-    };
+    return this.emailVerificationService.sendVerificationEmail(
+      newUser.id,
+      newUser.email,
+      verification.token,
+    );
   }
 
-  async login(
-    dto: LoginDto,
-  ): Promise<{ accessToken: string; refreshToken: string }> {
-    const email = dto.email.trim().toLowerCase();
-    const password = dto.password;
+  async login(dto: LoginDto) {
+    const email = dto.email;
+
     const existingUser = await this.prisma.user.findUnique({
       where: { email },
+      select: {
+        id: true,
+        email: true,
+        passwordHash: true,
+        status: true,
+        verificationEmailSentAt: true,
+      },
     });
 
     if (!existingUser) {
       throw new UnauthorizedException('Invalid email or password.');
     }
 
-    const isPasswordMatch = await this.passwordService.compare(
-      password,
+    const passwordMatches = await this.passwordService.compare(
+      dto.password,
       existingUser.passwordHash,
     );
 
-    if (!isPasswordMatch) {
+    if (!passwordMatches) {
       throw new UnauthorizedException('Invalid email or password.');
     }
 
     if (existingUser.status === 'PENDING') {
-      throw new UnauthorizedException(
-        'Please verify your email before logging in.',
+      const resendAvailableInSeconds = getVerificationCooldownSeconds(
+        existingUser.verificationEmailSentAt,
       );
+
+      throw new ForbiddenException({
+        code: 'EMAIL_NOT_VERIFIED',
+        message: 'Please verify your student email before continuing.',
+        email: existingUser.email,
+        resendAvailableInSeconds,
+      });
     }
 
-    if (existingUser.status === 'BLOCKED') {
-      throw new UnauthorizedException(
-        'Your account has been blocked. Please contact support.',
-      );
+    if (existingUser.status !== 'ACTIVE') {
+      throw new ForbiddenException({
+        code: 'ACCOUNT_UNAVAILABLE',
+        message: 'This account is not available.',
+      });
     }
 
-    if (existingUser.status === 'DELETED') {
-      throw new UnauthorizedException('This account is no longer available.');
-    }
-
-    return this.sessionService.create(existingUser);
+    return this.sessionService.create(existingUser.id);
   }
 
   async logout(userId: string, sessionId: string) {
@@ -137,10 +157,6 @@ export class AuthService {
     return {
       message: 'Logged out successfully.',
     };
-  }
-
-  async refreshTokens(userId: string, sessionId: string, refreshToken: string) {
-    return this.sessionService.refresh(userId, sessionId, refreshToken);
   }
 
   private async createPendingUser({
@@ -179,8 +195,14 @@ export class AuthService {
         ) {
           const target = error.meta?.target;
 
-          if (Array.isArray(target) && target.includes('username')) {
-            continue;
+          if (Array.isArray(target)) {
+            if (target.includes('username')) {
+              continue;
+            }
+
+            if (target.includes('email')) {
+              throw new ConflictException('Email is already taken.');
+            }
           }
         }
 
@@ -191,5 +213,18 @@ export class AuthService {
     throw new ConflictException(
       'Unable to generate a unique username. Please try again.',
     );
+  }
+
+  verifyEmail(dto: VerifyEmailDto) {
+    return this.emailVerificationService.verify(dto.token);
+  }
+
+  resendVerification(dto: ResendVerificationDto) {
+    const email = dto.email;
+    return this.emailVerificationService.resend(email);
+  }
+
+  refreshTokens(userId: string, sessionId: string, refreshToken: string) {
+    return this.sessionService.refresh(userId, sessionId, refreshToken);
   }
 }

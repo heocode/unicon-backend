@@ -1,115 +1,120 @@
-Unicon Backend
+# Unicon Backend
 
-Backend service for Unicon — a campus networking application for students.
+Backend API for Unicon, a campus networking application for students.
 
-This repository contains the server-side API built with NestJS, TypeScript, Prisma, PostgreSQL, and Docker.
+## Tech stack
 
-⸻
+- NestJS and TypeScript
+- Prisma ORM and PostgreSQL
+- JWT authentication with server-side sessions
+- Resend for transactional email
+- Jest and Supertest
+- Docker
 
-Tech Stack
+## Project structure
 
-- NestJS
-- TypeScript
-- Prisma ORM
-- PostgreSQL
-- Docker & Docker Compose
-- Jest
-
-⸻
-
-Project Structure
-
+```text
 src/
-├── app.controller.ts # HTTP routes
-├── app.service.ts # Business logic
-├── app.module.ts # Main application module
-└── main.ts # Application entry point
+├── auth/       Authentication, email verification and sessions
+├── common/     Shared errors and infrastructure types
+├── mail/       Transactional email integration
+├── prisma/     Prisma service and Nest module
+├── swagger/    Reusable OpenAPI decorators
+├── app.module.ts
+└── main.ts
+
 prisma/
-├── schema.prisma # Database schema
-└── migrations/ # Database migration history
+├── migrations/
+├── schema.prisma
+└── seed.ts
+
 test/
-└── app.e2e-spec.ts # End-to-end tests
+└── app.e2e-spec.ts
+```
 
-⸻
+`src/generated/prisma` is generated from `prisma/schema.prisma` and should not
+be edited manually.
 
-Getting Started
+## Local setup
 
-Install dependencies
+Install dependencies:
 
-npm install
+```bash
+npm ci
+```
 
-Start PostgreSQL
+Copy the environment template and provide real credentials:
 
+```bash
+cp .env.example .env
+```
+
+Start PostgreSQL:
+
+```bash
 docker compose up -d
+```
 
-Run database migrations
+Apply migrations, generate Prisma Client and optionally seed development data:
 
+```bash
 npx prisma migrate dev
+npx prisma generate
+npx prisma db seed
+```
 
-Start the development server
+Start the API in watch mode:
 
+```bash
 npm run start:dev
+```
 
-The API will be available at:
+The API listens on `http://localhost:3000` by default. Swagger UI is available
+at `http://localhost:3000/api/docs`.
 
-http://localhost:3000
+## Environment variables
 
-⸻
+The application validates its environment during startup and fails fast when a
+required value is missing or malformed. See `.env.example` for the complete
+list.
 
-Environment Variables
+JWT expiration values must include a unit, for example `15m`, `7d` or `1000ms`.
 
-Create a .env file in the project root.
+## Checks
 
-Example:
-
-DATABASE_URL="postgresql://postgres:postgres@localhost:5432/unicon?schema=public"
-PORT=3000
-
-⸻
-
-Useful Commands
-
-Start development server
-
-npm run start:dev
-
-Build the project
-
+```bash
 npm run build
-
-Run tests
-
-npm test
-
-Run E2E tests
-
-npm run test:e2e
-
-Run linter
-
 npm run lint
+npm test
+npm run test:e2e
+```
 
-Open Prisma Studio
+## Production
 
-npx prisma studio
+Build and run locally:
 
-Stop Docker containers
+```bash
+npm run build
+npm run start:prod
+```
 
-docker compose down
+Build the production container:
 
-⸻
+```bash
+docker build -t unicon-backend .
+```
 
-Git Workflow
+Runtime environment variables must be passed to the container. PostgreSQL in
+`docker-compose.yml` is intended for local development.
 
-Development is done using feature branches.
+## Database workflow
 
-Example:
+Change `prisma/schema.prisma`, create a migration, and regenerate the client:
 
-git checkout -b feature/auth
+```bash
+npx prisma migrate dev --name describe_change
+npx prisma generate
+```
 
-After a feature is completed:
-
-1. Commit your changes.
-2. Push the branch.
-3. Open a Pull Request into main.
-4. Merge after review.
+Do not edit existing migration files after they have been applied or modify the
+generated Prisma Client manually.

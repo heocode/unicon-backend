@@ -38,6 +38,7 @@ model User {
   lastLoginAt DateTime?
   loginAttempts Int @default(0)
   lockoutUntil DateTime?
+  verificationEmailSentAt DateTime?
 
   // tokens
   hashedVerificationToken String?
@@ -54,7 +55,7 @@ model User {
   university University @relation(fields: [universityId], references: [id])
 
   // relations
-  session Session[]
+  sessions Session[]
 }
 
 model University {

@@ -85,6 +85,7 @@ export const UserScalarFieldEnum = {
   lastLoginAt: 'lastLoginAt',
   loginAttempts: 'loginAttempts',
   lockoutUntil: 'lockoutUntil',
+  verificationEmailSentAt: 'verificationEmailSentAt',
   hashedVerificationToken: 'hashedVerificationToken',
   verificationTokenExpires: 'verificationTokenExpires',
   hashedResetPasswordToken: 'hashedResetPasswordToken',

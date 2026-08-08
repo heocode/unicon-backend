@@ -2,9 +2,11 @@ import { Injectable } from '@nestjs/common';
 import { randomBytes, createHash } from 'crypto';
 import { SecureToken } from '../types/secure-token.type';
 
+const DEFAULT_TOKEN_EXPIRATION_HOURS = 24;
+
 @Injectable()
 export class SecureTokenService {
-  generate(expiresInHours = 24): SecureToken {
+  generate(expiresInHours = DEFAULT_TOKEN_EXPIRATION_HOURS): SecureToken {
     const token = randomBytes(32).toString('hex');
     const hashedToken = this.hash(token);
 

@@ -1,10 +1,15 @@
+import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import { configureApp } from './configure-app';
 
 async function start() {
-  const port = process.env.port || 3000;
   const app = await NestFactory.create(AppModule);
+  const configService = app.get(ConfigService);
+  const port = configService.get<number>('PORT', 3000);
+
+  configureApp(app);
 
   const config = new DocumentBuilder()
     .setTitle('Unicon')
@@ -16,4 +21,4 @@ async function start() {
 
   await app.listen(port, () => console.log(`Server started on port = ${port}`));
 }
-start();
+void start();

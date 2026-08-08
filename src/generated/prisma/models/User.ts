@@ -46,6 +46,7 @@ export type UserMinAggregateOutputType = {
   lastLoginAt: Date | null
   loginAttempts: number | null
   lockoutUntil: Date | null
+  verificationEmailSentAt: Date | null
   hashedVerificationToken: string | null
   verificationTokenExpires: Date | null
   hashedResetPasswordToken: string | null
@@ -67,6 +68,7 @@ export type UserMaxAggregateOutputType = {
   lastLoginAt: Date | null
   loginAttempts: number | null
   lockoutUntil: Date | null
+  verificationEmailSentAt: Date | null
   hashedVerificationToken: string | null
   verificationTokenExpires: Date | null
   hashedResetPasswordToken: string | null
@@ -88,6 +90,7 @@ export type UserCountAggregateOutputType = {
   lastLoginAt: number
   loginAttempts: number
   lockoutUntil: number
+  verificationEmailSentAt: number
   hashedVerificationToken: number
   verificationTokenExpires: number
   hashedResetPasswordToken: number
@@ -119,6 +122,7 @@ export type UserMinAggregateInputType = {
   lastLoginAt?: true
   loginAttempts?: true
   lockoutUntil?: true
+  verificationEmailSentAt?: true
   hashedVerificationToken?: true
   verificationTokenExpires?: true
   hashedResetPasswordToken?: true
@@ -140,6 +144,7 @@ export type UserMaxAggregateInputType = {
   lastLoginAt?: true
   loginAttempts?: true
   lockoutUntil?: true
+  verificationEmailSentAt?: true
   hashedVerificationToken?: true
   verificationTokenExpires?: true
   hashedResetPasswordToken?: true
@@ -161,6 +166,7 @@ export type UserCountAggregateInputType = {
   lastLoginAt?: true
   loginAttempts?: true
   lockoutUntil?: true
+  verificationEmailSentAt?: true
   hashedVerificationToken?: true
   verificationTokenExpires?: true
   hashedResetPasswordToken?: true
@@ -269,6 +275,7 @@ export type UserGroupByOutputType = {
   lastLoginAt: Date | null
   loginAttempts: number
   lockoutUntil: Date | null
+  verificationEmailSentAt: Date | null
   hashedVerificationToken: string | null
   verificationTokenExpires: Date | null
   hashedResetPasswordToken: string | null
@@ -313,6 +320,7 @@ export type UserWhereInput = {
   lastLoginAt?: Prisma.DateTimeNullableFilter<"User"> | Date | string | null
   loginAttempts?: Prisma.IntFilter<"User"> | number
   lockoutUntil?: Prisma.DateTimeNullableFilter<"User"> | Date | string | null
+  verificationEmailSentAt?: Prisma.DateTimeNullableFilter<"User"> | Date | string | null
   hashedVerificationToken?: Prisma.StringNullableFilter<"User"> | string | null
   verificationTokenExpires?: Prisma.DateTimeNullableFilter<"User"> | Date | string | null
   hashedResetPasswordToken?: Prisma.StringNullableFilter<"User"> | string | null
@@ -321,7 +329,7 @@ export type UserWhereInput = {
   updatedAt?: Prisma.DateTimeFilter<"User"> | Date | string
   deletedAt?: Prisma.DateTimeNullableFilter<"User"> | Date | string | null
   university?: Prisma.XOR<Prisma.UniversityScalarRelationFilter, Prisma.UniversityWhereInput>
-  session?: Prisma.SessionListRelationFilter
+  sessions?: Prisma.SessionListRelationFilter
 }
 
 export type UserOrderByWithRelationInput = {
@@ -336,6 +344,7 @@ export type UserOrderByWithRelationInput = {
   lastLoginAt?: Prisma.SortOrderInput | Prisma.SortOrder
   loginAttempts?: Prisma.SortOrder
   lockoutUntil?: Prisma.SortOrderInput | Prisma.SortOrder
+  verificationEmailSentAt?: Prisma.SortOrderInput | Prisma.SortOrder
   hashedVerificationToken?: Prisma.SortOrderInput | Prisma.SortOrder
   verificationTokenExpires?: Prisma.SortOrderInput | Prisma.SortOrder
   hashedResetPasswordToken?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -344,7 +353,7 @@ export type UserOrderByWithRelationInput = {
   updatedAt?: Prisma.SortOrder
   deletedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   university?: Prisma.UniversityOrderByWithRelationInput
-  session?: Prisma.SessionOrderByRelationAggregateInput
+  sessions?: Prisma.SessionOrderByRelationAggregateInput
 }
 
 export type UserWhereUniqueInput = Prisma.AtLeast<{
@@ -362,6 +371,7 @@ export type UserWhereUniqueInput = Prisma.AtLeast<{
   lastLoginAt?: Prisma.DateTimeNullableFilter<"User"> | Date | string | null
   loginAttempts?: Prisma.IntFilter<"User"> | number
   lockoutUntil?: Prisma.DateTimeNullableFilter<"User"> | Date | string | null
+  verificationEmailSentAt?: Prisma.DateTimeNullableFilter<"User"> | Date | string | null
   hashedVerificationToken?: Prisma.StringNullableFilter<"User"> | string | null
   verificationTokenExpires?: Prisma.DateTimeNullableFilter<"User"> | Date | string | null
   hashedResetPasswordToken?: Prisma.StringNullableFilter<"User"> | string | null
@@ -370,7 +380,7 @@ export type UserWhereUniqueInput = Prisma.AtLeast<{
   updatedAt?: Prisma.DateTimeFilter<"User"> | Date | string
   deletedAt?: Prisma.DateTimeNullableFilter<"User"> | Date | string | null
   university?: Prisma.XOR<Prisma.UniversityScalarRelationFilter, Prisma.UniversityWhereInput>
-  session?: Prisma.SessionListRelationFilter
+  sessions?: Prisma.SessionListRelationFilter
 }, "id" | "username" | "email">
 
 export type UserOrderByWithAggregationInput = {
@@ -385,6 +395,7 @@ export type UserOrderByWithAggregationInput = {
   lastLoginAt?: Prisma.SortOrderInput | Prisma.SortOrder
   loginAttempts?: Prisma.SortOrder
   lockoutUntil?: Prisma.SortOrderInput | Prisma.SortOrder
+  verificationEmailSentAt?: Prisma.SortOrderInput | Prisma.SortOrder
   hashedVerificationToken?: Prisma.SortOrderInput | Prisma.SortOrder
   verificationTokenExpires?: Prisma.SortOrderInput | Prisma.SortOrder
   hashedResetPasswordToken?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -414,6 +425,7 @@ export type UserScalarWhereWithAggregatesInput = {
   lastLoginAt?: Prisma.DateTimeNullableWithAggregatesFilter<"User"> | Date | string | null
   loginAttempts?: Prisma.IntWithAggregatesFilter<"User"> | number
   lockoutUntil?: Prisma.DateTimeNullableWithAggregatesFilter<"User"> | Date | string | null
+  verificationEmailSentAt?: Prisma.DateTimeNullableWithAggregatesFilter<"User"> | Date | string | null
   hashedVerificationToken?: Prisma.StringNullableWithAggregatesFilter<"User"> | string | null
   verificationTokenExpires?: Prisma.DateTimeNullableWithAggregatesFilter<"User"> | Date | string | null
   hashedResetPasswordToken?: Prisma.StringNullableWithAggregatesFilter<"User"> | string | null
@@ -434,6 +446,7 @@ export type UserCreateInput = {
   lastLoginAt?: Date | string | null
   loginAttempts?: number
   lockoutUntil?: Date | string | null
+  verificationEmailSentAt?: Date | string | null
   hashedVerificationToken?: string | null
   verificationTokenExpires?: Date | string | null
   hashedResetPasswordToken?: string | null
@@ -442,7 +455,7 @@ export type UserCreateInput = {
   updatedAt?: Date | string
   deletedAt?: Date | string | null
   university: Prisma.UniversityCreateNestedOneWithoutUsersInput
-  session?: Prisma.SessionCreateNestedManyWithoutUserInput
+  sessions?: Prisma.SessionCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateInput = {
@@ -457,6 +470,7 @@ export type UserUncheckedCreateInput = {
   lastLoginAt?: Date | string | null
   loginAttempts?: number
   lockoutUntil?: Date | string | null
+  verificationEmailSentAt?: Date | string | null
   hashedVerificationToken?: string | null
   verificationTokenExpires?: Date | string | null
   hashedResetPasswordToken?: string | null
@@ -464,7 +478,7 @@ export type UserUncheckedCreateInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
-  session?: Prisma.SessionUncheckedCreateNestedManyWithoutUserInput
+  sessions?: Prisma.SessionUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserUpdateInput = {
@@ -478,6 +492,7 @@ export type UserUpdateInput = {
   lastLoginAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   loginAttempts?: Prisma.IntFieldUpdateOperationsInput | number
   lockoutUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  verificationEmailSentAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   hashedVerificationToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   verificationTokenExpires?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   hashedResetPasswordToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -486,7 +501,7 @@ export type UserUpdateInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   university?: Prisma.UniversityUpdateOneRequiredWithoutUsersNestedInput
-  session?: Prisma.SessionUpdateManyWithoutUserNestedInput
+  sessions?: Prisma.SessionUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateInput = {
@@ -501,6 +516,7 @@ export type UserUncheckedUpdateInput = {
   lastLoginAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   loginAttempts?: Prisma.IntFieldUpdateOperationsInput | number
   lockoutUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  verificationEmailSentAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   hashedVerificationToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   verificationTokenExpires?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   hashedResetPasswordToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -508,7 +524,7 @@ export type UserUncheckedUpdateInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  session?: Prisma.SessionUncheckedUpdateManyWithoutUserNestedInput
+  sessions?: Prisma.SessionUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type UserCreateManyInput = {
@@ -523,6 +539,7 @@ export type UserCreateManyInput = {
   lastLoginAt?: Date | string | null
   loginAttempts?: number
   lockoutUntil?: Date | string | null
+  verificationEmailSentAt?: Date | string | null
   hashedVerificationToken?: string | null
   verificationTokenExpires?: Date | string | null
   hashedResetPasswordToken?: string | null
@@ -543,6 +560,7 @@ export type UserUpdateManyMutationInput = {
   lastLoginAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   loginAttempts?: Prisma.IntFieldUpdateOperationsInput | number
   lockoutUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  verificationEmailSentAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   hashedVerificationToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   verificationTokenExpires?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   hashedResetPasswordToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -564,6 +582,7 @@ export type UserUncheckedUpdateManyInput = {
   lastLoginAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   loginAttempts?: Prisma.IntFieldUpdateOperationsInput | number
   lockoutUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  verificationEmailSentAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   hashedVerificationToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   verificationTokenExpires?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   hashedResetPasswordToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -585,6 +604,7 @@ export type UserCountOrderByAggregateInput = {
   lastLoginAt?: Prisma.SortOrder
   loginAttempts?: Prisma.SortOrder
   lockoutUntil?: Prisma.SortOrder
+  verificationEmailSentAt?: Prisma.SortOrder
   hashedVerificationToken?: Prisma.SortOrder
   verificationTokenExpires?: Prisma.SortOrder
   hashedResetPasswordToken?: Prisma.SortOrder
@@ -610,6 +630,7 @@ export type UserMaxOrderByAggregateInput = {
   lastLoginAt?: Prisma.SortOrder
   loginAttempts?: Prisma.SortOrder
   lockoutUntil?: Prisma.SortOrder
+  verificationEmailSentAt?: Prisma.SortOrder
   hashedVerificationToken?: Prisma.SortOrder
   verificationTokenExpires?: Prisma.SortOrder
   hashedResetPasswordToken?: Prisma.SortOrder
@@ -631,6 +652,7 @@ export type UserMinOrderByAggregateInput = {
   lastLoginAt?: Prisma.SortOrder
   loginAttempts?: Prisma.SortOrder
   lockoutUntil?: Prisma.SortOrder
+  verificationEmailSentAt?: Prisma.SortOrder
   hashedVerificationToken?: Prisma.SortOrder
   verificationTokenExpires?: Prisma.SortOrder
   hashedResetPasswordToken?: Prisma.SortOrder
@@ -737,18 +759,18 @@ export type UserUncheckedUpdateManyWithoutUniversityNestedInput = {
   deleteMany?: Prisma.UserScalarWhereInput | Prisma.UserScalarWhereInput[]
 }
 
-export type UserCreateNestedOneWithoutSessionInput = {
-  create?: Prisma.XOR<Prisma.UserCreateWithoutSessionInput, Prisma.UserUncheckedCreateWithoutSessionInput>
-  connectOrCreate?: Prisma.UserCreateOrConnectWithoutSessionInput
+export type UserCreateNestedOneWithoutSessionsInput = {
+  create?: Prisma.XOR<Prisma.UserCreateWithoutSessionsInput, Prisma.UserUncheckedCreateWithoutSessionsInput>
+  connectOrCreate?: Prisma.UserCreateOrConnectWithoutSessionsInput
   connect?: Prisma.UserWhereUniqueInput
 }
 
-export type UserUpdateOneRequiredWithoutSessionNestedInput = {
-  create?: Prisma.XOR<Prisma.UserCreateWithoutSessionInput, Prisma.UserUncheckedCreateWithoutSessionInput>
-  connectOrCreate?: Prisma.UserCreateOrConnectWithoutSessionInput
-  upsert?: Prisma.UserUpsertWithoutSessionInput
+export type UserUpdateOneRequiredWithoutSessionsNestedInput = {
+  create?: Prisma.XOR<Prisma.UserCreateWithoutSessionsInput, Prisma.UserUncheckedCreateWithoutSessionsInput>
+  connectOrCreate?: Prisma.UserCreateOrConnectWithoutSessionsInput
+  upsert?: Prisma.UserUpsertWithoutSessionsInput
   connect?: Prisma.UserWhereUniqueInput
-  update?: Prisma.XOR<Prisma.XOR<Prisma.UserUpdateToOneWithWhereWithoutSessionInput, Prisma.UserUpdateWithoutSessionInput>, Prisma.UserUncheckedUpdateWithoutSessionInput>
+  update?: Prisma.XOR<Prisma.XOR<Prisma.UserUpdateToOneWithWhereWithoutSessionsInput, Prisma.UserUpdateWithoutSessionsInput>, Prisma.UserUncheckedUpdateWithoutSessionsInput>
 }
 
 export type UserCreateWithoutUniversityInput = {
@@ -762,6 +784,7 @@ export type UserCreateWithoutUniversityInput = {
   lastLoginAt?: Date | string | null
   loginAttempts?: number
   lockoutUntil?: Date | string | null
+  verificationEmailSentAt?: Date | string | null
   hashedVerificationToken?: string | null
   verificationTokenExpires?: Date | string | null
   hashedResetPasswordToken?: string | null
@@ -769,7 +792,7 @@ export type UserCreateWithoutUniversityInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
-  session?: Prisma.SessionCreateNestedManyWithoutUserInput
+  sessions?: Prisma.SessionCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateWithoutUniversityInput = {
@@ -783,6 +806,7 @@ export type UserUncheckedCreateWithoutUniversityInput = {
   lastLoginAt?: Date | string | null
   loginAttempts?: number
   lockoutUntil?: Date | string | null
+  verificationEmailSentAt?: Date | string | null
   hashedVerificationToken?: string | null
   verificationTokenExpires?: Date | string | null
   hashedResetPasswordToken?: string | null
@@ -790,7 +814,7 @@ export type UserUncheckedCreateWithoutUniversityInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
-  session?: Prisma.SessionUncheckedCreateNestedManyWithoutUserInput
+  sessions?: Prisma.SessionUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserCreateOrConnectWithoutUniversityInput = {
@@ -834,6 +858,7 @@ export type UserScalarWhereInput = {
   lastLoginAt?: Prisma.DateTimeNullableFilter<"User"> | Date | string | null
   loginAttempts?: Prisma.IntFilter<"User"> | number
   lockoutUntil?: Prisma.DateTimeNullableFilter<"User"> | Date | string | null
+  verificationEmailSentAt?: Prisma.DateTimeNullableFilter<"User"> | Date | string | null
   hashedVerificationToken?: Prisma.StringNullableFilter<"User"> | string | null
   verificationTokenExpires?: Prisma.DateTimeNullableFilter<"User"> | Date | string | null
   hashedResetPasswordToken?: Prisma.StringNullableFilter<"User"> | string | null
@@ -843,7 +868,7 @@ export type UserScalarWhereInput = {
   deletedAt?: Prisma.DateTimeNullableFilter<"User"> | Date | string | null
 }
 
-export type UserCreateWithoutSessionInput = {
+export type UserCreateWithoutSessionsInput = {
   id?: string
   username: string
   email: string
@@ -854,6 +879,7 @@ export type UserCreateWithoutSessionInput = {
   lastLoginAt?: Date | string | null
   loginAttempts?: number
   lockoutUntil?: Date | string | null
+  verificationEmailSentAt?: Date | string | null
   hashedVerificationToken?: string | null
   verificationTokenExpires?: Date | string | null
   hashedResetPasswordToken?: string | null
@@ -864,7 +890,7 @@ export type UserCreateWithoutSessionInput = {
   university: Prisma.UniversityCreateNestedOneWithoutUsersInput
 }
 
-export type UserUncheckedCreateWithoutSessionInput = {
+export type UserUncheckedCreateWithoutSessionsInput = {
   id?: string
   username: string
   email: string
@@ -876,6 +902,7 @@ export type UserUncheckedCreateWithoutSessionInput = {
   lastLoginAt?: Date | string | null
   loginAttempts?: number
   lockoutUntil?: Date | string | null
+  verificationEmailSentAt?: Date | string | null
   hashedVerificationToken?: string | null
   verificationTokenExpires?: Date | string | null
   hashedResetPasswordToken?: string | null
@@ -885,23 +912,23 @@ export type UserUncheckedCreateWithoutSessionInput = {
   deletedAt?: Date | string | null
 }
 
-export type UserCreateOrConnectWithoutSessionInput = {
+export type UserCreateOrConnectWithoutSessionsInput = {
   where: Prisma.UserWhereUniqueInput
-  create: Prisma.XOR<Prisma.UserCreateWithoutSessionInput, Prisma.UserUncheckedCreateWithoutSessionInput>
+  create: Prisma.XOR<Prisma.UserCreateWithoutSessionsInput, Prisma.UserUncheckedCreateWithoutSessionsInput>
 }
 
-export type UserUpsertWithoutSessionInput = {
-  update: Prisma.XOR<Prisma.UserUpdateWithoutSessionInput, Prisma.UserUncheckedUpdateWithoutSessionInput>
-  create: Prisma.XOR<Prisma.UserCreateWithoutSessionInput, Prisma.UserUncheckedCreateWithoutSessionInput>
+export type UserUpsertWithoutSessionsInput = {
+  update: Prisma.XOR<Prisma.UserUpdateWithoutSessionsInput, Prisma.UserUncheckedUpdateWithoutSessionsInput>
+  create: Prisma.XOR<Prisma.UserCreateWithoutSessionsInput, Prisma.UserUncheckedCreateWithoutSessionsInput>
   where?: Prisma.UserWhereInput
 }
 
-export type UserUpdateToOneWithWhereWithoutSessionInput = {
+export type UserUpdateToOneWithWhereWithoutSessionsInput = {
   where?: Prisma.UserWhereInput
-  data: Prisma.XOR<Prisma.UserUpdateWithoutSessionInput, Prisma.UserUncheckedUpdateWithoutSessionInput>
+  data: Prisma.XOR<Prisma.UserUpdateWithoutSessionsInput, Prisma.UserUncheckedUpdateWithoutSessionsInput>
 }
 
-export type UserUpdateWithoutSessionInput = {
+export type UserUpdateWithoutSessionsInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   username?: Prisma.StringFieldUpdateOperationsInput | string
   email?: Prisma.StringFieldUpdateOperationsInput | string
@@ -912,6 +939,7 @@ export type UserUpdateWithoutSessionInput = {
   lastLoginAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   loginAttempts?: Prisma.IntFieldUpdateOperationsInput | number
   lockoutUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  verificationEmailSentAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   hashedVerificationToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   verificationTokenExpires?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   hashedResetPasswordToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -922,7 +950,7 @@ export type UserUpdateWithoutSessionInput = {
   university?: Prisma.UniversityUpdateOneRequiredWithoutUsersNestedInput
 }
 
-export type UserUncheckedUpdateWithoutSessionInput = {
+export type UserUncheckedUpdateWithoutSessionsInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   username?: Prisma.StringFieldUpdateOperationsInput | string
   email?: Prisma.StringFieldUpdateOperationsInput | string
@@ -934,6 +962,7 @@ export type UserUncheckedUpdateWithoutSessionInput = {
   lastLoginAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   loginAttempts?: Prisma.IntFieldUpdateOperationsInput | number
   lockoutUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  verificationEmailSentAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   hashedVerificationToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   verificationTokenExpires?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   hashedResetPasswordToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -954,6 +983,7 @@ export type UserCreateManyUniversityInput = {
   lastLoginAt?: Date | string | null
   loginAttempts?: number
   lockoutUntil?: Date | string | null
+  verificationEmailSentAt?: Date | string | null
   hashedVerificationToken?: string | null
   verificationTokenExpires?: Date | string | null
   hashedResetPasswordToken?: string | null
@@ -974,6 +1004,7 @@ export type UserUpdateWithoutUniversityInput = {
   lastLoginAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   loginAttempts?: Prisma.IntFieldUpdateOperationsInput | number
   lockoutUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  verificationEmailSentAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   hashedVerificationToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   verificationTokenExpires?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   hashedResetPasswordToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -981,7 +1012,7 @@ export type UserUpdateWithoutUniversityInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  session?: Prisma.SessionUpdateManyWithoutUserNestedInput
+  sessions?: Prisma.SessionUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateWithoutUniversityInput = {
@@ -995,6 +1026,7 @@ export type UserUncheckedUpdateWithoutUniversityInput = {
   lastLoginAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   loginAttempts?: Prisma.IntFieldUpdateOperationsInput | number
   lockoutUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  verificationEmailSentAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   hashedVerificationToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   verificationTokenExpires?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   hashedResetPasswordToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1002,7 +1034,7 @@ export type UserUncheckedUpdateWithoutUniversityInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  session?: Prisma.SessionUncheckedUpdateManyWithoutUserNestedInput
+  sessions?: Prisma.SessionUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateManyWithoutUniversityInput = {
@@ -1016,6 +1048,7 @@ export type UserUncheckedUpdateManyWithoutUniversityInput = {
   lastLoginAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   loginAttempts?: Prisma.IntFieldUpdateOperationsInput | number
   lockoutUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  verificationEmailSentAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   hashedVerificationToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   verificationTokenExpires?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   hashedResetPasswordToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1031,11 +1064,11 @@ export type UserUncheckedUpdateManyWithoutUniversityInput = {
  */
 
 export type UserCountOutputType = {
-  session: number
+  sessions: number
 }
 
 export type UserCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
-  session?: boolean | UserCountOutputTypeCountSessionArgs
+  sessions?: boolean | UserCountOutputTypeCountSessionsArgs
 }
 
 /**
@@ -1051,7 +1084,7 @@ export type UserCountOutputTypeDefaultArgs<ExtArgs extends runtime.Types.Extensi
 /**
  * UserCountOutputType without action
  */
-export type UserCountOutputTypeCountSessionArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+export type UserCountOutputTypeCountSessionsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   where?: Prisma.SessionWhereInput
 }
 
@@ -1068,6 +1101,7 @@ export type UserSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = r
   lastLoginAt?: boolean
   loginAttempts?: boolean
   lockoutUntil?: boolean
+  verificationEmailSentAt?: boolean
   hashedVerificationToken?: boolean
   verificationTokenExpires?: boolean
   hashedResetPasswordToken?: boolean
@@ -1076,7 +1110,7 @@ export type UserSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = r
   updatedAt?: boolean
   deletedAt?: boolean
   university?: boolean | Prisma.UniversityDefaultArgs<ExtArgs>
-  session?: boolean | Prisma.User$sessionArgs<ExtArgs>
+  sessions?: boolean | Prisma.User$sessionsArgs<ExtArgs>
   _count?: boolean | Prisma.UserCountOutputTypeDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["user"]>
 
@@ -1092,6 +1126,7 @@ export type UserSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extensio
   lastLoginAt?: boolean
   loginAttempts?: boolean
   lockoutUntil?: boolean
+  verificationEmailSentAt?: boolean
   hashedVerificationToken?: boolean
   verificationTokenExpires?: boolean
   hashedResetPasswordToken?: boolean
@@ -1114,6 +1149,7 @@ export type UserSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensio
   lastLoginAt?: boolean
   loginAttempts?: boolean
   lockoutUntil?: boolean
+  verificationEmailSentAt?: boolean
   hashedVerificationToken?: boolean
   verificationTokenExpires?: boolean
   hashedResetPasswordToken?: boolean
@@ -1136,6 +1172,7 @@ export type UserSelectScalar = {
   lastLoginAt?: boolean
   loginAttempts?: boolean
   lockoutUntil?: boolean
+  verificationEmailSentAt?: boolean
   hashedVerificationToken?: boolean
   verificationTokenExpires?: boolean
   hashedResetPasswordToken?: boolean
@@ -1145,10 +1182,10 @@ export type UserSelectScalar = {
   deletedAt?: boolean
 }
 
-export type UserOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "username" | "email" | "emailVerified" | "passwordHash" | "universityId" | "role" | "status" | "lastLoginAt" | "loginAttempts" | "lockoutUntil" | "hashedVerificationToken" | "verificationTokenExpires" | "hashedResetPasswordToken" | "resetPasswordExpires" | "createdAt" | "updatedAt" | "deletedAt", ExtArgs["result"]["user"]>
+export type UserOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "username" | "email" | "emailVerified" | "passwordHash" | "universityId" | "role" | "status" | "lastLoginAt" | "loginAttempts" | "lockoutUntil" | "verificationEmailSentAt" | "hashedVerificationToken" | "verificationTokenExpires" | "hashedResetPasswordToken" | "resetPasswordExpires" | "createdAt" | "updatedAt" | "deletedAt", ExtArgs["result"]["user"]>
 export type UserInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   university?: boolean | Prisma.UniversityDefaultArgs<ExtArgs>
-  session?: boolean | Prisma.User$sessionArgs<ExtArgs>
+  sessions?: boolean | Prisma.User$sessionsArgs<ExtArgs>
   _count?: boolean | Prisma.UserCountOutputTypeDefaultArgs<ExtArgs>
 }
 export type UserIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
@@ -1162,7 +1199,7 @@ export type $UserPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs =
   name: "User"
   objects: {
     university: Prisma.$UniversityPayload<ExtArgs>
-    session: Prisma.$SessionPayload<ExtArgs>[]
+    sessions: Prisma.$SessionPayload<ExtArgs>[]
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: string
@@ -1176,6 +1213,7 @@ export type $UserPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs =
     lastLoginAt: Date | null
     loginAttempts: number
     lockoutUntil: Date | null
+    verificationEmailSentAt: Date | null
     hashedVerificationToken: string | null
     verificationTokenExpires: Date | null
     hashedResetPasswordToken: string | null
@@ -1578,7 +1616,7 @@ readonly fields: UserFieldRefs;
 export interface Prisma__UserClient<T, Null = never, ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs, GlobalOmitOptions = {}> extends Prisma.PrismaPromise<T> {
   readonly [Symbol.toStringTag]: "PrismaPromise"
   university<T extends Prisma.UniversityDefaultArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.UniversityDefaultArgs<ExtArgs>>): Prisma.Prisma__UniversityClient<runtime.Types.Result.GetResult<Prisma.$UniversityPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
-  session<T extends Prisma.User$sessionArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$sessionArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$SessionPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  sessions<T extends Prisma.User$sessionsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$sessionsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$SessionPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -1619,6 +1657,7 @@ export interface UserFieldRefs {
   readonly lastLoginAt: Prisma.FieldRef<"User", 'DateTime'>
   readonly loginAttempts: Prisma.FieldRef<"User", 'Int'>
   readonly lockoutUntil: Prisma.FieldRef<"User", 'DateTime'>
+  readonly verificationEmailSentAt: Prisma.FieldRef<"User", 'DateTime'>
   readonly hashedVerificationToken: Prisma.FieldRef<"User", 'String'>
   readonly verificationTokenExpires: Prisma.FieldRef<"User", 'DateTime'>
   readonly hashedResetPasswordToken: Prisma.FieldRef<"User", 'String'>
@@ -2027,9 +2066,9 @@ export type UserDeleteManyArgs<ExtArgs extends runtime.Types.Extensions.Internal
 }
 
 /**
- * User.session
+ * User.sessions
  */
-export type User$sessionArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+export type User$sessionsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   /**
    * Select specific fields to fetch from the Session
    */
