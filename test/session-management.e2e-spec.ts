@@ -64,6 +64,9 @@ describe('Session management with PostgreSQL (e2e)', () => {
     jest
       .spyOn(mailService, 'sendNewSessionEmail')
       .mockResolvedValue('test-provider-message-id');
+    jest
+      .spyOn(mailService, 'sendSuspiciousActivityEmail')
+      .mockResolvedValue('test-suspicious-provider-message-id');
     await prisma.notificationDelivery.deleteMany();
     await prisma.securityEvent.deleteMany();
     await prisma.session.deleteMany();
@@ -365,6 +368,97 @@ describe('Session management with PostgreSQL (e2e)', () => {
         select: { status: true, recipient: true },
       }),
     ).resolves.toEqual({ status: 'SENT', recipient: email });
+  });
+
+  it('records explainable risk levels without blocking session creation', async () => {
+    await login('Known device', 'IOS');
+    const lowRiskTokens = await login('New device', 'ANDROID');
+    await getSessions(lowRiskTokens.accessToken);
+
+    await expect(
+      prisma.securityEvent.findFirstOrThrow({
+        where: {
+          type: 'SESSION_CREATED',
+          deviceModel: 'New device',
+        },
+        select: { riskLevel: true, riskSignals: true },
+      }),
+    ).resolves.toEqual({
+      riskLevel: 'LOW',
+      riskSignals: ['NEW_DEVICE'],
+    });
+
+    const mediumRiskTokens = await login('Third device', 'WEB');
+    await getSessions(mediumRiskTokens.accessToken);
+
+    const suspiciousEvent = await prisma.securityEvent.findFirstOrThrow({
+      where: {
+        type: 'SUSPICIOUS_ACTIVITY_DETECTED',
+        deviceModel: 'Third device',
+      },
+      select: { riskLevel: true, riskSignals: true },
+    });
+    expect(suspiciousEvent.riskLevel).toBe('MEDIUM');
+    expect(suspiciousEvent.riskSignals).toEqual([
+      'NEW_DEVICE',
+      'MANY_NEW_SESSIONS',
+    ]);
+  });
+
+  it('detects excessive login failures on a later successful login', async () => {
+    for (let attempt = 0; attempt < 5; attempt++) {
+      await request(app.getHttpServer())
+        .post('/auth/login')
+        .set('X-Device-Model', 'Credential pressure device')
+        .set('X-Platform', 'WEB')
+        .send({ email, password: 'WrongPassword1!' })
+        .expect(401);
+    }
+
+    const tokens = await login('Credential pressure device', 'WEB');
+    await getSessions(tokens.accessToken);
+
+    await expect(
+      prisma.securityEvent.findFirstOrThrow({
+        where: { type: 'SUSPICIOUS_ACTIVITY_DETECTED' },
+        select: { riskLevel: true, riskSignals: true },
+      }),
+    ).resolves.toEqual({
+      riskLevel: 'MEDIUM',
+      riskSignals: ['EXCESSIVE_LOGIN_FAILURES'],
+    });
+  });
+
+  it('records refresh-token reuse as high risk without blocking the account', async () => {
+    const tokens = await login('Refresh reuse device', 'WEB');
+
+    await request(app.getHttpServer())
+      .post('/auth/refresh')
+      .set('Authorization', `Bearer ${tokens.refreshToken}`)
+      .expect(201);
+
+    await request(app.getHttpServer())
+      .post('/auth/refresh')
+      .set('Authorization', `Bearer ${tokens.refreshToken}`)
+      .expect(401);
+
+    await getSessions(tokens.accessToken);
+
+    await expect(
+      prisma.securityEvent.findFirstOrThrow({
+        where: {
+          type: 'SUSPICIOUS_ACTIVITY_DETECTED',
+          riskSignals: { has: 'REFRESH_TOKEN_REUSE' },
+        },
+        select: { riskLevel: true },
+      }),
+    ).resolves.toEqual({ riskLevel: 'HIGH' });
+    await expect(
+      prisma.notificationDelivery.findFirstOrThrow({
+        where: { type: 'SUSPICIOUS_ACTIVITY', channel: 'EMAIL' },
+        select: { status: true },
+      }),
+    ).resolves.toEqual({ status: 'SENT' });
   });
 
   it('rejects the eleventh session without revoking existing sessions', async () => {

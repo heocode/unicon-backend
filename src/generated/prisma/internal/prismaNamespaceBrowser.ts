@@ -172,6 +172,8 @@ export const SecurityEventScalarFieldEnum = {
   userId: 'userId',
   actorSessionId: 'actorSessionId',
   subjectSessionId: 'subjectSessionId',
+  riskLevel: 'riskLevel',
+  riskSignals: 'riskSignals',
   ipAddress: 'ipAddress',
   userAgent: 'userAgent',
   deviceModel: 'deviceModel',

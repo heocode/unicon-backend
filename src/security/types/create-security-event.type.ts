@@ -2,6 +2,8 @@
 import type {
   SecurityEventReason,
   SecurityEventType,
+  SecurityRiskLevel,
+  SecurityRiskSignal,
   SessionPlatform,
 } from '../../generated/prisma/client';
 
@@ -23,5 +25,7 @@ export type CreateSecurityEvent = SecurityEventSnapshot & {
   actorSessionId?: string;
   subjectSessionId?: string;
   affectedSessionCount?: number;
+  riskLevel?: SecurityRiskLevel;
+  riskSignals?: SecurityRiskSignal[];
   occurredAt?: Date;
 };

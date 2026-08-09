@@ -10,6 +10,10 @@ const validEnvironment = {
   SESSION_ACTIVE_LIMIT: '10',
   SECURITY_EVENT_RETENTION_SECONDS: '15552000',
   NOTIFICATION_DELIVERY_RETENTION_SECONDS: '15552000',
+  RISK_LOGIN_FAILURE_WINDOW_SECONDS: '900',
+  RISK_LOGIN_FAILURE_THRESHOLD: '5',
+  RISK_NEW_SESSION_WINDOW_SECONDS: '3600',
+  RISK_NEW_SESSION_THRESHOLD: '3',
   RESEND_API_KEY: 'resend-api-key',
   MAIL_FROM: 'noreply@unicon.local',
   CLIENT_URL: 'http://localhost:3001',
@@ -97,6 +101,20 @@ describe('validateEnvironment', () => {
     ).toThrow(
       'Environment variable NOTIFICATION_DELIVERY_RETENTION_SECONDS must be a positive integer.',
     );
+  });
+
+  it.each([
+    'RISK_LOGIN_FAILURE_WINDOW_SECONDS',
+    'RISK_LOGIN_FAILURE_THRESHOLD',
+    'RISK_NEW_SESSION_WINDOW_SECONDS',
+    'RISK_NEW_SESSION_THRESHOLD',
+  ])('rejects a non-positive %s value', (key) => {
+    expect(() =>
+      validateEnvironment({
+        ...validEnvironment,
+        [key]: '0',
+      }),
+    ).toThrow(`Environment variable ${key} must be a positive integer.`);
   });
 
   it('parses the GeoIP enabled flag', () => {

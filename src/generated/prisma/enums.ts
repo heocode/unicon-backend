@@ -44,7 +44,8 @@ export const SecurityEventType = {
   SESSION_CREATED: 'SESSION_CREATED',
   SESSION_CREATION_FAILED: 'SESSION_CREATION_FAILED',
   SESSION_REVOKED: 'SESSION_REVOKED',
-  OTHER_SESSIONS_REVOKED: 'OTHER_SESSIONS_REVOKED'
+  OTHER_SESSIONS_REVOKED: 'OTHER_SESSIONS_REVOKED',
+  SUSPICIOUS_ACTIVITY_DETECTED: 'SUSPICIOUS_ACTIVITY_DETECTED'
 } as const
 
 export type SecurityEventType = (typeof SecurityEventType)[keyof typeof SecurityEventType]
@@ -60,8 +61,29 @@ export const SecurityEventReason = {
 export type SecurityEventReason = (typeof SecurityEventReason)[keyof typeof SecurityEventReason]
 
 
+export const SecurityRiskLevel = {
+  LOW: 'LOW',
+  MEDIUM: 'MEDIUM',
+  HIGH: 'HIGH'
+} as const
+
+export type SecurityRiskLevel = (typeof SecurityRiskLevel)[keyof typeof SecurityRiskLevel]
+
+
+export const SecurityRiskSignal = {
+  NEW_DEVICE: 'NEW_DEVICE',
+  NEW_COUNTRY: 'NEW_COUNTRY',
+  EXCESSIVE_LOGIN_FAILURES: 'EXCESSIVE_LOGIN_FAILURES',
+  MANY_NEW_SESSIONS: 'MANY_NEW_SESSIONS',
+  REFRESH_TOKEN_REUSE: 'REFRESH_TOKEN_REUSE'
+} as const
+
+export type SecurityRiskSignal = (typeof SecurityRiskSignal)[keyof typeof SecurityRiskSignal]
+
+
 export const NotificationType = {
-  NEW_SESSION: 'NEW_SESSION'
+  NEW_SESSION: 'NEW_SESSION',
+  SUSPICIOUS_ACTIVITY: 'SUSPICIOUS_ACTIVITY'
 } as const
 
 export type NotificationType = (typeof NotificationType)[keyof typeof NotificationType]

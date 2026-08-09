@@ -35,6 +35,7 @@ enum SecurityEventType {
   SESSION_CREATION_FAILED
   SESSION_REVOKED
   OTHER_SESSIONS_REVOKED
+  SUSPICIOUS_ACTIVITY_DETECTED
 }
 
 enum SecurityEventReason {
@@ -44,8 +45,23 @@ enum SecurityEventReason {
   SESSION_MANAGEMENT
 }
 
+enum SecurityRiskLevel {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum SecurityRiskSignal {
+  NEW_DEVICE
+  NEW_COUNTRY
+  EXCESSIVE_LOGIN_FAILURES
+  MANY_NEW_SESSIONS
+  REFRESH_TOKEN_REUSE
+}
+
 enum NotificationType {
   NEW_SESSION
+  SUSPICIOUS_ACTIVITY
 }
 
 enum NotificationChannel {
@@ -185,6 +201,8 @@ model SecurityEvent {
   userId           String?
   actorSessionId   String?
   subjectSessionId String?
+  riskLevel        SecurityRiskLevel?
+  riskSignals      SecurityRiskSignal[] @default([])
 
   ipAddress           String?
   userAgent           String?

@@ -3,6 +3,7 @@ import {
   ConflictException,
   ForbiddenException,
   Injectable,
+  Logger,
   NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
@@ -20,6 +21,8 @@ import { JwtTokenService } from './jwt-token.service';
 import { SecureTokenService } from './secure-token.service';
 import { GeoIpService } from '../../geo-ip/geo-ip.service';
 import { SecurityEventService } from '../../security/services/security-event.service';
+import { RiskAnalysisService } from '../../security/services/risk-analysis.service';
+import { NotificationService } from '../../notifications/services/notification.service';
 
 // Internal types
 import type { SessionMetadata } from '../types/session-metadata.type';
@@ -36,6 +39,7 @@ type CreatedSession = AuthTokens & {
 
 @Injectable()
 export class SessionService {
+  private readonly logger = new Logger(SessionService.name);
   private readonly inactivityTtlSeconds: number;
   private readonly managementCooldownSeconds: number;
   private readonly activeSessionLimit: number;
@@ -46,6 +50,8 @@ export class SessionService {
     private readonly secureTokenService: SecureTokenService,
     private readonly geoIpService: GeoIpService,
     private readonly securityEventService: SecurityEventService,
+    private readonly riskAnalysisService: RiskAnalysisService,
+    private readonly notificationService: NotificationService,
     configService: ConfigService,
   ) {
     this.inactivityTtlSeconds = configService.getOrThrow<number>(
@@ -63,8 +69,9 @@ export class SessionService {
     userId: string,
     metadata: SessionMetadata = { platform: 'UNKNOWN' },
   ): Promise<CreatedSession> {
+    const now = new Date();
     const sessionId = randomUUID();
-    const expiresAt = this.getNextExpiration(new Date());
+    const expiresAt = this.getNextExpiration(now);
     const location = this.geoIpService.lookup(metadata.ipAddress);
 
     const generatedTokens = await this.jwtTokenService.generateTokens(
@@ -122,6 +129,14 @@ export class SessionService {
               return false;
             }
 
+            const snapshot = this.toSecuritySnapshot(sessionData);
+            const risk = await this.riskAnalysisService.assessNewSession(
+              transaction,
+              userId,
+              snapshot,
+              now,
+            );
+
             await transaction.session.create({
               data: sessionData,
             });
@@ -131,10 +146,29 @@ export class SessionService {
                 userId,
                 actorSessionId: sessionId,
                 subjectSessionId: sessionId,
-                ...this.toSecuritySnapshot(sessionData),
+                riskLevel: risk.level ?? undefined,
+                riskSignals: risk.signals,
+                occurredAt: now,
+                ...snapshot,
               },
               transaction,
             );
+
+            if (risk.level === 'MEDIUM' || risk.level === 'HIGH') {
+              await this.securityEventService.record(
+                {
+                  type: 'SUSPICIOUS_ACTIVITY_DETECTED',
+                  userId,
+                  actorSessionId: sessionId,
+                  subjectSessionId: sessionId,
+                  riskLevel: risk.level,
+                  riskSignals: risk.signals,
+                  occurredAt: now,
+                  ...snapshot,
+                },
+                transaction,
+              );
+            }
 
             return true;
           },
@@ -144,10 +178,7 @@ export class SessionService {
         );
         break;
       } catch (error) {
-        const shouldRetry =
-          error instanceof Prisma.PrismaClientKnownRequestError &&
-          error.code === 'P2034' &&
-          attempt < 2;
+        const shouldRetry = this.isTransactionConflict(error) && attempt < 2;
 
         if (shouldRetry) {
           continue;
@@ -192,6 +223,14 @@ export class SessionService {
             status: true,
           },
         },
+        ipAddress: true,
+        userAgent: true,
+        deviceModel: true,
+        platform: true,
+        osVersion: true,
+        appVersion: true,
+        locationCountryCode: true,
+        locationCity: true,
       },
     });
 
@@ -212,6 +251,7 @@ export class SessionService {
     const incomingTokenHash = this.secureTokenService.hash(refreshToken);
 
     if (incomingTokenHash !== session.hashedRefreshToken) {
+      await this.recordRefreshTokenReuse(userId, session.id, session);
       throw new UnauthorizedException('Access Denied. Invalid token.');
     }
 
@@ -248,6 +288,16 @@ export class SessionService {
     });
 
     if (result.count !== 1) {
+      if (
+        await this.hasRefreshTokenBeenRotated(
+          userId,
+          session.id,
+          incomingTokenHash,
+          now,
+        )
+      ) {
+        await this.recordRefreshTokenReuse(userId, session.id, session);
+      }
       throw new UnauthorizedException(
         'Access Denied. Token already used or session unavailable.',
       );
@@ -538,6 +588,81 @@ export class SessionService {
       Math.floor(now.getTime() / 1000) + this.inactivityTtlSeconds;
 
     return new Date(expiresAtSeconds * 1000);
+  }
+
+  private isTransactionConflict(error: unknown): boolean {
+    if (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === 'P2034'
+    ) {
+      return true;
+    }
+
+    if (!(error instanceof Error) || error.name !== 'DriverAdapterError') {
+      return false;
+    }
+
+    const cause = error.cause;
+
+    return (
+      typeof cause === 'object' &&
+      cause !== null &&
+      'kind' in cause &&
+      cause.kind === 'TransactionWriteConflict'
+    );
+  }
+
+  private async recordRefreshTokenReuse(
+    userId: string,
+    sessionId: string,
+    snapshot: Parameters<SessionService['toSecuritySnapshot']>[0],
+  ): Promise<void> {
+    const risk = this.riskAnalysisService.refreshTokenReuse();
+
+    try {
+      await this.securityEventService.record({
+        type: 'SUSPICIOUS_ACTIVITY_DETECTED',
+        userId,
+        actorSessionId: sessionId,
+        subjectSessionId: sessionId,
+        riskLevel: risk.level ?? undefined,
+        riskSignals: risk.signals,
+        ...this.toSecuritySnapshot(snapshot),
+      });
+    } catch (error) {
+      this.logger.error(
+        'Failed to record refresh-token reuse.',
+        error instanceof Error ? error.stack : undefined,
+      );
+    }
+
+    await this.notificationService.sendSuspiciousActivityNotification(
+      userId,
+      sessionId,
+      risk,
+    );
+  }
+
+  private async hasRefreshTokenBeenRotated(
+    userId: string,
+    sessionId: string,
+    incomingTokenHash: string,
+    now: Date,
+  ): Promise<boolean> {
+    const currentSession = await this.prisma.session.findFirst({
+      where: {
+        id: sessionId,
+        userId,
+        revokedAt: null,
+        expiresAt: { gt: now },
+        user: { status: 'ACTIVE' },
+      },
+      select: { hashedRefreshToken: true },
+    });
+
+    return Boolean(
+      currentSession && currentSession.hashedRefreshToken !== incomingTokenHash,
+    );
   }
 
   private async findActiveCurrentSession(

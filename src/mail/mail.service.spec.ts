@@ -41,6 +41,8 @@ describe('MailService new-session email', () => {
         appVersion: '1.4.2',
         locationCountryCode: 'CA',
         locationCity: 'Toronto',
+        riskLevel: 'MEDIUM',
+        riskSignals: ['NEW_DEVICE', 'NEW_COUNTRY'],
       }),
     ).resolves.toBe('provider-id');
 
@@ -58,6 +60,9 @@ describe('MailService new-session email', () => {
           'OS version: 18.6',
           'App version: 1.4.2',
           'Approximate location: Toronto, CA',
+          'Risk level: MEDIUM',
+          'Security signal: New device',
+          'Security signal: New country',
           '',
           'If this was not you, review and revoke the session in your account settings.',
         ].join('\n'),
@@ -83,6 +88,8 @@ describe('MailService new-session email', () => {
         appVersion: null,
         locationCountryCode: null,
         locationCity: null,
+        riskLevel: null,
+        riskSignals: [],
       }),
     ).rejects.toBeInstanceOf(MailDeliveryError);
   });

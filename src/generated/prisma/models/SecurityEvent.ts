@@ -41,6 +41,7 @@ export type SecurityEventMinAggregateOutputType = {
   userId: string | null
   actorSessionId: string | null
   subjectSessionId: string | null
+  riskLevel: $Enums.SecurityRiskLevel | null
   ipAddress: string | null
   userAgent: string | null
   deviceModel: string | null
@@ -61,6 +62,7 @@ export type SecurityEventMaxAggregateOutputType = {
   userId: string | null
   actorSessionId: string | null
   subjectSessionId: string | null
+  riskLevel: $Enums.SecurityRiskLevel | null
   ipAddress: string | null
   userAgent: string | null
   deviceModel: string | null
@@ -81,6 +83,8 @@ export type SecurityEventCountAggregateOutputType = {
   userId: number
   actorSessionId: number
   subjectSessionId: number
+  riskLevel: number
+  riskSignals: number
   ipAddress: number
   userAgent: number
   deviceModel: number
@@ -111,6 +115,7 @@ export type SecurityEventMinAggregateInputType = {
   userId?: true
   actorSessionId?: true
   subjectSessionId?: true
+  riskLevel?: true
   ipAddress?: true
   userAgent?: true
   deviceModel?: true
@@ -131,6 +136,7 @@ export type SecurityEventMaxAggregateInputType = {
   userId?: true
   actorSessionId?: true
   subjectSessionId?: true
+  riskLevel?: true
   ipAddress?: true
   userAgent?: true
   deviceModel?: true
@@ -151,6 +157,8 @@ export type SecurityEventCountAggregateInputType = {
   userId?: true
   actorSessionId?: true
   subjectSessionId?: true
+  riskLevel?: true
+  riskSignals?: true
   ipAddress?: true
   userAgent?: true
   deviceModel?: true
@@ -258,6 +266,8 @@ export type SecurityEventGroupByOutputType = {
   userId: string | null
   actorSessionId: string | null
   subjectSessionId: string | null
+  riskLevel: $Enums.SecurityRiskLevel | null
+  riskSignals: $Enums.SecurityRiskSignal[]
   ipAddress: string | null
   userAgent: string | null
   deviceModel: string | null
@@ -301,6 +311,8 @@ export type SecurityEventWhereInput = {
   userId?: Prisma.StringNullableFilter<"SecurityEvent"> | string | null
   actorSessionId?: Prisma.StringNullableFilter<"SecurityEvent"> | string | null
   subjectSessionId?: Prisma.StringNullableFilter<"SecurityEvent"> | string | null
+  riskLevel?: Prisma.EnumSecurityRiskLevelNullableFilter<"SecurityEvent"> | $Enums.SecurityRiskLevel | null
+  riskSignals?: Prisma.EnumSecurityRiskSignalNullableListFilter<"SecurityEvent">
   ipAddress?: Prisma.StringNullableFilter<"SecurityEvent"> | string | null
   userAgent?: Prisma.StringNullableFilter<"SecurityEvent"> | string | null
   deviceModel?: Prisma.StringNullableFilter<"SecurityEvent"> | string | null
@@ -324,6 +336,8 @@ export type SecurityEventOrderByWithRelationInput = {
   userId?: Prisma.SortOrderInput | Prisma.SortOrder
   actorSessionId?: Prisma.SortOrderInput | Prisma.SortOrder
   subjectSessionId?: Prisma.SortOrderInput | Prisma.SortOrder
+  riskLevel?: Prisma.SortOrderInput | Prisma.SortOrder
+  riskSignals?: Prisma.SortOrder
   ipAddress?: Prisma.SortOrderInput | Prisma.SortOrder
   userAgent?: Prisma.SortOrderInput | Prisma.SortOrder
   deviceModel?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -350,6 +364,8 @@ export type SecurityEventWhereUniqueInput = Prisma.AtLeast<{
   userId?: Prisma.StringNullableFilter<"SecurityEvent"> | string | null
   actorSessionId?: Prisma.StringNullableFilter<"SecurityEvent"> | string | null
   subjectSessionId?: Prisma.StringNullableFilter<"SecurityEvent"> | string | null
+  riskLevel?: Prisma.EnumSecurityRiskLevelNullableFilter<"SecurityEvent"> | $Enums.SecurityRiskLevel | null
+  riskSignals?: Prisma.EnumSecurityRiskSignalNullableListFilter<"SecurityEvent">
   ipAddress?: Prisma.StringNullableFilter<"SecurityEvent"> | string | null
   userAgent?: Prisma.StringNullableFilter<"SecurityEvent"> | string | null
   deviceModel?: Prisma.StringNullableFilter<"SecurityEvent"> | string | null
@@ -373,6 +389,8 @@ export type SecurityEventOrderByWithAggregationInput = {
   userId?: Prisma.SortOrderInput | Prisma.SortOrder
   actorSessionId?: Prisma.SortOrderInput | Prisma.SortOrder
   subjectSessionId?: Prisma.SortOrderInput | Prisma.SortOrder
+  riskLevel?: Prisma.SortOrderInput | Prisma.SortOrder
+  riskSignals?: Prisma.SortOrder
   ipAddress?: Prisma.SortOrderInput | Prisma.SortOrder
   userAgent?: Prisma.SortOrderInput | Prisma.SortOrder
   deviceModel?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -401,6 +419,8 @@ export type SecurityEventScalarWhereWithAggregatesInput = {
   userId?: Prisma.StringNullableWithAggregatesFilter<"SecurityEvent"> | string | null
   actorSessionId?: Prisma.StringNullableWithAggregatesFilter<"SecurityEvent"> | string | null
   subjectSessionId?: Prisma.StringNullableWithAggregatesFilter<"SecurityEvent"> | string | null
+  riskLevel?: Prisma.EnumSecurityRiskLevelNullableWithAggregatesFilter<"SecurityEvent"> | $Enums.SecurityRiskLevel | null
+  riskSignals?: Prisma.EnumSecurityRiskSignalNullableListFilter<"SecurityEvent">
   ipAddress?: Prisma.StringNullableWithAggregatesFilter<"SecurityEvent"> | string | null
   userAgent?: Prisma.StringNullableWithAggregatesFilter<"SecurityEvent"> | string | null
   deviceModel?: Prisma.StringNullableWithAggregatesFilter<"SecurityEvent"> | string | null
@@ -418,6 +438,8 @@ export type SecurityEventCreateInput = {
   id?: string
   type: $Enums.SecurityEventType
   reason?: $Enums.SecurityEventReason | null
+  riskLevel?: $Enums.SecurityRiskLevel | null
+  riskSignals?: Prisma.SecurityEventCreateriskSignalsInput | $Enums.SecurityRiskSignal[]
   ipAddress?: string | null
   userAgent?: string | null
   deviceModel?: string | null
@@ -441,6 +463,8 @@ export type SecurityEventUncheckedCreateInput = {
   userId?: string | null
   actorSessionId?: string | null
   subjectSessionId?: string | null
+  riskLevel?: $Enums.SecurityRiskLevel | null
+  riskSignals?: Prisma.SecurityEventCreateriskSignalsInput | $Enums.SecurityRiskSignal[]
   ipAddress?: string | null
   userAgent?: string | null
   deviceModel?: string | null
@@ -458,6 +482,8 @@ export type SecurityEventUpdateInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   type?: Prisma.EnumSecurityEventTypeFieldUpdateOperationsInput | $Enums.SecurityEventType
   reason?: Prisma.NullableEnumSecurityEventReasonFieldUpdateOperationsInput | $Enums.SecurityEventReason | null
+  riskLevel?: Prisma.NullableEnumSecurityRiskLevelFieldUpdateOperationsInput | $Enums.SecurityRiskLevel | null
+  riskSignals?: Prisma.SecurityEventUpdateriskSignalsInput | $Enums.SecurityRiskSignal[]
   ipAddress?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   userAgent?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   deviceModel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -481,6 +507,8 @@ export type SecurityEventUncheckedUpdateInput = {
   userId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   actorSessionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   subjectSessionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  riskLevel?: Prisma.NullableEnumSecurityRiskLevelFieldUpdateOperationsInput | $Enums.SecurityRiskLevel | null
+  riskSignals?: Prisma.SecurityEventUpdateriskSignalsInput | $Enums.SecurityRiskSignal[]
   ipAddress?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   userAgent?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   deviceModel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -501,6 +529,8 @@ export type SecurityEventCreateManyInput = {
   userId?: string | null
   actorSessionId?: string | null
   subjectSessionId?: string | null
+  riskLevel?: $Enums.SecurityRiskLevel | null
+  riskSignals?: Prisma.SecurityEventCreateriskSignalsInput | $Enums.SecurityRiskSignal[]
   ipAddress?: string | null
   userAgent?: string | null
   deviceModel?: string | null
@@ -518,6 +548,8 @@ export type SecurityEventUpdateManyMutationInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   type?: Prisma.EnumSecurityEventTypeFieldUpdateOperationsInput | $Enums.SecurityEventType
   reason?: Prisma.NullableEnumSecurityEventReasonFieldUpdateOperationsInput | $Enums.SecurityEventReason | null
+  riskLevel?: Prisma.NullableEnumSecurityRiskLevelFieldUpdateOperationsInput | $Enums.SecurityRiskLevel | null
+  riskSignals?: Prisma.SecurityEventUpdateriskSignalsInput | $Enums.SecurityRiskSignal[]
   ipAddress?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   userAgent?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   deviceModel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -538,6 +570,8 @@ export type SecurityEventUncheckedUpdateManyInput = {
   userId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   actorSessionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   subjectSessionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  riskLevel?: Prisma.NullableEnumSecurityRiskLevelFieldUpdateOperationsInput | $Enums.SecurityRiskLevel | null
+  riskSignals?: Prisma.SecurityEventUpdateriskSignalsInput | $Enums.SecurityRiskSignal[]
   ipAddress?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   userAgent?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   deviceModel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -561,6 +595,14 @@ export type SecurityEventOrderByRelationAggregateInput = {
   _count?: Prisma.SortOrder
 }
 
+export type EnumSecurityRiskSignalNullableListFilter<$PrismaModel = never> = {
+  equals?: $Enums.SecurityRiskSignal[] | Prisma.ListEnumSecurityRiskSignalFieldRefInput<$PrismaModel> | null
+  has?: $Enums.SecurityRiskSignal | Prisma.EnumSecurityRiskSignalFieldRefInput<$PrismaModel> | null
+  hasEvery?: $Enums.SecurityRiskSignal[] | Prisma.ListEnumSecurityRiskSignalFieldRefInput<$PrismaModel>
+  hasSome?: $Enums.SecurityRiskSignal[] | Prisma.ListEnumSecurityRiskSignalFieldRefInput<$PrismaModel>
+  isEmpty?: boolean
+}
+
 export type SecurityEventCountOrderByAggregateInput = {
   id?: Prisma.SortOrder
   type?: Prisma.SortOrder
@@ -568,6 +610,8 @@ export type SecurityEventCountOrderByAggregateInput = {
   userId?: Prisma.SortOrder
   actorSessionId?: Prisma.SortOrder
   subjectSessionId?: Prisma.SortOrder
+  riskLevel?: Prisma.SortOrder
+  riskSignals?: Prisma.SortOrder
   ipAddress?: Prisma.SortOrder
   userAgent?: Prisma.SortOrder
   deviceModel?: Prisma.SortOrder
@@ -592,6 +636,7 @@ export type SecurityEventMaxOrderByAggregateInput = {
   userId?: Prisma.SortOrder
   actorSessionId?: Prisma.SortOrder
   subjectSessionId?: Prisma.SortOrder
+  riskLevel?: Prisma.SortOrder
   ipAddress?: Prisma.SortOrder
   userAgent?: Prisma.SortOrder
   deviceModel?: Prisma.SortOrder
@@ -612,6 +657,7 @@ export type SecurityEventMinOrderByAggregateInput = {
   userId?: Prisma.SortOrder
   actorSessionId?: Prisma.SortOrder
   subjectSessionId?: Prisma.SortOrder
+  riskLevel?: Prisma.SortOrder
   ipAddress?: Prisma.SortOrder
   userAgent?: Prisma.SortOrder
   deviceModel?: Prisma.SortOrder
@@ -755,12 +801,25 @@ export type SecurityEventUncheckedUpdateManyWithoutSubjectSessionNestedInput = {
   deleteMany?: Prisma.SecurityEventScalarWhereInput | Prisma.SecurityEventScalarWhereInput[]
 }
 
+export type SecurityEventCreateriskSignalsInput = {
+  set: $Enums.SecurityRiskSignal[]
+}
+
 export type EnumSecurityEventTypeFieldUpdateOperationsInput = {
   set?: $Enums.SecurityEventType
 }
 
 export type NullableEnumSecurityEventReasonFieldUpdateOperationsInput = {
   set?: $Enums.SecurityEventReason | null
+}
+
+export type NullableEnumSecurityRiskLevelFieldUpdateOperationsInput = {
+  set?: $Enums.SecurityRiskLevel | null
+}
+
+export type SecurityEventUpdateriskSignalsInput = {
+  set?: $Enums.SecurityRiskSignal[]
+  push?: $Enums.SecurityRiskSignal | $Enums.SecurityRiskSignal[]
 }
 
 export type NullableEnumSessionPlatformFieldUpdateOperationsInput = {
@@ -779,6 +838,8 @@ export type SecurityEventCreateWithoutUserInput = {
   id?: string
   type: $Enums.SecurityEventType
   reason?: $Enums.SecurityEventReason | null
+  riskLevel?: $Enums.SecurityRiskLevel | null
+  riskSignals?: Prisma.SecurityEventCreateriskSignalsInput | $Enums.SecurityRiskSignal[]
   ipAddress?: string | null
   userAgent?: string | null
   deviceModel?: string | null
@@ -800,6 +861,8 @@ export type SecurityEventUncheckedCreateWithoutUserInput = {
   reason?: $Enums.SecurityEventReason | null
   actorSessionId?: string | null
   subjectSessionId?: string | null
+  riskLevel?: $Enums.SecurityRiskLevel | null
+  riskSignals?: Prisma.SecurityEventCreateriskSignalsInput | $Enums.SecurityRiskSignal[]
   ipAddress?: string | null
   userAgent?: string | null
   deviceModel?: string | null
@@ -849,6 +912,8 @@ export type SecurityEventScalarWhereInput = {
   userId?: Prisma.StringNullableFilter<"SecurityEvent"> | string | null
   actorSessionId?: Prisma.StringNullableFilter<"SecurityEvent"> | string | null
   subjectSessionId?: Prisma.StringNullableFilter<"SecurityEvent"> | string | null
+  riskLevel?: Prisma.EnumSecurityRiskLevelNullableFilter<"SecurityEvent"> | $Enums.SecurityRiskLevel | null
+  riskSignals?: Prisma.EnumSecurityRiskSignalNullableListFilter<"SecurityEvent">
   ipAddress?: Prisma.StringNullableFilter<"SecurityEvent"> | string | null
   userAgent?: Prisma.StringNullableFilter<"SecurityEvent"> | string | null
   deviceModel?: Prisma.StringNullableFilter<"SecurityEvent"> | string | null
@@ -866,6 +931,8 @@ export type SecurityEventCreateWithoutActorSessionInput = {
   id?: string
   type: $Enums.SecurityEventType
   reason?: $Enums.SecurityEventReason | null
+  riskLevel?: $Enums.SecurityRiskLevel | null
+  riskSignals?: Prisma.SecurityEventCreateriskSignalsInput | $Enums.SecurityRiskSignal[]
   ipAddress?: string | null
   userAgent?: string | null
   deviceModel?: string | null
@@ -887,6 +954,8 @@ export type SecurityEventUncheckedCreateWithoutActorSessionInput = {
   reason?: $Enums.SecurityEventReason | null
   userId?: string | null
   subjectSessionId?: string | null
+  riskLevel?: $Enums.SecurityRiskLevel | null
+  riskSignals?: Prisma.SecurityEventCreateriskSignalsInput | $Enums.SecurityRiskSignal[]
   ipAddress?: string | null
   userAgent?: string | null
   deviceModel?: string | null
@@ -914,6 +983,8 @@ export type SecurityEventCreateWithoutSubjectSessionInput = {
   id?: string
   type: $Enums.SecurityEventType
   reason?: $Enums.SecurityEventReason | null
+  riskLevel?: $Enums.SecurityRiskLevel | null
+  riskSignals?: Prisma.SecurityEventCreateriskSignalsInput | $Enums.SecurityRiskSignal[]
   ipAddress?: string | null
   userAgent?: string | null
   deviceModel?: string | null
@@ -935,6 +1006,8 @@ export type SecurityEventUncheckedCreateWithoutSubjectSessionInput = {
   reason?: $Enums.SecurityEventReason | null
   userId?: string | null
   actorSessionId?: string | null
+  riskLevel?: $Enums.SecurityRiskLevel | null
+  riskSignals?: Prisma.SecurityEventCreateriskSignalsInput | $Enums.SecurityRiskSignal[]
   ipAddress?: string | null
   userAgent?: string | null
   deviceModel?: string | null
@@ -996,6 +1069,8 @@ export type SecurityEventCreateManyUserInput = {
   reason?: $Enums.SecurityEventReason | null
   actorSessionId?: string | null
   subjectSessionId?: string | null
+  riskLevel?: $Enums.SecurityRiskLevel | null
+  riskSignals?: Prisma.SecurityEventCreateriskSignalsInput | $Enums.SecurityRiskSignal[]
   ipAddress?: string | null
   userAgent?: string | null
   deviceModel?: string | null
@@ -1013,6 +1088,8 @@ export type SecurityEventUpdateWithoutUserInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   type?: Prisma.EnumSecurityEventTypeFieldUpdateOperationsInput | $Enums.SecurityEventType
   reason?: Prisma.NullableEnumSecurityEventReasonFieldUpdateOperationsInput | $Enums.SecurityEventReason | null
+  riskLevel?: Prisma.NullableEnumSecurityRiskLevelFieldUpdateOperationsInput | $Enums.SecurityRiskLevel | null
+  riskSignals?: Prisma.SecurityEventUpdateriskSignalsInput | $Enums.SecurityRiskSignal[]
   ipAddress?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   userAgent?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   deviceModel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1034,6 +1111,8 @@ export type SecurityEventUncheckedUpdateWithoutUserInput = {
   reason?: Prisma.NullableEnumSecurityEventReasonFieldUpdateOperationsInput | $Enums.SecurityEventReason | null
   actorSessionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   subjectSessionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  riskLevel?: Prisma.NullableEnumSecurityRiskLevelFieldUpdateOperationsInput | $Enums.SecurityRiskLevel | null
+  riskSignals?: Prisma.SecurityEventUpdateriskSignalsInput | $Enums.SecurityRiskSignal[]
   ipAddress?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   userAgent?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   deviceModel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1053,6 +1132,8 @@ export type SecurityEventUncheckedUpdateManyWithoutUserInput = {
   reason?: Prisma.NullableEnumSecurityEventReasonFieldUpdateOperationsInput | $Enums.SecurityEventReason | null
   actorSessionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   subjectSessionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  riskLevel?: Prisma.NullableEnumSecurityRiskLevelFieldUpdateOperationsInput | $Enums.SecurityRiskLevel | null
+  riskSignals?: Prisma.SecurityEventUpdateriskSignalsInput | $Enums.SecurityRiskSignal[]
   ipAddress?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   userAgent?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   deviceModel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1072,6 +1153,8 @@ export type SecurityEventCreateManyActorSessionInput = {
   reason?: $Enums.SecurityEventReason | null
   userId?: string | null
   subjectSessionId?: string | null
+  riskLevel?: $Enums.SecurityRiskLevel | null
+  riskSignals?: Prisma.SecurityEventCreateriskSignalsInput | $Enums.SecurityRiskSignal[]
   ipAddress?: string | null
   userAgent?: string | null
   deviceModel?: string | null
@@ -1091,6 +1174,8 @@ export type SecurityEventCreateManySubjectSessionInput = {
   reason?: $Enums.SecurityEventReason | null
   userId?: string | null
   actorSessionId?: string | null
+  riskLevel?: $Enums.SecurityRiskLevel | null
+  riskSignals?: Prisma.SecurityEventCreateriskSignalsInput | $Enums.SecurityRiskSignal[]
   ipAddress?: string | null
   userAgent?: string | null
   deviceModel?: string | null
@@ -1108,6 +1193,8 @@ export type SecurityEventUpdateWithoutActorSessionInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   type?: Prisma.EnumSecurityEventTypeFieldUpdateOperationsInput | $Enums.SecurityEventType
   reason?: Prisma.NullableEnumSecurityEventReasonFieldUpdateOperationsInput | $Enums.SecurityEventReason | null
+  riskLevel?: Prisma.NullableEnumSecurityRiskLevelFieldUpdateOperationsInput | $Enums.SecurityRiskLevel | null
+  riskSignals?: Prisma.SecurityEventUpdateriskSignalsInput | $Enums.SecurityRiskSignal[]
   ipAddress?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   userAgent?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   deviceModel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1129,6 +1216,8 @@ export type SecurityEventUncheckedUpdateWithoutActorSessionInput = {
   reason?: Prisma.NullableEnumSecurityEventReasonFieldUpdateOperationsInput | $Enums.SecurityEventReason | null
   userId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   subjectSessionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  riskLevel?: Prisma.NullableEnumSecurityRiskLevelFieldUpdateOperationsInput | $Enums.SecurityRiskLevel | null
+  riskSignals?: Prisma.SecurityEventUpdateriskSignalsInput | $Enums.SecurityRiskSignal[]
   ipAddress?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   userAgent?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   deviceModel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1148,6 +1237,8 @@ export type SecurityEventUncheckedUpdateManyWithoutActorSessionInput = {
   reason?: Prisma.NullableEnumSecurityEventReasonFieldUpdateOperationsInput | $Enums.SecurityEventReason | null
   userId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   subjectSessionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  riskLevel?: Prisma.NullableEnumSecurityRiskLevelFieldUpdateOperationsInput | $Enums.SecurityRiskLevel | null
+  riskSignals?: Prisma.SecurityEventUpdateriskSignalsInput | $Enums.SecurityRiskSignal[]
   ipAddress?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   userAgent?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   deviceModel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1165,6 +1256,8 @@ export type SecurityEventUpdateWithoutSubjectSessionInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   type?: Prisma.EnumSecurityEventTypeFieldUpdateOperationsInput | $Enums.SecurityEventType
   reason?: Prisma.NullableEnumSecurityEventReasonFieldUpdateOperationsInput | $Enums.SecurityEventReason | null
+  riskLevel?: Prisma.NullableEnumSecurityRiskLevelFieldUpdateOperationsInput | $Enums.SecurityRiskLevel | null
+  riskSignals?: Prisma.SecurityEventUpdateriskSignalsInput | $Enums.SecurityRiskSignal[]
   ipAddress?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   userAgent?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   deviceModel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1186,6 +1279,8 @@ export type SecurityEventUncheckedUpdateWithoutSubjectSessionInput = {
   reason?: Prisma.NullableEnumSecurityEventReasonFieldUpdateOperationsInput | $Enums.SecurityEventReason | null
   userId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   actorSessionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  riskLevel?: Prisma.NullableEnumSecurityRiskLevelFieldUpdateOperationsInput | $Enums.SecurityRiskLevel | null
+  riskSignals?: Prisma.SecurityEventUpdateriskSignalsInput | $Enums.SecurityRiskSignal[]
   ipAddress?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   userAgent?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   deviceModel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1205,6 +1300,8 @@ export type SecurityEventUncheckedUpdateManyWithoutSubjectSessionInput = {
   reason?: Prisma.NullableEnumSecurityEventReasonFieldUpdateOperationsInput | $Enums.SecurityEventReason | null
   userId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   actorSessionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  riskLevel?: Prisma.NullableEnumSecurityRiskLevelFieldUpdateOperationsInput | $Enums.SecurityRiskLevel | null
+  riskSignals?: Prisma.SecurityEventUpdateriskSignalsInput | $Enums.SecurityRiskSignal[]
   ipAddress?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   userAgent?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   deviceModel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1227,6 +1324,8 @@ export type SecurityEventSelect<ExtArgs extends runtime.Types.Extensions.Interna
   userId?: boolean
   actorSessionId?: boolean
   subjectSessionId?: boolean
+  riskLevel?: boolean
+  riskSignals?: boolean
   ipAddress?: boolean
   userAgent?: boolean
   deviceModel?: boolean
@@ -1250,6 +1349,8 @@ export type SecurityEventSelectCreateManyAndReturn<ExtArgs extends runtime.Types
   userId?: boolean
   actorSessionId?: boolean
   subjectSessionId?: boolean
+  riskLevel?: boolean
+  riskSignals?: boolean
   ipAddress?: boolean
   userAgent?: boolean
   deviceModel?: boolean
@@ -1273,6 +1374,8 @@ export type SecurityEventSelectUpdateManyAndReturn<ExtArgs extends runtime.Types
   userId?: boolean
   actorSessionId?: boolean
   subjectSessionId?: boolean
+  riskLevel?: boolean
+  riskSignals?: boolean
   ipAddress?: boolean
   userAgent?: boolean
   deviceModel?: boolean
@@ -1296,6 +1399,8 @@ export type SecurityEventSelectScalar = {
   userId?: boolean
   actorSessionId?: boolean
   subjectSessionId?: boolean
+  riskLevel?: boolean
+  riskSignals?: boolean
   ipAddress?: boolean
   userAgent?: boolean
   deviceModel?: boolean
@@ -1309,7 +1414,7 @@ export type SecurityEventSelectScalar = {
   retentionExpiresAt?: boolean
 }
 
-export type SecurityEventOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "type" | "reason" | "userId" | "actorSessionId" | "subjectSessionId" | "ipAddress" | "userAgent" | "deviceModel" | "platform" | "osVersion" | "appVersion" | "locationCountryCode" | "locationCity" | "affectedSessionCount" | "occurredAt" | "retentionExpiresAt", ExtArgs["result"]["securityEvent"]>
+export type SecurityEventOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "type" | "reason" | "userId" | "actorSessionId" | "subjectSessionId" | "riskLevel" | "riskSignals" | "ipAddress" | "userAgent" | "deviceModel" | "platform" | "osVersion" | "appVersion" | "locationCountryCode" | "locationCity" | "affectedSessionCount" | "occurredAt" | "retentionExpiresAt", ExtArgs["result"]["securityEvent"]>
 export type SecurityEventInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   user?: boolean | Prisma.SecurityEvent$userArgs<ExtArgs>
   actorSession?: boolean | Prisma.SecurityEvent$actorSessionArgs<ExtArgs>
@@ -1340,6 +1445,8 @@ export type $SecurityEventPayload<ExtArgs extends runtime.Types.Extensions.Inter
     userId: string | null
     actorSessionId: string | null
     subjectSessionId: string | null
+    riskLevel: $Enums.SecurityRiskLevel | null
+    riskSignals: $Enums.SecurityRiskSignal[]
     ipAddress: string | null
     userAgent: string | null
     deviceModel: string | null
@@ -1783,6 +1890,8 @@ export interface SecurityEventFieldRefs {
   readonly userId: Prisma.FieldRef<"SecurityEvent", 'String'>
   readonly actorSessionId: Prisma.FieldRef<"SecurityEvent", 'String'>
   readonly subjectSessionId: Prisma.FieldRef<"SecurityEvent", 'String'>
+  readonly riskLevel: Prisma.FieldRef<"SecurityEvent", 'SecurityRiskLevel'>
+  readonly riskSignals: Prisma.FieldRef<"SecurityEvent", 'SecurityRiskSignal[]'>
   readonly ipAddress: Prisma.FieldRef<"SecurityEvent", 'String'>
   readonly userAgent: Prisma.FieldRef<"SecurityEvent", 'String'>
   readonly deviceModel: Prisma.FieldRef<"SecurityEvent", 'String'>

@@ -1,5 +1,9 @@
 // Prisma
-import type { SessionPlatform } from '../../generated/prisma/client';
+import type {
+  SecurityRiskLevel,
+  SecurityRiskSignal,
+  SessionPlatform,
+} from '../../generated/prisma/client';
 
 export type NewSessionEmail = {
   recipient: string;
@@ -11,4 +15,6 @@ export type NewSessionEmail = {
   appVersion: string | null;
   locationCountryCode: string | null;
   locationCity: string | null;
+  riskLevel: SecurityRiskLevel | null;
+  riskSignals: SecurityRiskSignal[];
 };

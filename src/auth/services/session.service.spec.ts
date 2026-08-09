@@ -12,6 +12,8 @@ import { SecureTokenService } from './secure-token.service';
 import { SessionService } from './session.service';
 import { GeoIpService } from '../../geo-ip/geo-ip.service';
 import { SecurityEventService } from '../../security/services/security-event.service';
+import { RiskAnalysisService } from '../../security/services/risk-analysis.service';
+import { NotificationService } from '../../notifications/services/notification.service';
 
 jest.mock('crypto', () => ({
   randomUUID: () => '00000000-0000-4000-8000-000000000000',
@@ -63,6 +65,16 @@ describe('SessionService', () => {
   const securityEventService = {
     record: jest.fn(),
   };
+  const riskAnalysisService = {
+    assessNewSession: jest.fn(),
+    refreshTokenReuse: jest.fn(() => ({
+      level: 'HIGH',
+      signals: ['REFRESH_TOKEN_REUSE'],
+    })),
+  };
+  const notificationService = {
+    sendSuspiciousActivityNotification: jest.fn(),
+  };
 
   let service: SessionService;
 
@@ -71,6 +83,10 @@ describe('SessionService', () => {
     jest.setSystemTime(now);
     jest.clearAllMocks();
     prisma.session.count.mockResolvedValue(0);
+    riskAnalysisService.assessNewSession.mockResolvedValue({
+      level: null,
+      signals: [],
+    });
     prisma.$transaction.mockImplementation(
       (callback: (transaction: typeof prisma) => Promise<unknown>) =>
         callback(prisma),
@@ -82,6 +98,8 @@ describe('SessionService', () => {
       secureTokenService as unknown as SecureTokenService,
       geoIpService as unknown as GeoIpService,
       securityEventService as unknown as SecurityEventService,
+      riskAnalysisService as unknown as RiskAnalysisService,
+      notificationService as unknown as NotificationService,
       configService as unknown as ConfigService,
     );
   });
@@ -209,6 +227,31 @@ describe('SessionService', () => {
     expect(prisma.session.create).toHaveBeenCalledTimes(1);
   });
 
+  it('retries a driver-adapter transaction write conflict', async () => {
+    const conflict = new Error('Transaction conflict.', {
+      cause: { kind: 'TransactionWriteConflict' },
+    });
+    conflict.name = 'DriverAdapterError';
+    jwtTokenService.generateTokens.mockResolvedValue({
+      accessToken: 'access-token',
+      refreshToken: 'refresh-token',
+    });
+    geoIpService.lookup.mockReturnValue(null);
+    prisma.session.create.mockResolvedValue({});
+    prisma.$transaction
+      .mockRejectedValueOnce(conflict)
+      .mockImplementationOnce(
+        (callback: (transaction: typeof prisma) => Promise<unknown>) =>
+          callback(prisma),
+      );
+
+    await expect(service.create('user-id')).resolves.toMatchObject({
+      accessToken: 'access-token',
+      refreshToken: 'refresh-token',
+    });
+    expect(prisma.$transaction).toHaveBeenCalledTimes(2);
+  });
+
   it('atomically rotates the refresh hash and extends session expiration', async () => {
     prisma.session.findFirst.mockResolvedValue({
       id: 'session-id',
@@ -292,6 +335,19 @@ describe('SessionService', () => {
     ).rejects.toBeInstanceOf(UnauthorizedException);
 
     expect(prisma.session.updateMany).not.toHaveBeenCalled();
+    expect(securityEventService.record).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'SUSPICIOUS_ACTIVITY_DETECTED',
+        riskLevel: 'HIGH',
+        riskSignals: ['REFRESH_TOKEN_REUSE'],
+      }),
+    );
+    expect(
+      notificationService.sendSuspiciousActivityNotification,
+    ).toHaveBeenCalledWith('user-id', 'session-id', {
+      level: 'HIGH',
+      signals: ['REFRESH_TOKEN_REUSE'],
+    });
   });
 
   it('accepts an active session for access-token authorization', async () => {

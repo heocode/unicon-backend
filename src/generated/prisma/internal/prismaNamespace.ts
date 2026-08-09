@@ -989,6 +989,8 @@ export const SecurityEventScalarFieldEnum = {
   userId: 'userId',
   actorSessionId: 'actorSessionId',
   subjectSessionId: 'subjectSessionId',
+  riskLevel: 'riskLevel',
+  riskSignals: 'riskSignals',
   ipAddress: 'ipAddress',
   userAgent: 'userAgent',
   deviceModel: 'deviceModel',
@@ -1193,6 +1195,34 @@ export type EnumSecurityEventReasonFieldRefInput<$PrismaModel> = FieldRefInputTy
  * Reference to a field of type 'SecurityEventReason[]'
  */
 export type ListEnumSecurityEventReasonFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'SecurityEventReason[]'>
+    
+
+
+/**
+ * Reference to a field of type 'SecurityRiskLevel'
+ */
+export type EnumSecurityRiskLevelFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'SecurityRiskLevel'>
+    
+
+
+/**
+ * Reference to a field of type 'SecurityRiskLevel[]'
+ */
+export type ListEnumSecurityRiskLevelFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'SecurityRiskLevel[]'>
+    
+
+
+/**
+ * Reference to a field of type 'SecurityRiskSignal[]'
+ */
+export type ListEnumSecurityRiskSignalFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'SecurityRiskSignal[]'>
+    
+
+
+/**
+ * Reference to a field of type 'SecurityRiskSignal'
+ */
+export type EnumSecurityRiskSignalFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'SecurityRiskSignal'>
     
 
 

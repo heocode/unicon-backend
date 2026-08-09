@@ -51,6 +51,22 @@ export function validateEnvironment(
       environment.NOTIFICATION_DELIVERY_RETENTION_SECONDS,
       'NOTIFICATION_DELIVERY_RETENTION_SECONDS',
     );
+  validatedEnvironment.RISK_LOGIN_FAILURE_WINDOW_SECONDS = parsePositiveInteger(
+    environment.RISK_LOGIN_FAILURE_WINDOW_SECONDS,
+    'RISK_LOGIN_FAILURE_WINDOW_SECONDS',
+  );
+  validatedEnvironment.RISK_LOGIN_FAILURE_THRESHOLD = parsePositiveInteger(
+    environment.RISK_LOGIN_FAILURE_THRESHOLD,
+    'RISK_LOGIN_FAILURE_THRESHOLD',
+  );
+  validatedEnvironment.RISK_NEW_SESSION_WINDOW_SECONDS = parsePositiveInteger(
+    environment.RISK_NEW_SESSION_WINDOW_SECONDS,
+    'RISK_NEW_SESSION_WINDOW_SECONDS',
+  );
+  validatedEnvironment.RISK_NEW_SESSION_THRESHOLD = parsePositiveInteger(
+    environment.RISK_NEW_SESSION_THRESHOLD,
+    'RISK_NEW_SESSION_THRESHOLD',
+  );
 
   validatedEnvironment.PORT = parsePort(environment.PORT);
   validatedEnvironment.GEOIP_ENABLED = parseBoolean(

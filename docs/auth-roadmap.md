@@ -119,23 +119,29 @@ Implemented:
 
 ## Stage 4: Suspicious-activity signals
 
-Start with explainable, conservative signals:
+Implemented with explainable, conservative signals:
 
 ```text
 NEW_DEVICE
 NEW_COUNTRY
 EXCESSIVE_LOGIN_FAILURES
 MANY_NEW_SESSIONS
-IMPOSSIBLE_TRAVEL
 REFRESH_TOKEN_REUSE
-LOGIN_AFTER_PASSWORD_CHANGE
 ```
 
-- Produce `LOW`, `MEDIUM`, or `HIGH` risk with recorded contributing signals.
-- Initially create security events and notifications only.
-- Do not automatically block accounts based solely on GeoIP or a first-version
-  risk score.
-- Add blocking or step-up authentication only after false positives are measured.
+- New-session assessments are recorded as nullable `LOW`, `MEDIUM`, or `HIGH`
+  risk with their contributing signals.
+- `MEDIUM` and `HIGH` assessments create
+  `SUSPICIOUS_ACTIVITY_DETECTED`; refresh-token reuse is always `HIGH`.
+- Risk produces security records and best-effort notifications only. It does
+  not automatically block accounts, revoke sessions, or reject login.
+- Thresholds for excessive failures and session velocity are validated runtime
+  configuration.
+- `IMPOSSIBLE_TRAVEL` remains deferred because approximate country/city data
+  cannot prove travel. `LOGIN_AFTER_PASSWORD_CHANGE` remains deferred until
+  Stage 5 defines the password-change event.
+- Blocking or step-up authentication remains deferred until false positives
+  are measured.
 
 ## Stage 5: Profile module
 

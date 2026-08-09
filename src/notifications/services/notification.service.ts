@@ -9,6 +9,9 @@ import { Prisma } from '../../generated/prisma/client';
 import { MailService } from '../../mail/mail.service';
 import { PrismaService } from '../../prisma/prisma.service';
 
+// Internal types
+import type { RiskAssessment } from '../../security/types/risk-assessment.type';
+
 @Injectable()
 export class NotificationService {
   private readonly logger = new Logger(NotificationService.name);
@@ -79,6 +82,8 @@ export class NotificationService {
         appVersion: session.appVersion,
         locationCountryCode: session.locationCountryCode,
         locationCity: session.locationCity,
+        riskLevel: session.subjectSecurityEvents[0]?.riskLevel ?? null,
+        riskSignals: session.subjectSecurityEvents[0]?.riskSignals ?? [],
       });
 
       try {
@@ -113,6 +118,81 @@ export class NotificationService {
     }
   }
 
+  async sendSuspiciousActivityNotification(
+    userId: string,
+    sessionId: string,
+    risk: RiskAssessment,
+  ): Promise<void> {
+    const session = await this.findSession(userId, sessionId).catch((error) => {
+      this.logFailure('Failed to prepare a suspicious-activity alert.', error);
+      return null;
+    });
+
+    if (!session) {
+      return;
+    }
+
+    let delivery: { id: string };
+
+    try {
+      const createdAt = new Date();
+      delivery = await this.prisma.notificationDelivery.create({
+        data: {
+          type: 'SUSPICIOUS_ACTIVITY',
+          channel: 'EMAIL',
+          userId,
+          sessionId,
+          recipient: session.user.email,
+          retentionExpiresAt: new Date(
+            createdAt.getTime() + this.retentionSeconds * 1000,
+          ),
+        },
+        select: { id: true },
+      });
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002'
+      ) {
+        return;
+      }
+
+      this.logFailure(
+        'Failed to create a suspicious-activity delivery.',
+        error,
+      );
+      return;
+    }
+
+    const attemptedAt = new Date();
+
+    try {
+      const providerMessageId =
+        await this.mailService.sendSuspiciousActivityEmail({
+          recipient: session.user.email,
+          idempotencyKey: delivery.id,
+          occurredAt: new Date(),
+          deviceModel: session.deviceModel,
+          platform: session.platform,
+          osVersion: session.osVersion,
+          appVersion: session.appVersion,
+          locationCountryCode: session.locationCountryCode,
+          locationCity: session.locationCity,
+          riskLevel: risk.level,
+          riskSignals: risk.signals,
+        });
+
+      await this.updateSuccessfulDelivery(
+        delivery.id,
+        providerMessageId,
+        attemptedAt,
+      );
+    } catch (error) {
+      await this.updateFailedDelivery(delivery.id, attemptedAt);
+      this.logFailure('Failed to send a suspicious-activity email.', error);
+    }
+  }
+
   async deleteExpired(now: Date = new Date()): Promise<number> {
     const result = await this.prisma.notificationDelivery.deleteMany({
       where: { retentionExpiresAt: { lte: now } },
@@ -135,8 +215,52 @@ export class NotificationService {
         user: {
           select: { email: true },
         },
+        subjectSecurityEvents: {
+          where: { type: 'SESSION_CREATED' },
+          select: { riskLevel: true, riskSignals: true },
+          take: 1,
+        },
       },
     });
+  }
+
+  private async updateSuccessfulDelivery(
+    deliveryId: string,
+    providerMessageId: string,
+    attemptedAt: Date,
+  ): Promise<void> {
+    try {
+      await this.prisma.notificationDelivery.update({
+        where: { id: deliveryId },
+        data: {
+          status: 'SENT',
+          providerMessageId,
+          attemptedAt,
+          sentAt: new Date(),
+          failureCode: null,
+        },
+      });
+    } catch (error) {
+      this.logFailure('Failed to save a successful email delivery.', error);
+    }
+  }
+
+  private async updateFailedDelivery(
+    deliveryId: string,
+    attemptedAt: Date,
+  ): Promise<void> {
+    try {
+      await this.prisma.notificationDelivery.update({
+        where: { id: deliveryId },
+        data: {
+          status: 'FAILED',
+          attemptedAt,
+          failureCode: 'EMAIL_DELIVERY_FAILED',
+        },
+      });
+    } catch (error) {
+      this.logFailure('Failed to save a failed email delivery.', error);
+    }
   }
 
   private logFailure(message: string, error: unknown): void {

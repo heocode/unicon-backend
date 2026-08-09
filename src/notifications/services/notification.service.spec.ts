@@ -15,6 +15,7 @@ describe('NotificationService', () => {
     locationCountryCode: 'CA',
     locationCity: 'Toronto',
     user: { email: 'student@example.edu' },
+    subjectSecurityEvents: [{ riskLevel: null, riskSignals: [] }],
   };
   const prisma = {
     session: { findFirst: jest.fn() },
@@ -26,6 +27,7 @@ describe('NotificationService', () => {
   };
   const mailService = {
     sendNewSessionEmail: jest.fn(),
+    sendSuspiciousActivityEmail: jest.fn(),
   };
   const configService = {
     getOrThrow: jest.fn(() => 15_552_000),
@@ -41,6 +43,9 @@ describe('NotificationService', () => {
     prisma.notificationDelivery.create.mockResolvedValue({ id: 'delivery-id' });
     prisma.notificationDelivery.update.mockResolvedValue({});
     mailService.sendNewSessionEmail.mockResolvedValue('provider-message-id');
+    mailService.sendSuspiciousActivityEmail.mockResolvedValue(
+      'suspicious-provider-message-id',
+    );
     service = new NotificationService(
       prisma as unknown as PrismaService,
       mailService as unknown as MailService,
@@ -78,6 +83,8 @@ describe('NotificationService', () => {
       appVersion: session.appVersion,
       locationCountryCode: session.locationCountryCode,
       locationCity: session.locationCity,
+      riskLevel: null,
+      riskSignals: [],
     });
     expect(prisma.notificationDelivery.update).toHaveBeenCalledWith({
       where: { id: 'delivery-id' },
@@ -97,6 +104,38 @@ describe('NotificationService', () => {
     await expect(service.deleteExpired(now)).resolves.toBe(2);
     expect(prisma.notificationDelivery.deleteMany).toHaveBeenCalledWith({
       where: { retentionExpiresAt: { lte: now } },
+    });
+  });
+
+  it('records and sends a suspicious-activity alert', async () => {
+    await service.sendSuspiciousActivityNotification('user-id', 'session-id', {
+      level: 'HIGH',
+      signals: ['REFRESH_TOKEN_REUSE'],
+    });
+
+    expect(prisma.notificationDelivery.create).toHaveBeenCalledWith({
+      data: {
+        type: 'SUSPICIOUS_ACTIVITY',
+        channel: 'EMAIL',
+        userId: 'user-id',
+        sessionId: 'session-id',
+        recipient: 'student@example.edu',
+        retentionExpiresAt: new Date('2027-02-05T12:00:00.000Z'),
+      },
+      select: { id: true },
+    });
+    expect(mailService.sendSuspiciousActivityEmail).toHaveBeenCalledWith({
+      recipient: 'student@example.edu',
+      idempotencyKey: 'delivery-id',
+      occurredAt: now,
+      deviceModel: session.deviceModel,
+      platform: session.platform,
+      osVersion: session.osVersion,
+      appVersion: session.appVersion,
+      locationCountryCode: session.locationCountryCode,
+      locationCity: session.locationCity,
+      riskLevel: 'HIGH',
+      riskSignals: ['REFRESH_TOKEN_REUSE'],
     });
   });
 

@@ -291,6 +291,13 @@ export type EnumSecurityEventReasonNullableFilter<$PrismaModel = never> = {
   not?: Prisma.NestedEnumSecurityEventReasonNullableFilter<$PrismaModel> | $Enums.SecurityEventReason | null
 }
 
+export type EnumSecurityRiskLevelNullableFilter<$PrismaModel = never> = {
+  equals?: $Enums.SecurityRiskLevel | Prisma.EnumSecurityRiskLevelFieldRefInput<$PrismaModel> | null
+  in?: $Enums.SecurityRiskLevel[] | Prisma.ListEnumSecurityRiskLevelFieldRefInput<$PrismaModel> | null
+  notIn?: $Enums.SecurityRiskLevel[] | Prisma.ListEnumSecurityRiskLevelFieldRefInput<$PrismaModel> | null
+  not?: Prisma.NestedEnumSecurityRiskLevelNullableFilter<$PrismaModel> | $Enums.SecurityRiskLevel | null
+}
+
 export type EnumSessionPlatformNullableFilter<$PrismaModel = never> = {
   equals?: $Enums.SessionPlatform | Prisma.EnumSessionPlatformFieldRefInput<$PrismaModel> | null
   in?: $Enums.SessionPlatform[] | Prisma.ListEnumSessionPlatformFieldRefInput<$PrismaModel> | null
@@ -327,6 +334,16 @@ export type EnumSecurityEventReasonNullableWithAggregatesFilter<$PrismaModel = n
   _count?: Prisma.NestedIntNullableFilter<$PrismaModel>
   _min?: Prisma.NestedEnumSecurityEventReasonNullableFilter<$PrismaModel>
   _max?: Prisma.NestedEnumSecurityEventReasonNullableFilter<$PrismaModel>
+}
+
+export type EnumSecurityRiskLevelNullableWithAggregatesFilter<$PrismaModel = never> = {
+  equals?: $Enums.SecurityRiskLevel | Prisma.EnumSecurityRiskLevelFieldRefInput<$PrismaModel> | null
+  in?: $Enums.SecurityRiskLevel[] | Prisma.ListEnumSecurityRiskLevelFieldRefInput<$PrismaModel> | null
+  notIn?: $Enums.SecurityRiskLevel[] | Prisma.ListEnumSecurityRiskLevelFieldRefInput<$PrismaModel> | null
+  not?: Prisma.NestedEnumSecurityRiskLevelNullableWithAggregatesFilter<$PrismaModel> | $Enums.SecurityRiskLevel | null
+  _count?: Prisma.NestedIntNullableFilter<$PrismaModel>
+  _min?: Prisma.NestedEnumSecurityRiskLevelNullableFilter<$PrismaModel>
+  _max?: Prisma.NestedEnumSecurityRiskLevelNullableFilter<$PrismaModel>
 }
 
 export type EnumSessionPlatformNullableWithAggregatesFilter<$PrismaModel = never> = {
@@ -645,6 +662,13 @@ export type NestedEnumSecurityEventReasonNullableFilter<$PrismaModel = never> = 
   not?: Prisma.NestedEnumSecurityEventReasonNullableFilter<$PrismaModel> | $Enums.SecurityEventReason | null
 }
 
+export type NestedEnumSecurityRiskLevelNullableFilter<$PrismaModel = never> = {
+  equals?: $Enums.SecurityRiskLevel | Prisma.EnumSecurityRiskLevelFieldRefInput<$PrismaModel> | null
+  in?: $Enums.SecurityRiskLevel[] | Prisma.ListEnumSecurityRiskLevelFieldRefInput<$PrismaModel> | null
+  notIn?: $Enums.SecurityRiskLevel[] | Prisma.ListEnumSecurityRiskLevelFieldRefInput<$PrismaModel> | null
+  not?: Prisma.NestedEnumSecurityRiskLevelNullableFilter<$PrismaModel> | $Enums.SecurityRiskLevel | null
+}
+
 export type NestedEnumSessionPlatformNullableFilter<$PrismaModel = never> = {
   equals?: $Enums.SessionPlatform | Prisma.EnumSessionPlatformFieldRefInput<$PrismaModel> | null
   in?: $Enums.SessionPlatform[] | Prisma.ListEnumSessionPlatformFieldRefInput<$PrismaModel> | null
@@ -670,6 +694,16 @@ export type NestedEnumSecurityEventReasonNullableWithAggregatesFilter<$PrismaMod
   _count?: Prisma.NestedIntNullableFilter<$PrismaModel>
   _min?: Prisma.NestedEnumSecurityEventReasonNullableFilter<$PrismaModel>
   _max?: Prisma.NestedEnumSecurityEventReasonNullableFilter<$PrismaModel>
+}
+
+export type NestedEnumSecurityRiskLevelNullableWithAggregatesFilter<$PrismaModel = never> = {
+  equals?: $Enums.SecurityRiskLevel | Prisma.EnumSecurityRiskLevelFieldRefInput<$PrismaModel> | null
+  in?: $Enums.SecurityRiskLevel[] | Prisma.ListEnumSecurityRiskLevelFieldRefInput<$PrismaModel> | null
+  notIn?: $Enums.SecurityRiskLevel[] | Prisma.ListEnumSecurityRiskLevelFieldRefInput<$PrismaModel> | null
+  not?: Prisma.NestedEnumSecurityRiskLevelNullableWithAggregatesFilter<$PrismaModel> | $Enums.SecurityRiskLevel | null
+  _count?: Prisma.NestedIntNullableFilter<$PrismaModel>
+  _min?: Prisma.NestedEnumSecurityRiskLevelNullableFilter<$PrismaModel>
+  _max?: Prisma.NestedEnumSecurityRiskLevelNullableFilter<$PrismaModel>
 }
 
 export type NestedEnumSessionPlatformNullableWithAggregatesFilter<$PrismaModel = never> = {

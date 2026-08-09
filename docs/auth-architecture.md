@@ -325,6 +325,51 @@ Delivery records receive a configurable 180-day retention deadline through
 `NOTIFICATION_DELIVERY_RETENTION_SECONDS`. As with security events, cleanup
 scheduling remains a deployment concern.
 
+## Suspicious-activity analysis
+
+`RiskAnalysisService` evaluates new sessions inside the same serializable
+transaction that enforces the active-session limit. It produces an explainable
+nullable risk level and an ordered list of contributing signals. A null level
+means that no signal was detected; `LOW` is not used as the default.
+
+The implemented signals are:
+
+```text
+NEW_DEVICE
+NEW_COUNTRY
+EXCESSIVE_LOGIN_FAILURES
+MANY_NEW_SESSIONS
+REFRESH_TOKEN_REUSE
+```
+
+The first session does not produce new-device or new-country signals. Missing
+or `UNKNOWN` device metadata and unavailable GeoIP do not produce signals.
+Device model and GeoIP remain spoofable or approximate context and are never
+treated as security proof.
+
+`EXCESSIVE_LOGIN_FAILURES` currently means at least five user-linked rejected
+credential attempts in 15 minutes. `MANY_NEW_SESSIONS` means at least three
+sessions, including the current session, in one hour. These thresholds are
+validated environment configuration.
+
+One new device or country is `LOW`. Both together, excessive failures, or
+session velocity are `MEDIUM`. Two behavioral signals or refresh-token reuse
+are `HIGH`. `SESSION_CREATED` stores every detected assessment. `MEDIUM` and
+`HIGH` session assessments also atomically create
+`SUSPICIOUS_ACTIVITY_DETECTED`.
+
+A valid refresh JWT whose hash no longer matches an otherwise active session is
+treated as refresh-token reuse. This includes a losing concurrent refresh after
+another request completes rotation. It creates a `HIGH` suspicious-activity
+event and a best-effort alert, but does not automatically revoke the session or
+block the account.
+
+Risk levels currently influence records and notification wording only. They do
+not reject login, revoke sessions, block users, or require step-up
+authentication. `IMPOSSIBLE_TRAVEL` is deferred because country/city snapshots
+cannot establish physical travel. `LOGIN_AFTER_PASSWORD_CHANGE` is deferred
+until password-change events exist.
+
 ## GeoIP
 
 GeoIP is optional and best-effort:

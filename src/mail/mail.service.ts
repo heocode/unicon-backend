@@ -73,6 +73,7 @@ export class MailService {
         ? `App version: ${notification.appVersion}`
         : undefined,
       this.formatLocation(notification),
+      ...this.formatRiskDetails(notification),
     ].filter((line): line is string => Boolean(line));
 
     try {
@@ -111,6 +112,55 @@ export class MailService {
     }
   }
 
+  async sendSuspiciousActivityEmail(
+    notification: NewSessionEmail,
+  ): Promise<string> {
+    const details = [
+      `Time: ${notification.occurredAt.toISOString()}`,
+      `Platform: ${notification.platform}`,
+      notification.deviceModel
+        ? `Device: ${notification.deviceModel}`
+        : undefined,
+      this.formatLocation(notification),
+      ...this.formatRiskDetails(notification),
+    ].filter((line): line is string => Boolean(line));
+
+    try {
+      const { data, error } = await this.resend.emails.send(
+        {
+          from: this.mailFrom,
+          to: [notification.recipient],
+          subject: 'Suspicious activity on your Unicon account',
+          text: [
+            'We detected unusual security activity on your Unicon account.',
+            '',
+            ...details,
+            '',
+            'If this was not you, review and revoke your active sessions immediately.',
+          ].join('\n'),
+        },
+        { idempotencyKey: notification.idempotencyKey },
+      );
+
+      if (error || !data) {
+        throw new MailDeliveryError(error?.message);
+      }
+
+      return data.id;
+    } catch (error) {
+      this.logger.error(
+        `Failed to send a suspicious-activity email to ${notification.recipient}.`,
+        error instanceof Error ? error.stack : undefined,
+      );
+
+      if (error instanceof MailDeliveryError) {
+        throw error;
+      }
+
+      throw new MailDeliveryError();
+    }
+  }
+
   private buildVerificationUrl(token: string): string {
     const url = new URL('/verify-email', this.clientUrl);
     url.searchParams.set('token', token);
@@ -128,5 +178,32 @@ export class MailService {
       : notification.locationCountryCode;
 
     return `Approximate location: ${location}`;
+  }
+
+  private formatRiskDetails(notification: NewSessionEmail): string[] {
+    if (!notification.riskLevel || notification.riskSignals.length === 0) {
+      return [];
+    }
+
+    return [
+      `Risk level: ${notification.riskLevel}`,
+      ...notification.riskSignals.map(
+        (signal) => `Security signal: ${this.formatRiskSignal(signal)}`,
+      ),
+    ];
+  }
+
+  private formatRiskSignal(
+    signal: NewSessionEmail['riskSignals'][number],
+  ): string {
+    const labels: Record<NewSessionEmail['riskSignals'][number], string> = {
+      NEW_DEVICE: 'New device',
+      NEW_COUNTRY: 'New country',
+      EXCESSIVE_LOGIN_FAILURES: 'Several failed sign-in attempts',
+      MANY_NEW_SESSIONS: 'Several sessions created recently',
+      REFRESH_TOKEN_REUSE: 'A refresh token was reused',
+    };
+
+    return labels[signal];
   }
 }
