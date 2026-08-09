@@ -32,6 +32,10 @@ the verification requirement.
   the refresh flow.
 - `GeoIpModule` is infrastructure shared with auth. `GeoIpService` resolves a
   public IP through a locally mounted MaxMind MMDB.
+- `SecurityModule` owns the append-only security-event journal and its
+  retention boundary. It does not send notifications or calculate risk.
+- `NotificationModule` owns best-effort notification orchestration and delivery
+  status. `MailModule` remains the Resend infrastructure adapter.
 - `PrismaService` is the database boundary.
 
 Controllers must stay thin. Cross-service orchestration belongs in
@@ -250,6 +254,76 @@ session while preserving the caller's current session. The operation requires
 the current session to be older than the management cooldown and returns the
 number of sessions revoked. Repeating it when no other active sessions remain
 is successful and returns zero.
+
+## Security events
+
+Security events are internal, append-only records. There is no public security
+activity endpoint yet, and recording an event does not send an email or push
+notification. The current catalog is:
+
+```text
+LOGIN_SUCCEEDED
+LOGIN_FAILED
+SESSION_CREATED
+SESSION_CREATION_FAILED
+SESSION_REVOKED
+OTHER_SESSIONS_REVOKED
+```
+
+`LOGIN_FAILED` means only that the submitted email or password was invalid.
+Unknown emails and incorrect passwords have the same public response and event
+reason. An unknown email produces an event without a user relation. Pending,
+blocked, and deleted account states are not classified as invalid credentials.
+
+`SESSION_CREATION_FAILED` currently means only that the active-session limit
+was reached after successful authentication. A normal password login records
+`LOGIN_SUCCEEDED` followed by either `SESSION_CREATED` or
+`SESSION_CREATION_FAILED`. Email verification records `SESSION_CREATED` when it
+creates the first session, but it is not classified as a password login.
+
+Session creation and revocation events are written in the same database
+transaction as their corresponding session mutation. A failed mutation does
+not leave a success event. `OTHER_SESSIONS_REVOKED` records the number of
+sessions affected, including zero for a successful idempotent request.
+
+Events contain bounded request or session snapshots such as device details,
+IP, and approximate GeoIP location. They never contain credentials or raw or
+hashed security tokens. User and session relations are nullable so retained
+events can survive deletion of operational records.
+
+Each event receives a retention deadline based on
+`SECURITY_EVENT_RETENTION_SECONDS`, currently 180 days. The security-event
+service owns deletion of expired records; production scheduling remains a
+deployment concern so multiple application replicas do not run an
+uncoordinated cleanup loop.
+
+## New-session notifications
+
+Every committed `SESSION_CREATED` flow attempts one new-session email. Password
+login and the first session created after email verification use the same
+notification path. `LOGIN_SUCCEEDED` does not trigger a separate email.
+
+Notification delivery happens only after the session transaction commits. A
+mail provider, delivery-record, or delivery-status failure never rolls back the
+session, revokes tokens, or changes a successful auth response. The initial
+implementation makes one immediate best-effort provider attempt; automatic
+retry scheduling is not part of Stage 3.
+
+`NotificationDelivery` records `PENDING`, `SENT`, or `FAILED` independently of
+the auth response. The unique notification type, channel, and session key and
+the Resend idempotency key prevent an application retry from intentionally
+creating duplicate new-session emails. Delivery records retain the recipient
+snapshot, provider message ID on success, and a normalized failure code on
+failure. Provider error bodies and stack traces are not persisted.
+
+The email contains UTC time, device/platform details, and approximate
+country/city when available. It does not contain IP address, user agent,
+credentials, or tokens. Plain text is used so spoofable device metadata cannot
+be interpreted as HTML.
+
+Delivery records receive a configurable 180-day retention deadline through
+`NOTIFICATION_DELIVERY_RETENTION_SECONDS`. As with security events, cleanup
+scheduling remains a deployment concern.
 
 ## GeoIP
 

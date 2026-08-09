@@ -11,6 +11,7 @@ import { JwtTokenService } from './jwt-token.service';
 import { SecureTokenService } from './secure-token.service';
 import { SessionService } from './session.service';
 import { GeoIpService } from '../../geo-ip/geo-ip.service';
+import { SecurityEventService } from '../../security/services/security-event.service';
 
 jest.mock('crypto', () => ({
   randomUUID: () => '00000000-0000-4000-8000-000000000000',
@@ -59,6 +60,9 @@ describe('SessionService', () => {
   const geoIpService = {
     lookup: jest.fn(),
   };
+  const securityEventService = {
+    record: jest.fn(),
+  };
 
   let service: SessionService;
 
@@ -77,6 +81,7 @@ describe('SessionService', () => {
       jwtTokenService as unknown as JwtTokenService,
       secureTokenService as unknown as SecureTokenService,
       geoIpService as unknown as GeoIpService,
+      securityEventService as unknown as SecurityEventService,
       configService as unknown as ConfigService,
     );
   });
@@ -135,6 +140,15 @@ describe('SessionService', () => {
         locationCity: 'Toronto',
       },
     });
+    expect(securityEventService.record).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'SESSION_CREATED',
+        userId: 'user-id',
+        actorSessionId: '00000000-0000-4000-8000-000000000000',
+        subjectSessionId: '00000000-0000-4000-8000-000000000000',
+      }),
+      prisma,
+    );
   });
 
   it('rejects session creation when the active session limit is reached', async () => {
@@ -156,6 +170,14 @@ describe('SessionService', () => {
     });
 
     expect(prisma.session.create).not.toHaveBeenCalled();
+    expect(securityEventService.record).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'SESSION_CREATION_FAILED',
+        reason: 'ACTIVE_SESSION_LIMIT_REACHED',
+        userId: 'user-id',
+      }),
+      prisma,
+    );
   });
 
   it('retries session creation after a serializable transaction conflict', async () => {
@@ -180,6 +202,7 @@ describe('SessionService', () => {
     await expect(service.create('user-id')).resolves.toEqual({
       accessToken: 'access-token',
       refreshToken: 'refresh-token',
+      sessionId: '00000000-0000-4000-8000-000000000000',
     });
 
     expect(prisma.$transaction).toHaveBeenCalledTimes(2);
@@ -395,6 +418,7 @@ describe('SessionService', () => {
     ).resolves.toEqual({
       accessToken: 'access-token',
       refreshToken: 'refresh-token',
+      sessionId: '00000000-0000-4000-8000-000000000000',
     });
 
     expect(prisma.session.create).toHaveBeenCalledWith({

@@ -37,3 +37,13 @@ export type AllowedDomain = Prisma.AllowedDomainModel
  * 
  */
 export type Session = Prisma.SessionModel
+/**
+ * Model NotificationDelivery
+ * 
+ */
+export type NotificationDelivery = Prisma.NotificationDeliveryModel
+/**
+ * Model SecurityEvent
+ * 
+ */
+export type SecurityEvent = Prisma.SecurityEventModel

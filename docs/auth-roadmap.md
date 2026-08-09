@@ -38,6 +38,10 @@ platform authenticator participates in the WebAuthn ceremony.
 - Approximate country/city GeoIP snapshots.
 - Official MaxMind `geoipupdate` Docker workflow.
 - Non-blocking MMDB polling and atomic hot reload with last-known-good fallback.
+- Append-only security-event storage for login and session lifecycle events.
+- Atomic security-event recording for session creation and revocation.
+- A 180-day configurable security-event retention deadline and cleanup
+  primitive.
 
 ## Stage 1: Finish session management
 
@@ -58,15 +62,26 @@ platform authenticator participates in the WebAuthn ceremony.
 
 ## Stage 2: Security-event foundation
 
-Create an append-only security-event model and service before notifications or
-risk detection. Candidate event types:
+Implemented for the current login and session flows. The active event catalog
+is intentionally limited to:
 
 ```text
 LOGIN_SUCCEEDED
 LOGIN_FAILED
-NEW_SESSION_CREATED
+SESSION_CREATED
+SESSION_CREATION_FAILED
 SESSION_REVOKED
 OTHER_SESSIONS_REVOKED
+```
+
+The append-only model and service are in place before notifications or risk
+detection. Events snapshot bounded device, IP, and approximate location data,
+never credentials or tokens. Retention is configured for 180 days.
+
+Future event types will be added with the flows that define their exact
+semantics. The planned catalog currently includes:
+
+```text
 PASSWORD_CHANGED
 PASSWORD_RESET_REQUESTED
 PASSWORD_RESET_COMPLETED
@@ -81,20 +96,26 @@ ACCOUNT_DELETION_CANCELLED
 ACCOUNT_DELETED
 ```
 
-Events may snapshot session ID, device information, IP, approximate location,
-risk level/signals, and timestamp. Do not store raw credentials or tokens.
-Define retention before production; an initial 90–180 day window is reasonable
-but remains a product/privacy decision.
+Risk levels and signals remain part of Stage 4 rather than the Stage 2 storage
+contract.
 
 ## Stage 3: Login notifications
 
-- Introduce a notification abstraction separate from auth orchestration.
-- Send a best-effort email after a new session is committed.
-- Include time, device model/platform, and approximate location when available.
-- Notification failure must not roll back or reject login.
-- Prepare the abstraction for mobile push without requiring push in the first
-  implementation.
-- Record delivery status outside the auth response.
+Implemented:
+
+- `NotificationModule` is separate from auth orchestration and the Resend mail
+  adapter.
+- A best-effort email is attempted only after a new session is committed.
+- The email includes UTC time, device model/platform, and approximate location
+  when available.
+- Notification failure does not roll back or reject login or email
+  verification.
+- Delivery status is recorded as `PENDING`, `SENT`, or `FAILED` outside the
+  auth response and retained for a configurable 180 days.
+- The notification type/channel model can add mobile push later without adding
+  push infrastructure in this stage.
+- Resend receives a stable idempotency key for each delivery. Automatic retry
+  scheduling remains future operational work.
 
 ## Stage 4: Suspicious-activity signals
 

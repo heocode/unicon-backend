@@ -6,6 +6,8 @@ import type { App } from 'supertest/types';
 import { AppModule } from '../src/app.module';
 import { configureApp } from '../src/configure-app';
 import { PasswordService } from '../src/auth/services/password.service';
+import { SecureTokenService } from '../src/auth/services/secure-token.service';
+import { MailService } from '../src/mail/mail.service';
 import { PrismaService } from '../src/prisma/prisma.service';
 
 type AuthTokens = {
@@ -36,6 +38,8 @@ describe('Session management with PostgreSQL (e2e)', () => {
 
   let app: INestApplication<App>;
   let prisma: PrismaService;
+  let mailService: MailService;
+  let secureTokenService: SecureTokenService;
   let passwordHash: string;
 
   beforeAll(async () => {
@@ -50,10 +54,18 @@ describe('Session management with PostgreSQL (e2e)', () => {
     await app.init();
 
     prisma = app.get(PrismaService);
+    mailService = app.get(MailService);
+    secureTokenService = app.get(SecureTokenService);
     passwordHash = await app.get(PasswordService).hash(password);
   });
 
   beforeEach(async () => {
+    jest.clearAllMocks();
+    jest
+      .spyOn(mailService, 'sendNewSessionEmail')
+      .mockResolvedValue('test-provider-message-id');
+    await prisma.notificationDelivery.deleteMany();
+    await prisma.securityEvent.deleteMany();
     await prisma.session.deleteMany();
     await prisma.user.deleteMany();
     await prisma.allowedDomain.deleteMany();
@@ -79,6 +91,8 @@ describe('Session management with PostgreSQL (e2e)', () => {
 
   afterAll(async () => {
     if (prisma) {
+      await prisma.notificationDelivery.deleteMany();
+      await prisma.securityEvent.deleteMany();
       await prisma.session.deleteMany();
       await prisma.user.deleteMany();
       await prisma.allowedDomain.deleteMany();
@@ -190,6 +204,167 @@ describe('Session management with PostgreSQL (e2e)', () => {
       .set('Authorization', `Bearer ${sessionA.accessToken}`)
       .expect(200)
       .expect({ revokedSessionsCount: 0 });
+
+    expect(
+      await prisma.securityEvent.count({
+        where: { type: 'SESSION_REVOKED' },
+      }),
+    ).toBe(1);
+    expect(
+      await prisma.securityEvent.findMany({
+        where: { type: 'OTHER_SESSIONS_REVOKED' },
+        select: { affectedSessionCount: true },
+        orderBy: { occurredAt: 'asc' },
+      }),
+    ).toEqual([{ affectedSessionCount: 2 }, { affectedSessionCount: 0 }]);
+  });
+
+  it('records login outcomes without storing submitted credentials', async () => {
+    await request(app.getHttpServer())
+      .post('/auth/login')
+      .set('X-Device-Model', 'Unknown login device')
+      .set('X-Platform', 'WEB')
+      .send({ email: 'unknown@my.centennialcollege.ca', password: 'Wrong1!' })
+      .expect(401);
+
+    await request(app.getHttpServer())
+      .post('/auth/login')
+      .set('X-Device-Model', 'Known login device')
+      .set('X-Platform', 'WEB')
+      .send({ email, password: 'Wrong1!' })
+      .expect(401);
+
+    const failedEvents = await prisma.securityEvent.findMany({
+      where: { type: 'LOGIN_FAILED' },
+      select: {
+        reason: true,
+        userId: true,
+        deviceModel: true,
+      },
+      orderBy: { occurredAt: 'asc' },
+    });
+
+    expect(failedEvents).toHaveLength(2);
+    const unknownLoginEvent = failedEvents.find(
+      ({ deviceModel }) => deviceModel === 'Unknown login device',
+    );
+    const knownLoginEvent = failedEvents.find(
+      ({ deviceModel }) => deviceModel === 'Known login device',
+    );
+
+    expect(unknownLoginEvent).toEqual({
+      reason: 'INVALID_CREDENTIALS',
+      userId: null,
+      deviceModel: 'Unknown login device',
+    });
+    expect(knownLoginEvent).toMatchObject({
+      reason: 'INVALID_CREDENTIALS',
+      deviceModel: 'Known login device',
+    });
+    expect(knownLoginEvent?.userId).not.toBeNull();
+
+    const tokens = await login('Successful login device', 'IOS');
+    const sessionId = currentSessionId(await getSessions(tokens.accessToken));
+    const successfulEvents = await prisma.securityEvent.findMany({
+      where: { type: { in: ['LOGIN_SUCCEEDED', 'SESSION_CREATED'] } },
+      select: {
+        type: true,
+        actorSessionId: true,
+        subjectSessionId: true,
+      },
+    });
+
+    expect(successfulEvents).toEqual(
+      expect.arrayContaining([
+        {
+          type: 'LOGIN_SUCCEEDED',
+          actorSessionId: null,
+          subjectSessionId: null,
+        },
+        {
+          type: 'SESSION_CREATED',
+          actorSessionId: sessionId,
+          subjectSessionId: sessionId,
+        },
+      ]),
+    );
+
+    await request(app.getHttpServer())
+      .post('/auth/logout')
+      .set('Authorization', `Bearer ${tokens.accessToken}`)
+      .expect(201);
+
+    await expect(
+      prisma.securityEvent.findFirstOrThrow({
+        where: {
+          type: 'SESSION_REVOKED',
+          reason: 'LOGOUT',
+          subjectSessionId: sessionId,
+        },
+        select: { actorSessionId: true },
+      }),
+    ).resolves.toEqual({ actorSessionId: sessionId });
+
+    await expect(
+      prisma.notificationDelivery.findFirstOrThrow({
+        where: { sessionId, type: 'NEW_SESSION', channel: 'EMAIL' },
+        select: {
+          status: true,
+          providerMessageId: true,
+          failureCode: true,
+        },
+      }),
+    ).resolves.toEqual({
+      status: 'SENT',
+      providerMessageId: 'test-provider-message-id',
+      failureCode: null,
+    });
+  });
+
+  it('keeps login successful when the notification email fails', async () => {
+    jest
+      .spyOn(mailService, 'sendNewSessionEmail')
+      .mockRejectedValueOnce(new Error('Provider unavailable.'));
+
+    const tokens = await login('Delivery failure device', 'WEB');
+    await getSessions(tokens.accessToken);
+
+    await expect(
+      prisma.notificationDelivery.findFirstOrThrow({
+        where: { type: 'NEW_SESSION', channel: 'EMAIL' },
+        select: { status: true, failureCode: true },
+      }),
+    ).resolves.toEqual({
+      status: 'FAILED',
+      failureCode: 'EMAIL_DELIVERY_FAILED',
+    });
+  });
+
+  it('sends the same notification after verification creates the first session', async () => {
+    const verificationToken = 'v'.repeat(64);
+    await prisma.user.update({
+      where: { email },
+      data: {
+        status: 'PENDING',
+        emailVerified: false,
+        hashedVerificationToken: secureTokenService.hash(verificationToken),
+        verificationTokenExpires: new Date(Date.now() + 60_000),
+      },
+    });
+
+    await request(app.getHttpServer())
+      .post('/auth/verify-email')
+      .set('X-Device-Model', 'Verified device')
+      .set('X-Platform', 'IOS')
+      .send({ token: verificationToken })
+      .expect(201);
+
+    await expect(
+      prisma.notificationDelivery.findFirstOrThrow({
+        where: { type: 'NEW_SESSION', channel: 'EMAIL' },
+        select: { status: true, recipient: true },
+      }),
+    ).resolves.toEqual({ status: 'SENT', recipient: email });
   });
 
   it('rejects the eleventh session without revoking existing sessions', async () => {
@@ -215,6 +390,11 @@ describe('Session management with PostgreSQL (e2e)', () => {
     expect(
       await prisma.session.count({ where: { revokedAt: { not: null } } }),
     ).toBe(0);
+    expect(
+      await prisma.securityEvent.count({
+        where: { type: 'SESSION_CREATION_FAILED' },
+      }),
+    ).toBe(1);
 
     const sessionList = await getSessions(sessions[0].accessToken);
     const currentId = currentSessionId(sessionList);

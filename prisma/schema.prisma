@@ -28,6 +28,36 @@ enum SessionPlatform {
   UNKNOWN
 }
 
+enum SecurityEventType {
+  LOGIN_SUCCEEDED
+  LOGIN_FAILED
+  SESSION_CREATED
+  SESSION_CREATION_FAILED
+  SESSION_REVOKED
+  OTHER_SESSIONS_REVOKED
+}
+
+enum SecurityEventReason {
+  INVALID_CREDENTIALS
+  ACTIVE_SESSION_LIMIT_REACHED
+  LOGOUT
+  SESSION_MANAGEMENT
+}
+
+enum NotificationType {
+  NEW_SESSION
+}
+
+enum NotificationChannel {
+  EMAIL
+}
+
+enum NotificationDeliveryStatus {
+  PENDING
+  SENT
+  FAILED
+}
+
 model User {
   // core
   id            String  @id @default(cuid())
@@ -62,7 +92,9 @@ model User {
   university University @relation(fields: [universityId], references: [id])
 
   // relations
-  sessions Session[]
+  sessions               Session[]
+  securityEvents         SecurityEvent[]
+  notificationDeliveries NotificationDelivery[]
 }
 
 model University {
@@ -112,7 +144,68 @@ model Session {
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  actorSecurityEvents    SecurityEvent[]        @relation("SecurityEventActorSession")
+  subjectSecurityEvents  SecurityEvent[]        @relation("SecurityEventSubjectSession")
+  notificationDeliveries NotificationDelivery[]
+
   @@index([userId, revokedAt])
   @@index([userId, lastActiveAt])
   @@index([expiresAt])
+}
+
+model NotificationDelivery {
+  id                 String                     @id @default(cuid())
+  type               NotificationType
+  channel            NotificationChannel
+  status             NotificationDeliveryStatus @default(PENDING)
+  userId             String?
+  sessionId          String?
+  recipient          String
+  providerMessageId  String?
+  failureCode        String?
+  attemptedAt        DateTime?
+  sentAt             DateTime?
+  retentionExpiresAt DateTime
+  createdAt          DateTime                   @default(now())
+  updatedAt          DateTime                   @updatedAt
+
+  user    User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  session Session? @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+
+  @@unique([type, channel, sessionId])
+  @@index([userId, createdAt])
+  @@index([status, createdAt])
+  @@index([retentionExpiresAt])
+}
+
+model SecurityEvent {
+  id               String               @id @default(cuid())
+  type             SecurityEventType
+  reason           SecurityEventReason?
+  userId           String?
+  actorSessionId   String?
+  subjectSessionId String?
+
+  ipAddress           String?
+  userAgent           String?
+  deviceModel         String?
+  platform            SessionPlatform?
+  osVersion           String?
+  appVersion          String?
+  locationCountryCode String?
+  locationCity        String?
+
+  affectedSessionCount Int?
+  occurredAt           DateTime @default(now())
+  retentionExpiresAt   DateTime
+
+  user           User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  actorSession   Session? @relation("SecurityEventActorSession", fields: [actorSessionId], references: [id], onDelete: SetNull)
+  subjectSession Session? @relation("SecurityEventSubjectSession", fields: [subjectSessionId], references: [id], onDelete: SetNull)
+
+  @@index([userId, occurredAt])
+  @@index([type, occurredAt])
+  @@index([actorSessionId])
+  @@index([subjectSessionId])
+  @@index([retentionExpiresAt])
 }

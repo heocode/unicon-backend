@@ -8,6 +8,8 @@ const validEnvironment = {
   SESSION_INACTIVITY_TTL_SECONDS: '31536000',
   SESSION_MANAGEMENT_COOLDOWN_SECONDS: '86400',
   SESSION_ACTIVE_LIMIT: '10',
+  SECURITY_EVENT_RETENTION_SECONDS: '15552000',
+  NOTIFICATION_DELIVERY_RETENTION_SECONDS: '15552000',
   RESEND_API_KEY: 'resend-api-key',
   MAIL_FROM: 'noreply@unicon.local',
   CLIENT_URL: 'http://localhost:3001',
@@ -72,6 +74,28 @@ describe('validateEnvironment', () => {
       }),
     ).toThrow(
       'Environment variable SESSION_ACTIVE_LIMIT must be a positive integer.',
+    );
+  });
+
+  it('rejects a non-positive security-event retention', () => {
+    expect(() =>
+      validateEnvironment({
+        ...validEnvironment,
+        SECURITY_EVENT_RETENTION_SECONDS: '0',
+      }),
+    ).toThrow(
+      'Environment variable SECURITY_EVENT_RETENTION_SECONDS must be a positive integer.',
+    );
+  });
+
+  it('rejects a non-positive notification-delivery retention', () => {
+    expect(() =>
+      validateEnvironment({
+        ...validEnvironment,
+        NOTIFICATION_DELIVERY_RETENTION_SECONDS: '0',
+      }),
+    ).toThrow(
+      'Environment variable NOTIFICATION_DELIVERY_RETENTION_SECONDS must be a positive integer.',
     );
   });
 

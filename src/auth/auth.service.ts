@@ -3,6 +3,7 @@ import {
   BadRequestException,
   ConflictException,
   Injectable,
+  Logger,
   UnauthorizedException,
   ForbiddenException,
 } from '@nestjs/common';
@@ -12,6 +13,8 @@ import { Prisma } from '../generated/prisma/client';
 
 // Internal services
 import { PrismaService } from '../prisma/prisma.service';
+import { SecurityEventService } from '../security/services/security-event.service';
+import { NotificationService } from '../notifications/services/notification.service';
 import { PasswordService } from './services/password.service';
 import { SecureTokenService } from './services/secure-token.service';
 import { UsernameService } from './services/username.service';
@@ -41,6 +44,8 @@ type CreatePendingUserParams = {
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly passwordService: PasswordService,
@@ -48,6 +53,8 @@ export class AuthService {
     private readonly usernameService: UsernameService,
     private readonly sessionService: SessionService,
     private readonly emailVerificationService: EmailVerificationService,
+    private readonly securityEventService: SecurityEventService,
+    private readonly notificationService: NotificationService,
   ) {}
 
   async register(dto: RegisterDto) {
@@ -118,6 +125,7 @@ export class AuthService {
     });
 
     if (!existingUser) {
+      await this.recordFailedLogin(metadata);
       throw new UnauthorizedException('Invalid email or password.');
     }
 
@@ -127,6 +135,7 @@ export class AuthService {
     );
 
     if (!passwordMatches) {
+      await this.recordFailedLogin(metadata, existingUser.id);
       throw new UnauthorizedException('Invalid email or password.');
     }
 
@@ -150,7 +159,22 @@ export class AuthService {
       });
     }
 
-    return this.sessionService.create(existingUser.id, metadata);
+    await this.securityEventService.record({
+      type: 'LOGIN_SUCCEEDED',
+      userId: existingUser.id,
+      ...this.securityEventService.snapshotFromMetadata(metadata),
+    });
+
+    const { sessionId, ...tokens } = await this.sessionService.create(
+      existingUser.id,
+      metadata,
+    );
+    await this.notificationService.sendNewSessionNotification(
+      existingUser.id,
+      sessionId,
+    );
+
+    return tokens;
   }
 
   async logout(userId: string, sessionId: string) {
@@ -262,5 +286,24 @@ export class AuthService {
 
   refreshTokens(userId: string, sessionId: string, refreshToken: string) {
     return this.sessionService.refresh(userId, sessionId, refreshToken);
+  }
+
+  private async recordFailedLogin(
+    metadata: SessionMetadata,
+    userId?: string,
+  ): Promise<void> {
+    try {
+      await this.securityEventService.record({
+        type: 'LOGIN_FAILED',
+        reason: 'INVALID_CREDENTIALS',
+        userId,
+        ...this.securityEventService.snapshotFromMetadata(metadata),
+      });
+    } catch (error) {
+      this.logger.error(
+        'Failed to record a rejected login attempt.',
+        error instanceof Error ? error.stack : undefined,
+      );
+    }
   }
 }

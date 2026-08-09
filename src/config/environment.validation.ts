@@ -42,6 +42,15 @@ export function validateEnvironment(
     environment.SESSION_ACTIVE_LIMIT,
     'SESSION_ACTIVE_LIMIT',
   );
+  validatedEnvironment.SECURITY_EVENT_RETENTION_SECONDS = parsePositiveInteger(
+    environment.SECURITY_EVENT_RETENTION_SECONDS,
+    'SECURITY_EVENT_RETENTION_SECONDS',
+  );
+  validatedEnvironment.NOTIFICATION_DELIVERY_RETENTION_SECONDS =
+    parsePositiveInteger(
+      environment.NOTIFICATION_DELIVERY_RETENTION_SECONDS,
+      'NOTIFICATION_DELIVERY_RETENTION_SECONDS',
+    );
 
   validatedEnvironment.PORT = parsePort(environment.PORT);
   validatedEnvironment.GEOIP_ENABLED = parseBoolean(

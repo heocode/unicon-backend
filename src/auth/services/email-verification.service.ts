@@ -14,6 +14,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { MailService } from '../../mail/mail.service';
 import { SecureTokenService } from './secure-token.service';
 import { SessionService } from './session.service';
+import { NotificationService } from '../../notifications/services/notification.service';
 
 // Internal utils
 import { getVerificationCooldownSeconds } from '../utils/get-verification-cooldown.util';
@@ -33,6 +34,7 @@ export class EmailVerificationService {
     private readonly secureTokenService: SecureTokenService,
     private readonly sessionService: SessionService,
     private readonly mailService: MailService,
+    private readonly notificationService: NotificationService,
   ) {}
 
   async sendVerificationEmail(
@@ -143,7 +145,14 @@ export class EmailVerificationService {
       );
     }
 
-    const tokens = await this.sessionService.create(user.id, metadata);
+    const { sessionId, ...tokens } = await this.sessionService.create(
+      user.id,
+      metadata,
+    );
+    await this.notificationService.sendNewSessionNotification(
+      user.id,
+      sessionId,
+    );
 
     return {
       message: 'Email verified successfully.',

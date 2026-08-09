@@ -6,6 +6,8 @@ import { JwtModule } from '@nestjs/jwt';
 import { PrismaModule } from '../prisma/prisma.module';
 import { MailModule } from '../mail/mail.module';
 import { GeoIpModule } from '../geo-ip/geo-ip.module';
+import { SecurityModule } from '../security/security.module';
+import { NotificationModule } from '../notifications/notification.module';
 
 // Controllers
 import { AuthController } from './auth.controller';
@@ -24,7 +26,14 @@ import { SessionService } from './services/session.service';
 import { EmailVerificationService } from './services/email-verification.service';
 
 @Module({
-  imports: [PrismaModule, JwtModule.register({}), MailModule, GeoIpModule],
+  imports: [
+    PrismaModule,
+    JwtModule.register({}),
+    MailModule,
+    GeoIpModule,
+    SecurityModule,
+    NotificationModule,
+  ],
   controllers: [AuthController],
   providers: [
     AuthService,

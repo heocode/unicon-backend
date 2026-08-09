@@ -36,3 +36,48 @@ export const SessionPlatform = {
 } as const
 
 export type SessionPlatform = (typeof SessionPlatform)[keyof typeof SessionPlatform]
+
+
+export const SecurityEventType = {
+  LOGIN_SUCCEEDED: 'LOGIN_SUCCEEDED',
+  LOGIN_FAILED: 'LOGIN_FAILED',
+  SESSION_CREATED: 'SESSION_CREATED',
+  SESSION_CREATION_FAILED: 'SESSION_CREATION_FAILED',
+  SESSION_REVOKED: 'SESSION_REVOKED',
+  OTHER_SESSIONS_REVOKED: 'OTHER_SESSIONS_REVOKED'
+} as const
+
+export type SecurityEventType = (typeof SecurityEventType)[keyof typeof SecurityEventType]
+
+
+export const SecurityEventReason = {
+  INVALID_CREDENTIALS: 'INVALID_CREDENTIALS',
+  ACTIVE_SESSION_LIMIT_REACHED: 'ACTIVE_SESSION_LIMIT_REACHED',
+  LOGOUT: 'LOGOUT',
+  SESSION_MANAGEMENT: 'SESSION_MANAGEMENT'
+} as const
+
+export type SecurityEventReason = (typeof SecurityEventReason)[keyof typeof SecurityEventReason]
+
+
+export const NotificationType = {
+  NEW_SESSION: 'NEW_SESSION'
+} as const
+
+export type NotificationType = (typeof NotificationType)[keyof typeof NotificationType]
+
+
+export const NotificationChannel = {
+  EMAIL: 'EMAIL'
+} as const
+
+export type NotificationChannel = (typeof NotificationChannel)[keyof typeof NotificationChannel]
+
+
+export const NotificationDeliveryStatus = {
+  PENDING: 'PENDING',
+  SENT: 'SENT',
+  FAILED: 'FAILED'
+} as const
+
+export type NotificationDeliveryStatus = (typeof NotificationDeliveryStatus)[keyof typeof NotificationDeliveryStatus]

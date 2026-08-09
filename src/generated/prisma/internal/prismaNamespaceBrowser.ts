@@ -54,7 +54,9 @@ export const ModelName = {
   User: 'User',
   University: 'University',
   AllowedDomain: 'AllowedDomain',
-  Session: 'Session'
+  Session: 'Session',
+  NotificationDelivery: 'NotificationDelivery',
+  SecurityEvent: 'SecurityEvent'
 } as const
 
 export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -141,6 +143,49 @@ export const SessionScalarFieldEnum = {
 } as const
 
 export type SessionScalarFieldEnum = (typeof SessionScalarFieldEnum)[keyof typeof SessionScalarFieldEnum]
+
+
+export const NotificationDeliveryScalarFieldEnum = {
+  id: 'id',
+  type: 'type',
+  channel: 'channel',
+  status: 'status',
+  userId: 'userId',
+  sessionId: 'sessionId',
+  recipient: 'recipient',
+  providerMessageId: 'providerMessageId',
+  failureCode: 'failureCode',
+  attemptedAt: 'attemptedAt',
+  sentAt: 'sentAt',
+  retentionExpiresAt: 'retentionExpiresAt',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type NotificationDeliveryScalarFieldEnum = (typeof NotificationDeliveryScalarFieldEnum)[keyof typeof NotificationDeliveryScalarFieldEnum]
+
+
+export const SecurityEventScalarFieldEnum = {
+  id: 'id',
+  type: 'type',
+  reason: 'reason',
+  userId: 'userId',
+  actorSessionId: 'actorSessionId',
+  subjectSessionId: 'subjectSessionId',
+  ipAddress: 'ipAddress',
+  userAgent: 'userAgent',
+  deviceModel: 'deviceModel',
+  platform: 'platform',
+  osVersion: 'osVersion',
+  appVersion: 'appVersion',
+  locationCountryCode: 'locationCountryCode',
+  locationCity: 'locationCity',
+  affectedSessionCount: 'affectedSessionCount',
+  occurredAt: 'occurredAt',
+  retentionExpiresAt: 'retentionExpiresAt'
+} as const
+
+export type SecurityEventScalarFieldEnum = (typeof SecurityEventScalarFieldEnum)[keyof typeof SecurityEventScalarFieldEnum]
 
 
 export const SortOrder = {

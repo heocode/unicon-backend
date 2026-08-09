@@ -19,6 +19,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { JwtTokenService } from './jwt-token.service';
 import { SecureTokenService } from './secure-token.service';
 import { GeoIpService } from '../../geo-ip/geo-ip.service';
+import { SecurityEventService } from '../../security/services/security-event.service';
 
 // Internal types
 import type { SessionMetadata } from '../types/session-metadata.type';
@@ -27,6 +28,10 @@ import type { SessionsResponseDto } from '../dtos/session-response.dto';
 type AuthTokens = {
   accessToken: string;
   refreshToken: string;
+};
+
+type CreatedSession = AuthTokens & {
+  sessionId: string;
 };
 
 @Injectable()
@@ -40,6 +45,7 @@ export class SessionService {
     private readonly jwtTokenService: JwtTokenService,
     private readonly secureTokenService: SecureTokenService,
     private readonly geoIpService: GeoIpService,
+    private readonly securityEventService: SecurityEventService,
     configService: ConfigService,
   ) {
     this.inactivityTtlSeconds = configService.getOrThrow<number>(
@@ -56,7 +62,7 @@ export class SessionService {
   async create(
     userId: string,
     metadata: SessionMetadata = { platform: 'UNKNOWN' },
-  ): Promise<AuthTokens> {
+  ): Promise<CreatedSession> {
     const sessionId = randomUUID();
     const expiresAt = this.getNextExpiration(new Date());
     const location = this.geoIpService.lookup(metadata.ipAddress);
@@ -86,9 +92,11 @@ export class SessionService {
       locationCity: location?.city,
     };
 
+    let sessionCreated = false;
+
     for (let attempt = 0; attempt < 3; attempt++) {
       try {
-        await this.prisma.$transaction(
+        sessionCreated = await this.prisma.$transaction(
           async (transaction) => {
             const activeSessionCount = await transaction.session.count({
               where: {
@@ -101,16 +109,34 @@ export class SessionService {
             });
 
             if (activeSessionCount >= this.activeSessionLimit) {
-              throw new ConflictException({
-                code: 'SESSION_LIMIT_REACHED',
-                message: 'The active session limit has been reached.',
-                activeSessionLimit: this.activeSessionLimit,
-              });
+              await this.securityEventService.record(
+                {
+                  type: 'SESSION_CREATION_FAILED',
+                  reason: 'ACTIVE_SESSION_LIMIT_REACHED',
+                  userId,
+                  ...this.toSecuritySnapshot(sessionData),
+                },
+                transaction,
+              );
+
+              return false;
             }
 
             await transaction.session.create({
               data: sessionData,
             });
+            await this.securityEventService.record(
+              {
+                type: 'SESSION_CREATED',
+                userId,
+                actorSessionId: sessionId,
+                subjectSessionId: sessionId,
+                ...this.toSecuritySnapshot(sessionData),
+              },
+              transaction,
+            );
+
+            return true;
           },
           {
             isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
@@ -131,9 +157,18 @@ export class SessionService {
       }
     }
 
+    if (!sessionCreated) {
+      throw new ConflictException({
+        code: 'SESSION_LIMIT_REACHED',
+        message: 'The active session limit has been reached.',
+        activeSessionLimit: this.activeSessionLimit,
+      });
+    }
+
     return {
       accessToken: generatedTokens.accessToken,
       refreshToken: generatedTokens.refreshToken,
+      sessionId,
     };
   }
 
@@ -362,21 +397,39 @@ export class SessionService {
   }
 
   async revoke(userId: string, sessionId: string): Promise<void> {
-    const result = await this.prisma.session.updateMany({
-      where: {
-        id: sessionId,
-        userId,
-        revokedAt: null,
-      },
+    await this.prisma.$transaction(async (transaction) => {
+      const session = await transaction.session.findFirst({
+        where: { id: sessionId, userId, revokedAt: null },
+        select: this.securitySnapshotSelect,
+      });
 
-      data: {
-        revokedAt: new Date(),
-      },
+      if (!session) {
+        throw new UnauthorizedException('Access Denied. Session not found.');
+      }
+
+      const now = new Date();
+      const result = await transaction.session.updateMany({
+        where: { id: sessionId, userId, revokedAt: null },
+        data: { revokedAt: now },
+      });
+
+      if (result.count === 0) {
+        throw new UnauthorizedException('Access Denied. Session not found.');
+      }
+
+      await this.securityEventService.record(
+        {
+          type: 'SESSION_REVOKED',
+          reason: 'LOGOUT',
+          userId,
+          actorSessionId: sessionId,
+          subjectSessionId: sessionId,
+          occurredAt: now,
+          ...this.toSecuritySnapshot(session),
+        },
+        transaction,
+      );
     });
-
-    if (result.count === 0) {
-      throw new UnauthorizedException('Access Denied. Session not found.');
-    }
   }
 
   async revokeSelected(
@@ -385,36 +438,52 @@ export class SessionService {
     targetSessionId: string,
   ): Promise<void> {
     const now = new Date();
-    const currentSession = await this.findActiveCurrentSession(
-      userId,
-      currentSessionId,
-      now,
-    );
-
-    if (targetSessionId !== currentSessionId) {
-      this.assertManagementAvailable(currentSession.createdAt, now);
-    }
-
-    const result = await this.prisma.session.updateMany({
-      where: {
-        id: targetSessionId,
+    await this.prisma.$transaction(async (transaction) => {
+      const currentSession = await this.findActiveCurrentSession(
         userId,
-        revokedAt: null,
-        expiresAt: {
-          gt: now,
-        },
-      },
-      data: {
-        revokedAt: now,
-      },
-    });
+        currentSessionId,
+        now,
+        transaction,
+      );
 
-    if (result.count === 0) {
-      throw new NotFoundException({
-        code: 'SESSION_NOT_FOUND',
-        message: 'Active session not found.',
+      if (targetSessionId !== currentSessionId) {
+        this.assertManagementAvailable(currentSession.createdAt, now);
+      }
+
+      const result = await transaction.session.updateMany({
+        where: {
+          id: targetSessionId,
+          userId,
+          revokedAt: null,
+          expiresAt: {
+            gt: now,
+          },
+        },
+        data: {
+          revokedAt: now,
+        },
       });
-    }
+
+      if (result.count === 0) {
+        throw new NotFoundException({
+          code: 'SESSION_NOT_FOUND',
+          message: 'Active session not found.',
+        });
+      }
+
+      await this.securityEventService.record(
+        {
+          type: 'SESSION_REVOKED',
+          reason: 'SESSION_MANAGEMENT',
+          userId,
+          actorSessionId: currentSessionId,
+          subjectSessionId: targetSessionId,
+          occurredAt: now,
+          ...this.toSecuritySnapshot(currentSession),
+        },
+        transaction,
+      );
+    });
   }
 
   async revokeOthers(
@@ -422,32 +491,46 @@ export class SessionService {
     currentSessionId: string,
   ): Promise<{ revokedSessionsCount: number }> {
     const now = new Date();
-    const currentSession = await this.findActiveCurrentSession(
-      userId,
-      currentSessionId,
-      now,
-    );
-    this.assertManagementAvailable(currentSession.createdAt, now);
-
-    const result = await this.prisma.session.updateMany({
-      where: {
+    return this.prisma.$transaction(async (transaction) => {
+      const currentSession = await this.findActiveCurrentSession(
         userId,
-        id: {
-          not: currentSessionId,
-        },
-        revokedAt: null,
-        expiresAt: {
-          gt: now,
-        },
-      },
-      data: {
-        revokedAt: now,
-      },
-    });
+        currentSessionId,
+        now,
+        transaction,
+      );
+      this.assertManagementAvailable(currentSession.createdAt, now);
 
-    return {
-      revokedSessionsCount: result.count,
-    };
+      const result = await transaction.session.updateMany({
+        where: {
+          userId,
+          id: {
+            not: currentSessionId,
+          },
+          revokedAt: null,
+          expiresAt: {
+            gt: now,
+          },
+        },
+        data: {
+          revokedAt: now,
+        },
+      });
+
+      await this.securityEventService.record(
+        {
+          type: 'OTHER_SESSIONS_REVOKED',
+          reason: 'SESSION_MANAGEMENT',
+          userId,
+          actorSessionId: currentSessionId,
+          affectedSessionCount: result.count,
+          occurredAt: now,
+          ...this.toSecuritySnapshot(currentSession),
+        },
+        transaction,
+      );
+
+      return { revokedSessionsCount: result.count };
+    });
   }
 
   private getNextExpiration(now: Date): Date {
@@ -461,8 +544,9 @@ export class SessionService {
     userId: string,
     currentSessionId: string,
     now: Date,
-  ): Promise<{ createdAt: Date }> {
-    const currentSession = await this.prisma.session.findFirst({
+    client: PrismaService | Prisma.TransactionClient = this.prisma,
+  ) {
+    const currentSession = await client.session.findFirst({
       where: {
         id: currentSessionId,
         userId,
@@ -474,9 +558,7 @@ export class SessionService {
           status: 'ACTIVE',
         },
       },
-      select: {
-        createdAt: true,
-      },
+      select: { createdAt: true, ...this.securitySnapshotSelect },
     });
 
     if (!currentSession) {
@@ -484,6 +566,39 @@ export class SessionService {
     }
 
     return currentSession;
+  }
+
+  private readonly securitySnapshotSelect = {
+    ipAddress: true,
+    userAgent: true,
+    deviceModel: true,
+    platform: true,
+    osVersion: true,
+    appVersion: true,
+    locationCountryCode: true,
+    locationCity: true,
+  } as const;
+
+  private toSecuritySnapshot(snapshot: {
+    ipAddress?: string | null;
+    userAgent?: string | null;
+    deviceModel?: string | null;
+    platform?: SessionMetadata['platform'] | null;
+    osVersion?: string | null;
+    appVersion?: string | null;
+    locationCountryCode?: string | null;
+    locationCity?: string | null;
+  }) {
+    return {
+      ipAddress: snapshot.ipAddress ?? undefined,
+      userAgent: snapshot.userAgent ?? undefined,
+      deviceModel: snapshot.deviceModel ?? undefined,
+      platform: snapshot.platform ?? undefined,
+      osVersion: snapshot.osVersion ?? undefined,
+      appVersion: snapshot.appVersion ?? undefined,
+      locationCountryCode: snapshot.locationCountryCode ?? undefined,
+      locationCity: snapshot.locationCity ?? undefined,
+    };
   }
 
   private assertManagementAvailable(createdAt: Date, now: Date): void {

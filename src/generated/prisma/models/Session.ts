@@ -279,6 +279,9 @@ export type SessionWhereInput = {
   createdAt?: Prisma.DateTimeFilter<"Session"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"Session"> | Date | string
   user?: Prisma.XOR<Prisma.UserScalarRelationFilter, Prisma.UserWhereInput>
+  actorSecurityEvents?: Prisma.SecurityEventListRelationFilter
+  subjectSecurityEvents?: Prisma.SecurityEventListRelationFilter
+  notificationDeliveries?: Prisma.NotificationDeliveryListRelationFilter
 }
 
 export type SessionOrderByWithRelationInput = {
@@ -300,6 +303,9 @@ export type SessionOrderByWithRelationInput = {
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   user?: Prisma.UserOrderByWithRelationInput
+  actorSecurityEvents?: Prisma.SecurityEventOrderByRelationAggregateInput
+  subjectSecurityEvents?: Prisma.SecurityEventOrderByRelationAggregateInput
+  notificationDeliveries?: Prisma.NotificationDeliveryOrderByRelationAggregateInput
 }
 
 export type SessionWhereUniqueInput = Prisma.AtLeast<{
@@ -324,6 +330,9 @@ export type SessionWhereUniqueInput = Prisma.AtLeast<{
   createdAt?: Prisma.DateTimeFilter<"Session"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"Session"> | Date | string
   user?: Prisma.XOR<Prisma.UserScalarRelationFilter, Prisma.UserWhereInput>
+  actorSecurityEvents?: Prisma.SecurityEventListRelationFilter
+  subjectSecurityEvents?: Prisma.SecurityEventListRelationFilter
+  notificationDeliveries?: Prisma.NotificationDeliveryListRelationFilter
 }, "id">
 
 export type SessionOrderByWithAggregationInput = {
@@ -390,6 +399,9 @@ export type SessionCreateInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   user: Prisma.UserCreateNestedOneWithoutSessionsInput
+  actorSecurityEvents?: Prisma.SecurityEventCreateNestedManyWithoutActorSessionInput
+  subjectSecurityEvents?: Prisma.SecurityEventCreateNestedManyWithoutSubjectSessionInput
+  notificationDeliveries?: Prisma.NotificationDeliveryCreateNestedManyWithoutSessionInput
 }
 
 export type SessionUncheckedCreateInput = {
@@ -410,6 +422,9 @@ export type SessionUncheckedCreateInput = {
   lastActiveAt?: Date | string
   createdAt?: Date | string
   updatedAt?: Date | string
+  actorSecurityEvents?: Prisma.SecurityEventUncheckedCreateNestedManyWithoutActorSessionInput
+  subjectSecurityEvents?: Prisma.SecurityEventUncheckedCreateNestedManyWithoutSubjectSessionInput
+  notificationDeliveries?: Prisma.NotificationDeliveryUncheckedCreateNestedManyWithoutSessionInput
 }
 
 export type SessionUpdateInput = {
@@ -430,6 +445,9 @@ export type SessionUpdateInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   user?: Prisma.UserUpdateOneRequiredWithoutSessionsNestedInput
+  actorSecurityEvents?: Prisma.SecurityEventUpdateManyWithoutActorSessionNestedInput
+  subjectSecurityEvents?: Prisma.SecurityEventUpdateManyWithoutSubjectSessionNestedInput
+  notificationDeliveries?: Prisma.NotificationDeliveryUpdateManyWithoutSessionNestedInput
 }
 
 export type SessionUncheckedUpdateInput = {
@@ -450,6 +468,9 @@ export type SessionUncheckedUpdateInput = {
   lastActiveAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  actorSecurityEvents?: Prisma.SecurityEventUncheckedUpdateManyWithoutActorSessionNestedInput
+  subjectSecurityEvents?: Prisma.SecurityEventUncheckedUpdateManyWithoutSubjectSessionNestedInput
+  notificationDeliveries?: Prisma.NotificationDeliveryUncheckedUpdateManyWithoutSessionNestedInput
 }
 
 export type SessionCreateManyInput = {
@@ -581,6 +602,11 @@ export type SessionMinOrderByAggregateInput = {
   updatedAt?: Prisma.SortOrder
 }
 
+export type SessionNullableScalarRelationFilter = {
+  is?: Prisma.SessionWhereInput | null
+  isNot?: Prisma.SessionWhereInput | null
+}
+
 export type SessionCreateNestedManyWithoutUserInput = {
   create?: Prisma.XOR<Prisma.SessionCreateWithoutUserInput, Prisma.SessionUncheckedCreateWithoutUserInput> | Prisma.SessionCreateWithoutUserInput[] | Prisma.SessionUncheckedCreateWithoutUserInput[]
   connectOrCreate?: Prisma.SessionCreateOrConnectWithoutUserInput | Prisma.SessionCreateOrConnectWithoutUserInput[]
@@ -627,6 +653,54 @@ export type EnumSessionPlatformFieldUpdateOperationsInput = {
   set?: $Enums.SessionPlatform
 }
 
+export type SessionCreateNestedOneWithoutNotificationDeliveriesInput = {
+  create?: Prisma.XOR<Prisma.SessionCreateWithoutNotificationDeliveriesInput, Prisma.SessionUncheckedCreateWithoutNotificationDeliveriesInput>
+  connectOrCreate?: Prisma.SessionCreateOrConnectWithoutNotificationDeliveriesInput
+  connect?: Prisma.SessionWhereUniqueInput
+}
+
+export type SessionUpdateOneWithoutNotificationDeliveriesNestedInput = {
+  create?: Prisma.XOR<Prisma.SessionCreateWithoutNotificationDeliveriesInput, Prisma.SessionUncheckedCreateWithoutNotificationDeliveriesInput>
+  connectOrCreate?: Prisma.SessionCreateOrConnectWithoutNotificationDeliveriesInput
+  upsert?: Prisma.SessionUpsertWithoutNotificationDeliveriesInput
+  disconnect?: Prisma.SessionWhereInput | boolean
+  delete?: Prisma.SessionWhereInput | boolean
+  connect?: Prisma.SessionWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.SessionUpdateToOneWithWhereWithoutNotificationDeliveriesInput, Prisma.SessionUpdateWithoutNotificationDeliveriesInput>, Prisma.SessionUncheckedUpdateWithoutNotificationDeliveriesInput>
+}
+
+export type SessionCreateNestedOneWithoutActorSecurityEventsInput = {
+  create?: Prisma.XOR<Prisma.SessionCreateWithoutActorSecurityEventsInput, Prisma.SessionUncheckedCreateWithoutActorSecurityEventsInput>
+  connectOrCreate?: Prisma.SessionCreateOrConnectWithoutActorSecurityEventsInput
+  connect?: Prisma.SessionWhereUniqueInput
+}
+
+export type SessionCreateNestedOneWithoutSubjectSecurityEventsInput = {
+  create?: Prisma.XOR<Prisma.SessionCreateWithoutSubjectSecurityEventsInput, Prisma.SessionUncheckedCreateWithoutSubjectSecurityEventsInput>
+  connectOrCreate?: Prisma.SessionCreateOrConnectWithoutSubjectSecurityEventsInput
+  connect?: Prisma.SessionWhereUniqueInput
+}
+
+export type SessionUpdateOneWithoutActorSecurityEventsNestedInput = {
+  create?: Prisma.XOR<Prisma.SessionCreateWithoutActorSecurityEventsInput, Prisma.SessionUncheckedCreateWithoutActorSecurityEventsInput>
+  connectOrCreate?: Prisma.SessionCreateOrConnectWithoutActorSecurityEventsInput
+  upsert?: Prisma.SessionUpsertWithoutActorSecurityEventsInput
+  disconnect?: Prisma.SessionWhereInput | boolean
+  delete?: Prisma.SessionWhereInput | boolean
+  connect?: Prisma.SessionWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.SessionUpdateToOneWithWhereWithoutActorSecurityEventsInput, Prisma.SessionUpdateWithoutActorSecurityEventsInput>, Prisma.SessionUncheckedUpdateWithoutActorSecurityEventsInput>
+}
+
+export type SessionUpdateOneWithoutSubjectSecurityEventsNestedInput = {
+  create?: Prisma.XOR<Prisma.SessionCreateWithoutSubjectSecurityEventsInput, Prisma.SessionUncheckedCreateWithoutSubjectSecurityEventsInput>
+  connectOrCreate?: Prisma.SessionCreateOrConnectWithoutSubjectSecurityEventsInput
+  upsert?: Prisma.SessionUpsertWithoutSubjectSecurityEventsInput
+  disconnect?: Prisma.SessionWhereInput | boolean
+  delete?: Prisma.SessionWhereInput | boolean
+  connect?: Prisma.SessionWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.SessionUpdateToOneWithWhereWithoutSubjectSecurityEventsInput, Prisma.SessionUpdateWithoutSubjectSecurityEventsInput>, Prisma.SessionUncheckedUpdateWithoutSubjectSecurityEventsInput>
+}
+
 export type SessionCreateWithoutUserInput = {
   id?: string
   hashedRefreshToken: string
@@ -644,6 +718,9 @@ export type SessionCreateWithoutUserInput = {
   lastActiveAt?: Date | string
   createdAt?: Date | string
   updatedAt?: Date | string
+  actorSecurityEvents?: Prisma.SecurityEventCreateNestedManyWithoutActorSessionInput
+  subjectSecurityEvents?: Prisma.SecurityEventCreateNestedManyWithoutSubjectSessionInput
+  notificationDeliveries?: Prisma.NotificationDeliveryCreateNestedManyWithoutSessionInput
 }
 
 export type SessionUncheckedCreateWithoutUserInput = {
@@ -663,6 +740,9 @@ export type SessionUncheckedCreateWithoutUserInput = {
   lastActiveAt?: Date | string
   createdAt?: Date | string
   updatedAt?: Date | string
+  actorSecurityEvents?: Prisma.SecurityEventUncheckedCreateNestedManyWithoutActorSessionInput
+  subjectSecurityEvents?: Prisma.SecurityEventUncheckedCreateNestedManyWithoutSubjectSessionInput
+  notificationDeliveries?: Prisma.NotificationDeliveryUncheckedCreateNestedManyWithoutSessionInput
 }
 
 export type SessionCreateOrConnectWithoutUserInput = {
@@ -714,6 +794,318 @@ export type SessionScalarWhereInput = {
   updatedAt?: Prisma.DateTimeFilter<"Session"> | Date | string
 }
 
+export type SessionCreateWithoutNotificationDeliveriesInput = {
+  id?: string
+  hashedRefreshToken: string
+  ipAddress?: string | null
+  userAgent?: string | null
+  sessionName?: string | null
+  deviceModel?: string | null
+  platform?: $Enums.SessionPlatform
+  osVersion?: string | null
+  appVersion?: string | null
+  locationCountryCode?: string | null
+  locationCity?: string | null
+  expiresAt: Date | string
+  revokedAt?: Date | string | null
+  lastActiveAt?: Date | string
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  user: Prisma.UserCreateNestedOneWithoutSessionsInput
+  actorSecurityEvents?: Prisma.SecurityEventCreateNestedManyWithoutActorSessionInput
+  subjectSecurityEvents?: Prisma.SecurityEventCreateNestedManyWithoutSubjectSessionInput
+}
+
+export type SessionUncheckedCreateWithoutNotificationDeliveriesInput = {
+  id?: string
+  userId: string
+  hashedRefreshToken: string
+  ipAddress?: string | null
+  userAgent?: string | null
+  sessionName?: string | null
+  deviceModel?: string | null
+  platform?: $Enums.SessionPlatform
+  osVersion?: string | null
+  appVersion?: string | null
+  locationCountryCode?: string | null
+  locationCity?: string | null
+  expiresAt: Date | string
+  revokedAt?: Date | string | null
+  lastActiveAt?: Date | string
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  actorSecurityEvents?: Prisma.SecurityEventUncheckedCreateNestedManyWithoutActorSessionInput
+  subjectSecurityEvents?: Prisma.SecurityEventUncheckedCreateNestedManyWithoutSubjectSessionInput
+}
+
+export type SessionCreateOrConnectWithoutNotificationDeliveriesInput = {
+  where: Prisma.SessionWhereUniqueInput
+  create: Prisma.XOR<Prisma.SessionCreateWithoutNotificationDeliveriesInput, Prisma.SessionUncheckedCreateWithoutNotificationDeliveriesInput>
+}
+
+export type SessionUpsertWithoutNotificationDeliveriesInput = {
+  update: Prisma.XOR<Prisma.SessionUpdateWithoutNotificationDeliveriesInput, Prisma.SessionUncheckedUpdateWithoutNotificationDeliveriesInput>
+  create: Prisma.XOR<Prisma.SessionCreateWithoutNotificationDeliveriesInput, Prisma.SessionUncheckedCreateWithoutNotificationDeliveriesInput>
+  where?: Prisma.SessionWhereInput
+}
+
+export type SessionUpdateToOneWithWhereWithoutNotificationDeliveriesInput = {
+  where?: Prisma.SessionWhereInput
+  data: Prisma.XOR<Prisma.SessionUpdateWithoutNotificationDeliveriesInput, Prisma.SessionUncheckedUpdateWithoutNotificationDeliveriesInput>
+}
+
+export type SessionUpdateWithoutNotificationDeliveriesInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  hashedRefreshToken?: Prisma.StringFieldUpdateOperationsInput | string
+  ipAddress?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  userAgent?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  sessionName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  deviceModel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  platform?: Prisma.EnumSessionPlatformFieldUpdateOperationsInput | $Enums.SessionPlatform
+  osVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  appVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  locationCountryCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  locationCity?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  expiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  revokedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  lastActiveAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  user?: Prisma.UserUpdateOneRequiredWithoutSessionsNestedInput
+  actorSecurityEvents?: Prisma.SecurityEventUpdateManyWithoutActorSessionNestedInput
+  subjectSecurityEvents?: Prisma.SecurityEventUpdateManyWithoutSubjectSessionNestedInput
+}
+
+export type SessionUncheckedUpdateWithoutNotificationDeliveriesInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  userId?: Prisma.StringFieldUpdateOperationsInput | string
+  hashedRefreshToken?: Prisma.StringFieldUpdateOperationsInput | string
+  ipAddress?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  userAgent?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  sessionName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  deviceModel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  platform?: Prisma.EnumSessionPlatformFieldUpdateOperationsInput | $Enums.SessionPlatform
+  osVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  appVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  locationCountryCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  locationCity?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  expiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  revokedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  lastActiveAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  actorSecurityEvents?: Prisma.SecurityEventUncheckedUpdateManyWithoutActorSessionNestedInput
+  subjectSecurityEvents?: Prisma.SecurityEventUncheckedUpdateManyWithoutSubjectSessionNestedInput
+}
+
+export type SessionCreateWithoutActorSecurityEventsInput = {
+  id?: string
+  hashedRefreshToken: string
+  ipAddress?: string | null
+  userAgent?: string | null
+  sessionName?: string | null
+  deviceModel?: string | null
+  platform?: $Enums.SessionPlatform
+  osVersion?: string | null
+  appVersion?: string | null
+  locationCountryCode?: string | null
+  locationCity?: string | null
+  expiresAt: Date | string
+  revokedAt?: Date | string | null
+  lastActiveAt?: Date | string
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  user: Prisma.UserCreateNestedOneWithoutSessionsInput
+  subjectSecurityEvents?: Prisma.SecurityEventCreateNestedManyWithoutSubjectSessionInput
+  notificationDeliveries?: Prisma.NotificationDeliveryCreateNestedManyWithoutSessionInput
+}
+
+export type SessionUncheckedCreateWithoutActorSecurityEventsInput = {
+  id?: string
+  userId: string
+  hashedRefreshToken: string
+  ipAddress?: string | null
+  userAgent?: string | null
+  sessionName?: string | null
+  deviceModel?: string | null
+  platform?: $Enums.SessionPlatform
+  osVersion?: string | null
+  appVersion?: string | null
+  locationCountryCode?: string | null
+  locationCity?: string | null
+  expiresAt: Date | string
+  revokedAt?: Date | string | null
+  lastActiveAt?: Date | string
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  subjectSecurityEvents?: Prisma.SecurityEventUncheckedCreateNestedManyWithoutSubjectSessionInput
+  notificationDeliveries?: Prisma.NotificationDeliveryUncheckedCreateNestedManyWithoutSessionInput
+}
+
+export type SessionCreateOrConnectWithoutActorSecurityEventsInput = {
+  where: Prisma.SessionWhereUniqueInput
+  create: Prisma.XOR<Prisma.SessionCreateWithoutActorSecurityEventsInput, Prisma.SessionUncheckedCreateWithoutActorSecurityEventsInput>
+}
+
+export type SessionCreateWithoutSubjectSecurityEventsInput = {
+  id?: string
+  hashedRefreshToken: string
+  ipAddress?: string | null
+  userAgent?: string | null
+  sessionName?: string | null
+  deviceModel?: string | null
+  platform?: $Enums.SessionPlatform
+  osVersion?: string | null
+  appVersion?: string | null
+  locationCountryCode?: string | null
+  locationCity?: string | null
+  expiresAt: Date | string
+  revokedAt?: Date | string | null
+  lastActiveAt?: Date | string
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  user: Prisma.UserCreateNestedOneWithoutSessionsInput
+  actorSecurityEvents?: Prisma.SecurityEventCreateNestedManyWithoutActorSessionInput
+  notificationDeliveries?: Prisma.NotificationDeliveryCreateNestedManyWithoutSessionInput
+}
+
+export type SessionUncheckedCreateWithoutSubjectSecurityEventsInput = {
+  id?: string
+  userId: string
+  hashedRefreshToken: string
+  ipAddress?: string | null
+  userAgent?: string | null
+  sessionName?: string | null
+  deviceModel?: string | null
+  platform?: $Enums.SessionPlatform
+  osVersion?: string | null
+  appVersion?: string | null
+  locationCountryCode?: string | null
+  locationCity?: string | null
+  expiresAt: Date | string
+  revokedAt?: Date | string | null
+  lastActiveAt?: Date | string
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  actorSecurityEvents?: Prisma.SecurityEventUncheckedCreateNestedManyWithoutActorSessionInput
+  notificationDeliveries?: Prisma.NotificationDeliveryUncheckedCreateNestedManyWithoutSessionInput
+}
+
+export type SessionCreateOrConnectWithoutSubjectSecurityEventsInput = {
+  where: Prisma.SessionWhereUniqueInput
+  create: Prisma.XOR<Prisma.SessionCreateWithoutSubjectSecurityEventsInput, Prisma.SessionUncheckedCreateWithoutSubjectSecurityEventsInput>
+}
+
+export type SessionUpsertWithoutActorSecurityEventsInput = {
+  update: Prisma.XOR<Prisma.SessionUpdateWithoutActorSecurityEventsInput, Prisma.SessionUncheckedUpdateWithoutActorSecurityEventsInput>
+  create: Prisma.XOR<Prisma.SessionCreateWithoutActorSecurityEventsInput, Prisma.SessionUncheckedCreateWithoutActorSecurityEventsInput>
+  where?: Prisma.SessionWhereInput
+}
+
+export type SessionUpdateToOneWithWhereWithoutActorSecurityEventsInput = {
+  where?: Prisma.SessionWhereInput
+  data: Prisma.XOR<Prisma.SessionUpdateWithoutActorSecurityEventsInput, Prisma.SessionUncheckedUpdateWithoutActorSecurityEventsInput>
+}
+
+export type SessionUpdateWithoutActorSecurityEventsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  hashedRefreshToken?: Prisma.StringFieldUpdateOperationsInput | string
+  ipAddress?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  userAgent?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  sessionName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  deviceModel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  platform?: Prisma.EnumSessionPlatformFieldUpdateOperationsInput | $Enums.SessionPlatform
+  osVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  appVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  locationCountryCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  locationCity?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  expiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  revokedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  lastActiveAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  user?: Prisma.UserUpdateOneRequiredWithoutSessionsNestedInput
+  subjectSecurityEvents?: Prisma.SecurityEventUpdateManyWithoutSubjectSessionNestedInput
+  notificationDeliveries?: Prisma.NotificationDeliveryUpdateManyWithoutSessionNestedInput
+}
+
+export type SessionUncheckedUpdateWithoutActorSecurityEventsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  userId?: Prisma.StringFieldUpdateOperationsInput | string
+  hashedRefreshToken?: Prisma.StringFieldUpdateOperationsInput | string
+  ipAddress?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  userAgent?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  sessionName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  deviceModel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  platform?: Prisma.EnumSessionPlatformFieldUpdateOperationsInput | $Enums.SessionPlatform
+  osVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  appVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  locationCountryCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  locationCity?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  expiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  revokedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  lastActiveAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  subjectSecurityEvents?: Prisma.SecurityEventUncheckedUpdateManyWithoutSubjectSessionNestedInput
+  notificationDeliveries?: Prisma.NotificationDeliveryUncheckedUpdateManyWithoutSessionNestedInput
+}
+
+export type SessionUpsertWithoutSubjectSecurityEventsInput = {
+  update: Prisma.XOR<Prisma.SessionUpdateWithoutSubjectSecurityEventsInput, Prisma.SessionUncheckedUpdateWithoutSubjectSecurityEventsInput>
+  create: Prisma.XOR<Prisma.SessionCreateWithoutSubjectSecurityEventsInput, Prisma.SessionUncheckedCreateWithoutSubjectSecurityEventsInput>
+  where?: Prisma.SessionWhereInput
+}
+
+export type SessionUpdateToOneWithWhereWithoutSubjectSecurityEventsInput = {
+  where?: Prisma.SessionWhereInput
+  data: Prisma.XOR<Prisma.SessionUpdateWithoutSubjectSecurityEventsInput, Prisma.SessionUncheckedUpdateWithoutSubjectSecurityEventsInput>
+}
+
+export type SessionUpdateWithoutSubjectSecurityEventsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  hashedRefreshToken?: Prisma.StringFieldUpdateOperationsInput | string
+  ipAddress?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  userAgent?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  sessionName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  deviceModel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  platform?: Prisma.EnumSessionPlatformFieldUpdateOperationsInput | $Enums.SessionPlatform
+  osVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  appVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  locationCountryCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  locationCity?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  expiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  revokedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  lastActiveAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  user?: Prisma.UserUpdateOneRequiredWithoutSessionsNestedInput
+  actorSecurityEvents?: Prisma.SecurityEventUpdateManyWithoutActorSessionNestedInput
+  notificationDeliveries?: Prisma.NotificationDeliveryUpdateManyWithoutSessionNestedInput
+}
+
+export type SessionUncheckedUpdateWithoutSubjectSecurityEventsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  userId?: Prisma.StringFieldUpdateOperationsInput | string
+  hashedRefreshToken?: Prisma.StringFieldUpdateOperationsInput | string
+  ipAddress?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  userAgent?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  sessionName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  deviceModel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  platform?: Prisma.EnumSessionPlatformFieldUpdateOperationsInput | $Enums.SessionPlatform
+  osVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  appVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  locationCountryCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  locationCity?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  expiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  revokedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  lastActiveAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  actorSecurityEvents?: Prisma.SecurityEventUncheckedUpdateManyWithoutActorSessionNestedInput
+  notificationDeliveries?: Prisma.NotificationDeliveryUncheckedUpdateManyWithoutSessionNestedInput
+}
+
 export type SessionCreateManyUserInput = {
   id?: string
   hashedRefreshToken: string
@@ -750,6 +1142,9 @@ export type SessionUpdateWithoutUserInput = {
   lastActiveAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  actorSecurityEvents?: Prisma.SecurityEventUpdateManyWithoutActorSessionNestedInput
+  subjectSecurityEvents?: Prisma.SecurityEventUpdateManyWithoutSubjectSessionNestedInput
+  notificationDeliveries?: Prisma.NotificationDeliveryUpdateManyWithoutSessionNestedInput
 }
 
 export type SessionUncheckedUpdateWithoutUserInput = {
@@ -769,6 +1164,9 @@ export type SessionUncheckedUpdateWithoutUserInput = {
   lastActiveAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  actorSecurityEvents?: Prisma.SecurityEventUncheckedUpdateManyWithoutActorSessionNestedInput
+  subjectSecurityEvents?: Prisma.SecurityEventUncheckedUpdateManyWithoutSubjectSessionNestedInput
+  notificationDeliveries?: Prisma.NotificationDeliveryUncheckedUpdateManyWithoutSessionNestedInput
 }
 
 export type SessionUncheckedUpdateManyWithoutUserInput = {
@@ -791,6 +1189,53 @@ export type SessionUncheckedUpdateManyWithoutUserInput = {
 }
 
 
+/**
+ * Count Type SessionCountOutputType
+ */
+
+export type SessionCountOutputType = {
+  actorSecurityEvents: number
+  subjectSecurityEvents: number
+  notificationDeliveries: number
+}
+
+export type SessionCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  actorSecurityEvents?: boolean | SessionCountOutputTypeCountActorSecurityEventsArgs
+  subjectSecurityEvents?: boolean | SessionCountOutputTypeCountSubjectSecurityEventsArgs
+  notificationDeliveries?: boolean | SessionCountOutputTypeCountNotificationDeliveriesArgs
+}
+
+/**
+ * SessionCountOutputType without action
+ */
+export type SessionCountOutputTypeDefaultArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the SessionCountOutputType
+   */
+  select?: Prisma.SessionCountOutputTypeSelect<ExtArgs> | null
+}
+
+/**
+ * SessionCountOutputType without action
+ */
+export type SessionCountOutputTypeCountActorSecurityEventsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.SecurityEventWhereInput
+}
+
+/**
+ * SessionCountOutputType without action
+ */
+export type SessionCountOutputTypeCountSubjectSecurityEventsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.SecurityEventWhereInput
+}
+
+/**
+ * SessionCountOutputType without action
+ */
+export type SessionCountOutputTypeCountNotificationDeliveriesArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.NotificationDeliveryWhereInput
+}
+
 
 export type SessionSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
@@ -811,6 +1256,10 @@ export type SessionSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs 
   createdAt?: boolean
   updatedAt?: boolean
   user?: boolean | Prisma.UserDefaultArgs<ExtArgs>
+  actorSecurityEvents?: boolean | Prisma.Session$actorSecurityEventsArgs<ExtArgs>
+  subjectSecurityEvents?: boolean | Prisma.Session$subjectSecurityEventsArgs<ExtArgs>
+  notificationDeliveries?: boolean | Prisma.Session$notificationDeliveriesArgs<ExtArgs>
+  _count?: boolean | Prisma.SessionCountOutputTypeDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["session"]>
 
 export type SessionSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
@@ -878,6 +1327,10 @@ export type SessionSelectScalar = {
 export type SessionOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "userId" | "hashedRefreshToken" | "ipAddress" | "userAgent" | "sessionName" | "deviceModel" | "platform" | "osVersion" | "appVersion" | "locationCountryCode" | "locationCity" | "expiresAt" | "revokedAt" | "lastActiveAt" | "createdAt" | "updatedAt", ExtArgs["result"]["session"]>
 export type SessionInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   user?: boolean | Prisma.UserDefaultArgs<ExtArgs>
+  actorSecurityEvents?: boolean | Prisma.Session$actorSecurityEventsArgs<ExtArgs>
+  subjectSecurityEvents?: boolean | Prisma.Session$subjectSecurityEventsArgs<ExtArgs>
+  notificationDeliveries?: boolean | Prisma.Session$notificationDeliveriesArgs<ExtArgs>
+  _count?: boolean | Prisma.SessionCountOutputTypeDefaultArgs<ExtArgs>
 }
 export type SessionIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   user?: boolean | Prisma.UserDefaultArgs<ExtArgs>
@@ -890,6 +1343,9 @@ export type $SessionPayload<ExtArgs extends runtime.Types.Extensions.InternalArg
   name: "Session"
   objects: {
     user: Prisma.$UserPayload<ExtArgs>
+    actorSecurityEvents: Prisma.$SecurityEventPayload<ExtArgs>[]
+    subjectSecurityEvents: Prisma.$SecurityEventPayload<ExtArgs>[]
+    notificationDeliveries: Prisma.$NotificationDeliveryPayload<ExtArgs>[]
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: string
@@ -1304,6 +1760,9 @@ readonly fields: SessionFieldRefs;
 export interface Prisma__SessionClient<T, Null = never, ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs, GlobalOmitOptions = {}> extends Prisma.PrismaPromise<T> {
   readonly [Symbol.toStringTag]: "PrismaPromise"
   user<T extends Prisma.UserDefaultArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.UserDefaultArgs<ExtArgs>>): Prisma.Prisma__UserClient<runtime.Types.Result.GetResult<Prisma.$UserPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
+  actorSecurityEvents<T extends Prisma.Session$actorSecurityEventsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Session$actorSecurityEventsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$SecurityEventPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  subjectSecurityEvents<T extends Prisma.Session$subjectSecurityEventsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Session$subjectSecurityEventsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$SecurityEventPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  notificationDeliveries<T extends Prisma.Session$notificationDeliveriesArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Session$notificationDeliveriesArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$NotificationDeliveryPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -1748,6 +2207,78 @@ export type SessionDeleteManyArgs<ExtArgs extends runtime.Types.Extensions.Inter
    * Limit how many Sessions to delete.
    */
   limit?: number
+}
+
+/**
+ * Session.actorSecurityEvents
+ */
+export type Session$actorSecurityEventsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the SecurityEvent
+   */
+  select?: Prisma.SecurityEventSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the SecurityEvent
+   */
+  omit?: Prisma.SecurityEventOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.SecurityEventInclude<ExtArgs> | null
+  where?: Prisma.SecurityEventWhereInput
+  orderBy?: Prisma.SecurityEventOrderByWithRelationInput | Prisma.SecurityEventOrderByWithRelationInput[]
+  cursor?: Prisma.SecurityEventWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.SecurityEventScalarFieldEnum | Prisma.SecurityEventScalarFieldEnum[]
+}
+
+/**
+ * Session.subjectSecurityEvents
+ */
+export type Session$subjectSecurityEventsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the SecurityEvent
+   */
+  select?: Prisma.SecurityEventSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the SecurityEvent
+   */
+  omit?: Prisma.SecurityEventOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.SecurityEventInclude<ExtArgs> | null
+  where?: Prisma.SecurityEventWhereInput
+  orderBy?: Prisma.SecurityEventOrderByWithRelationInput | Prisma.SecurityEventOrderByWithRelationInput[]
+  cursor?: Prisma.SecurityEventWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.SecurityEventScalarFieldEnum | Prisma.SecurityEventScalarFieldEnum[]
+}
+
+/**
+ * Session.notificationDeliveries
+ */
+export type Session$notificationDeliveriesArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the NotificationDelivery
+   */
+  select?: Prisma.NotificationDeliverySelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the NotificationDelivery
+   */
+  omit?: Prisma.NotificationDeliveryOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.NotificationDeliveryInclude<ExtArgs> | null
+  where?: Prisma.NotificationDeliveryWhereInput
+  orderBy?: Prisma.NotificationDeliveryOrderByWithRelationInput | Prisma.NotificationDeliveryOrderByWithRelationInput[]
+  cursor?: Prisma.NotificationDeliveryWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.NotificationDeliveryScalarFieldEnum | Prisma.NotificationDeliveryScalarFieldEnum[]
 }
 
 /**

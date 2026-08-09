@@ -330,6 +330,8 @@ export type UserWhereInput = {
   deletedAt?: Prisma.DateTimeNullableFilter<"User"> | Date | string | null
   university?: Prisma.XOR<Prisma.UniversityScalarRelationFilter, Prisma.UniversityWhereInput>
   sessions?: Prisma.SessionListRelationFilter
+  securityEvents?: Prisma.SecurityEventListRelationFilter
+  notificationDeliveries?: Prisma.NotificationDeliveryListRelationFilter
 }
 
 export type UserOrderByWithRelationInput = {
@@ -354,6 +356,8 @@ export type UserOrderByWithRelationInput = {
   deletedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   university?: Prisma.UniversityOrderByWithRelationInput
   sessions?: Prisma.SessionOrderByRelationAggregateInput
+  securityEvents?: Prisma.SecurityEventOrderByRelationAggregateInput
+  notificationDeliveries?: Prisma.NotificationDeliveryOrderByRelationAggregateInput
 }
 
 export type UserWhereUniqueInput = Prisma.AtLeast<{
@@ -381,6 +385,8 @@ export type UserWhereUniqueInput = Prisma.AtLeast<{
   deletedAt?: Prisma.DateTimeNullableFilter<"User"> | Date | string | null
   university?: Prisma.XOR<Prisma.UniversityScalarRelationFilter, Prisma.UniversityWhereInput>
   sessions?: Prisma.SessionListRelationFilter
+  securityEvents?: Prisma.SecurityEventListRelationFilter
+  notificationDeliveries?: Prisma.NotificationDeliveryListRelationFilter
 }, "id" | "username" | "email">
 
 export type UserOrderByWithAggregationInput = {
@@ -456,6 +462,8 @@ export type UserCreateInput = {
   deletedAt?: Date | string | null
   university: Prisma.UniversityCreateNestedOneWithoutUsersInput
   sessions?: Prisma.SessionCreateNestedManyWithoutUserInput
+  securityEvents?: Prisma.SecurityEventCreateNestedManyWithoutUserInput
+  notificationDeliveries?: Prisma.NotificationDeliveryCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateInput = {
@@ -479,6 +487,8 @@ export type UserUncheckedCreateInput = {
   updatedAt?: Date | string
   deletedAt?: Date | string | null
   sessions?: Prisma.SessionUncheckedCreateNestedManyWithoutUserInput
+  securityEvents?: Prisma.SecurityEventUncheckedCreateNestedManyWithoutUserInput
+  notificationDeliveries?: Prisma.NotificationDeliveryUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserUpdateInput = {
@@ -502,6 +512,8 @@ export type UserUpdateInput = {
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   university?: Prisma.UniversityUpdateOneRequiredWithoutUsersNestedInput
   sessions?: Prisma.SessionUpdateManyWithoutUserNestedInput
+  securityEvents?: Prisma.SecurityEventUpdateManyWithoutUserNestedInput
+  notificationDeliveries?: Prisma.NotificationDeliveryUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateInput = {
@@ -525,6 +537,8 @@ export type UserUncheckedUpdateInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   sessions?: Prisma.SessionUncheckedUpdateManyWithoutUserNestedInput
+  securityEvents?: Prisma.SecurityEventUncheckedUpdateManyWithoutUserNestedInput
+  notificationDeliveries?: Prisma.NotificationDeliveryUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type UserCreateManyInput = {
@@ -681,6 +695,11 @@ export type UserScalarRelationFilter = {
   isNot?: Prisma.UserWhereInput
 }
 
+export type UserNullableScalarRelationFilter = {
+  is?: Prisma.UserWhereInput | null
+  isNot?: Prisma.UserWhereInput | null
+}
+
 export type StringFieldUpdateOperationsInput = {
   set?: string
 }
@@ -773,6 +792,38 @@ export type UserUpdateOneRequiredWithoutSessionsNestedInput = {
   update?: Prisma.XOR<Prisma.XOR<Prisma.UserUpdateToOneWithWhereWithoutSessionsInput, Prisma.UserUpdateWithoutSessionsInput>, Prisma.UserUncheckedUpdateWithoutSessionsInput>
 }
 
+export type UserCreateNestedOneWithoutNotificationDeliveriesInput = {
+  create?: Prisma.XOR<Prisma.UserCreateWithoutNotificationDeliveriesInput, Prisma.UserUncheckedCreateWithoutNotificationDeliveriesInput>
+  connectOrCreate?: Prisma.UserCreateOrConnectWithoutNotificationDeliveriesInput
+  connect?: Prisma.UserWhereUniqueInput
+}
+
+export type UserUpdateOneWithoutNotificationDeliveriesNestedInput = {
+  create?: Prisma.XOR<Prisma.UserCreateWithoutNotificationDeliveriesInput, Prisma.UserUncheckedCreateWithoutNotificationDeliveriesInput>
+  connectOrCreate?: Prisma.UserCreateOrConnectWithoutNotificationDeliveriesInput
+  upsert?: Prisma.UserUpsertWithoutNotificationDeliveriesInput
+  disconnect?: Prisma.UserWhereInput | boolean
+  delete?: Prisma.UserWhereInput | boolean
+  connect?: Prisma.UserWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.UserUpdateToOneWithWhereWithoutNotificationDeliveriesInput, Prisma.UserUpdateWithoutNotificationDeliveriesInput>, Prisma.UserUncheckedUpdateWithoutNotificationDeliveriesInput>
+}
+
+export type UserCreateNestedOneWithoutSecurityEventsInput = {
+  create?: Prisma.XOR<Prisma.UserCreateWithoutSecurityEventsInput, Prisma.UserUncheckedCreateWithoutSecurityEventsInput>
+  connectOrCreate?: Prisma.UserCreateOrConnectWithoutSecurityEventsInput
+  connect?: Prisma.UserWhereUniqueInput
+}
+
+export type UserUpdateOneWithoutSecurityEventsNestedInput = {
+  create?: Prisma.XOR<Prisma.UserCreateWithoutSecurityEventsInput, Prisma.UserUncheckedCreateWithoutSecurityEventsInput>
+  connectOrCreate?: Prisma.UserCreateOrConnectWithoutSecurityEventsInput
+  upsert?: Prisma.UserUpsertWithoutSecurityEventsInput
+  disconnect?: Prisma.UserWhereInput | boolean
+  delete?: Prisma.UserWhereInput | boolean
+  connect?: Prisma.UserWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.UserUpdateToOneWithWhereWithoutSecurityEventsInput, Prisma.UserUpdateWithoutSecurityEventsInput>, Prisma.UserUncheckedUpdateWithoutSecurityEventsInput>
+}
+
 export type UserCreateWithoutUniversityInput = {
   id?: string
   username: string
@@ -793,6 +844,8 @@ export type UserCreateWithoutUniversityInput = {
   updatedAt?: Date | string
   deletedAt?: Date | string | null
   sessions?: Prisma.SessionCreateNestedManyWithoutUserInput
+  securityEvents?: Prisma.SecurityEventCreateNestedManyWithoutUserInput
+  notificationDeliveries?: Prisma.NotificationDeliveryCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateWithoutUniversityInput = {
@@ -815,6 +868,8 @@ export type UserUncheckedCreateWithoutUniversityInput = {
   updatedAt?: Date | string
   deletedAt?: Date | string | null
   sessions?: Prisma.SessionUncheckedCreateNestedManyWithoutUserInput
+  securityEvents?: Prisma.SecurityEventUncheckedCreateNestedManyWithoutUserInput
+  notificationDeliveries?: Prisma.NotificationDeliveryUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserCreateOrConnectWithoutUniversityInput = {
@@ -888,6 +943,8 @@ export type UserCreateWithoutSessionsInput = {
   updatedAt?: Date | string
   deletedAt?: Date | string | null
   university: Prisma.UniversityCreateNestedOneWithoutUsersInput
+  securityEvents?: Prisma.SecurityEventCreateNestedManyWithoutUserInput
+  notificationDeliveries?: Prisma.NotificationDeliveryCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateWithoutSessionsInput = {
@@ -910,6 +967,8 @@ export type UserUncheckedCreateWithoutSessionsInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
+  securityEvents?: Prisma.SecurityEventUncheckedCreateNestedManyWithoutUserInput
+  notificationDeliveries?: Prisma.NotificationDeliveryUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserCreateOrConnectWithoutSessionsInput = {
@@ -948,6 +1007,8 @@ export type UserUpdateWithoutSessionsInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   university?: Prisma.UniversityUpdateOneRequiredWithoutUsersNestedInput
+  securityEvents?: Prisma.SecurityEventUpdateManyWithoutUserNestedInput
+  notificationDeliveries?: Prisma.NotificationDeliveryUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateWithoutSessionsInput = {
@@ -970,6 +1031,232 @@ export type UserUncheckedUpdateWithoutSessionsInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  securityEvents?: Prisma.SecurityEventUncheckedUpdateManyWithoutUserNestedInput
+  notificationDeliveries?: Prisma.NotificationDeliveryUncheckedUpdateManyWithoutUserNestedInput
+}
+
+export type UserCreateWithoutNotificationDeliveriesInput = {
+  id?: string
+  username: string
+  email: string
+  emailVerified?: boolean
+  passwordHash: string
+  role?: $Enums.UserRole
+  status?: $Enums.UserStatus
+  lastLoginAt?: Date | string | null
+  loginAttempts?: number
+  lockoutUntil?: Date | string | null
+  verificationEmailSentAt?: Date | string | null
+  hashedVerificationToken?: string | null
+  verificationTokenExpires?: Date | string | null
+  hashedResetPasswordToken?: string | null
+  resetPasswordExpires?: Date | string | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  deletedAt?: Date | string | null
+  university: Prisma.UniversityCreateNestedOneWithoutUsersInput
+  sessions?: Prisma.SessionCreateNestedManyWithoutUserInput
+  securityEvents?: Prisma.SecurityEventCreateNestedManyWithoutUserInput
+}
+
+export type UserUncheckedCreateWithoutNotificationDeliveriesInput = {
+  id?: string
+  username: string
+  email: string
+  emailVerified?: boolean
+  passwordHash: string
+  universityId: string
+  role?: $Enums.UserRole
+  status?: $Enums.UserStatus
+  lastLoginAt?: Date | string | null
+  loginAttempts?: number
+  lockoutUntil?: Date | string | null
+  verificationEmailSentAt?: Date | string | null
+  hashedVerificationToken?: string | null
+  verificationTokenExpires?: Date | string | null
+  hashedResetPasswordToken?: string | null
+  resetPasswordExpires?: Date | string | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  deletedAt?: Date | string | null
+  sessions?: Prisma.SessionUncheckedCreateNestedManyWithoutUserInput
+  securityEvents?: Prisma.SecurityEventUncheckedCreateNestedManyWithoutUserInput
+}
+
+export type UserCreateOrConnectWithoutNotificationDeliveriesInput = {
+  where: Prisma.UserWhereUniqueInput
+  create: Prisma.XOR<Prisma.UserCreateWithoutNotificationDeliveriesInput, Prisma.UserUncheckedCreateWithoutNotificationDeliveriesInput>
+}
+
+export type UserUpsertWithoutNotificationDeliveriesInput = {
+  update: Prisma.XOR<Prisma.UserUpdateWithoutNotificationDeliveriesInput, Prisma.UserUncheckedUpdateWithoutNotificationDeliveriesInput>
+  create: Prisma.XOR<Prisma.UserCreateWithoutNotificationDeliveriesInput, Prisma.UserUncheckedCreateWithoutNotificationDeliveriesInput>
+  where?: Prisma.UserWhereInput
+}
+
+export type UserUpdateToOneWithWhereWithoutNotificationDeliveriesInput = {
+  where?: Prisma.UserWhereInput
+  data: Prisma.XOR<Prisma.UserUpdateWithoutNotificationDeliveriesInput, Prisma.UserUncheckedUpdateWithoutNotificationDeliveriesInput>
+}
+
+export type UserUpdateWithoutNotificationDeliveriesInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  username?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.StringFieldUpdateOperationsInput | string
+  emailVerified?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
+  role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
+  status?: Prisma.EnumUserStatusFieldUpdateOperationsInput | $Enums.UserStatus
+  lastLoginAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  loginAttempts?: Prisma.IntFieldUpdateOperationsInput | number
+  lockoutUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  verificationEmailSentAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  hashedVerificationToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  verificationTokenExpires?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  hashedResetPasswordToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  resetPasswordExpires?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  university?: Prisma.UniversityUpdateOneRequiredWithoutUsersNestedInput
+  sessions?: Prisma.SessionUpdateManyWithoutUserNestedInput
+  securityEvents?: Prisma.SecurityEventUpdateManyWithoutUserNestedInput
+}
+
+export type UserUncheckedUpdateWithoutNotificationDeliveriesInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  username?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.StringFieldUpdateOperationsInput | string
+  emailVerified?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
+  universityId?: Prisma.StringFieldUpdateOperationsInput | string
+  role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
+  status?: Prisma.EnumUserStatusFieldUpdateOperationsInput | $Enums.UserStatus
+  lastLoginAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  loginAttempts?: Prisma.IntFieldUpdateOperationsInput | number
+  lockoutUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  verificationEmailSentAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  hashedVerificationToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  verificationTokenExpires?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  hashedResetPasswordToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  resetPasswordExpires?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  sessions?: Prisma.SessionUncheckedUpdateManyWithoutUserNestedInput
+  securityEvents?: Prisma.SecurityEventUncheckedUpdateManyWithoutUserNestedInput
+}
+
+export type UserCreateWithoutSecurityEventsInput = {
+  id?: string
+  username: string
+  email: string
+  emailVerified?: boolean
+  passwordHash: string
+  role?: $Enums.UserRole
+  status?: $Enums.UserStatus
+  lastLoginAt?: Date | string | null
+  loginAttempts?: number
+  lockoutUntil?: Date | string | null
+  verificationEmailSentAt?: Date | string | null
+  hashedVerificationToken?: string | null
+  verificationTokenExpires?: Date | string | null
+  hashedResetPasswordToken?: string | null
+  resetPasswordExpires?: Date | string | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  deletedAt?: Date | string | null
+  university: Prisma.UniversityCreateNestedOneWithoutUsersInput
+  sessions?: Prisma.SessionCreateNestedManyWithoutUserInput
+  notificationDeliveries?: Prisma.NotificationDeliveryCreateNestedManyWithoutUserInput
+}
+
+export type UserUncheckedCreateWithoutSecurityEventsInput = {
+  id?: string
+  username: string
+  email: string
+  emailVerified?: boolean
+  passwordHash: string
+  universityId: string
+  role?: $Enums.UserRole
+  status?: $Enums.UserStatus
+  lastLoginAt?: Date | string | null
+  loginAttempts?: number
+  lockoutUntil?: Date | string | null
+  verificationEmailSentAt?: Date | string | null
+  hashedVerificationToken?: string | null
+  verificationTokenExpires?: Date | string | null
+  hashedResetPasswordToken?: string | null
+  resetPasswordExpires?: Date | string | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  deletedAt?: Date | string | null
+  sessions?: Prisma.SessionUncheckedCreateNestedManyWithoutUserInput
+  notificationDeliveries?: Prisma.NotificationDeliveryUncheckedCreateNestedManyWithoutUserInput
+}
+
+export type UserCreateOrConnectWithoutSecurityEventsInput = {
+  where: Prisma.UserWhereUniqueInput
+  create: Prisma.XOR<Prisma.UserCreateWithoutSecurityEventsInput, Prisma.UserUncheckedCreateWithoutSecurityEventsInput>
+}
+
+export type UserUpsertWithoutSecurityEventsInput = {
+  update: Prisma.XOR<Prisma.UserUpdateWithoutSecurityEventsInput, Prisma.UserUncheckedUpdateWithoutSecurityEventsInput>
+  create: Prisma.XOR<Prisma.UserCreateWithoutSecurityEventsInput, Prisma.UserUncheckedCreateWithoutSecurityEventsInput>
+  where?: Prisma.UserWhereInput
+}
+
+export type UserUpdateToOneWithWhereWithoutSecurityEventsInput = {
+  where?: Prisma.UserWhereInput
+  data: Prisma.XOR<Prisma.UserUpdateWithoutSecurityEventsInput, Prisma.UserUncheckedUpdateWithoutSecurityEventsInput>
+}
+
+export type UserUpdateWithoutSecurityEventsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  username?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.StringFieldUpdateOperationsInput | string
+  emailVerified?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
+  role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
+  status?: Prisma.EnumUserStatusFieldUpdateOperationsInput | $Enums.UserStatus
+  lastLoginAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  loginAttempts?: Prisma.IntFieldUpdateOperationsInput | number
+  lockoutUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  verificationEmailSentAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  hashedVerificationToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  verificationTokenExpires?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  hashedResetPasswordToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  resetPasswordExpires?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  university?: Prisma.UniversityUpdateOneRequiredWithoutUsersNestedInput
+  sessions?: Prisma.SessionUpdateManyWithoutUserNestedInput
+  notificationDeliveries?: Prisma.NotificationDeliveryUpdateManyWithoutUserNestedInput
+}
+
+export type UserUncheckedUpdateWithoutSecurityEventsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  username?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.StringFieldUpdateOperationsInput | string
+  emailVerified?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
+  universityId?: Prisma.StringFieldUpdateOperationsInput | string
+  role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
+  status?: Prisma.EnumUserStatusFieldUpdateOperationsInput | $Enums.UserStatus
+  lastLoginAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  loginAttempts?: Prisma.IntFieldUpdateOperationsInput | number
+  lockoutUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  verificationEmailSentAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  hashedVerificationToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  verificationTokenExpires?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  hashedResetPasswordToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  resetPasswordExpires?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  sessions?: Prisma.SessionUncheckedUpdateManyWithoutUserNestedInput
+  notificationDeliveries?: Prisma.NotificationDeliveryUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type UserCreateManyUniversityInput = {
@@ -1013,6 +1300,8 @@ export type UserUpdateWithoutUniversityInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   sessions?: Prisma.SessionUpdateManyWithoutUserNestedInput
+  securityEvents?: Prisma.SecurityEventUpdateManyWithoutUserNestedInput
+  notificationDeliveries?: Prisma.NotificationDeliveryUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateWithoutUniversityInput = {
@@ -1035,6 +1324,8 @@ export type UserUncheckedUpdateWithoutUniversityInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   sessions?: Prisma.SessionUncheckedUpdateManyWithoutUserNestedInput
+  securityEvents?: Prisma.SecurityEventUncheckedUpdateManyWithoutUserNestedInput
+  notificationDeliveries?: Prisma.NotificationDeliveryUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateManyWithoutUniversityInput = {
@@ -1065,10 +1356,14 @@ export type UserUncheckedUpdateManyWithoutUniversityInput = {
 
 export type UserCountOutputType = {
   sessions: number
+  securityEvents: number
+  notificationDeliveries: number
 }
 
 export type UserCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   sessions?: boolean | UserCountOutputTypeCountSessionsArgs
+  securityEvents?: boolean | UserCountOutputTypeCountSecurityEventsArgs
+  notificationDeliveries?: boolean | UserCountOutputTypeCountNotificationDeliveriesArgs
 }
 
 /**
@@ -1086,6 +1381,20 @@ export type UserCountOutputTypeDefaultArgs<ExtArgs extends runtime.Types.Extensi
  */
 export type UserCountOutputTypeCountSessionsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   where?: Prisma.SessionWhereInput
+}
+
+/**
+ * UserCountOutputType without action
+ */
+export type UserCountOutputTypeCountSecurityEventsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.SecurityEventWhereInput
+}
+
+/**
+ * UserCountOutputType without action
+ */
+export type UserCountOutputTypeCountNotificationDeliveriesArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.NotificationDeliveryWhereInput
 }
 
 
@@ -1111,6 +1420,8 @@ export type UserSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = r
   deletedAt?: boolean
   university?: boolean | Prisma.UniversityDefaultArgs<ExtArgs>
   sessions?: boolean | Prisma.User$sessionsArgs<ExtArgs>
+  securityEvents?: boolean | Prisma.User$securityEventsArgs<ExtArgs>
+  notificationDeliveries?: boolean | Prisma.User$notificationDeliveriesArgs<ExtArgs>
   _count?: boolean | Prisma.UserCountOutputTypeDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["user"]>
 
@@ -1186,6 +1497,8 @@ export type UserOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = run
 export type UserInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   university?: boolean | Prisma.UniversityDefaultArgs<ExtArgs>
   sessions?: boolean | Prisma.User$sessionsArgs<ExtArgs>
+  securityEvents?: boolean | Prisma.User$securityEventsArgs<ExtArgs>
+  notificationDeliveries?: boolean | Prisma.User$notificationDeliveriesArgs<ExtArgs>
   _count?: boolean | Prisma.UserCountOutputTypeDefaultArgs<ExtArgs>
 }
 export type UserIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
@@ -1200,6 +1513,8 @@ export type $UserPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs =
   objects: {
     university: Prisma.$UniversityPayload<ExtArgs>
     sessions: Prisma.$SessionPayload<ExtArgs>[]
+    securityEvents: Prisma.$SecurityEventPayload<ExtArgs>[]
+    notificationDeliveries: Prisma.$NotificationDeliveryPayload<ExtArgs>[]
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: string
@@ -1617,6 +1932,8 @@ export interface Prisma__UserClient<T, Null = never, ExtArgs extends runtime.Typ
   readonly [Symbol.toStringTag]: "PrismaPromise"
   university<T extends Prisma.UniversityDefaultArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.UniversityDefaultArgs<ExtArgs>>): Prisma.Prisma__UniversityClient<runtime.Types.Result.GetResult<Prisma.$UniversityPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
   sessions<T extends Prisma.User$sessionsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$sessionsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$SessionPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  securityEvents<T extends Prisma.User$securityEventsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$securityEventsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$SecurityEventPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  notificationDeliveries<T extends Prisma.User$notificationDeliveriesArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$notificationDeliveriesArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$NotificationDeliveryPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -2087,6 +2404,54 @@ export type User$sessionsArgs<ExtArgs extends runtime.Types.Extensions.InternalA
   take?: number
   skip?: number
   distinct?: Prisma.SessionScalarFieldEnum | Prisma.SessionScalarFieldEnum[]
+}
+
+/**
+ * User.securityEvents
+ */
+export type User$securityEventsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the SecurityEvent
+   */
+  select?: Prisma.SecurityEventSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the SecurityEvent
+   */
+  omit?: Prisma.SecurityEventOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.SecurityEventInclude<ExtArgs> | null
+  where?: Prisma.SecurityEventWhereInput
+  orderBy?: Prisma.SecurityEventOrderByWithRelationInput | Prisma.SecurityEventOrderByWithRelationInput[]
+  cursor?: Prisma.SecurityEventWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.SecurityEventScalarFieldEnum | Prisma.SecurityEventScalarFieldEnum[]
+}
+
+/**
+ * User.notificationDeliveries
+ */
+export type User$notificationDeliveriesArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the NotificationDelivery
+   */
+  select?: Prisma.NotificationDeliverySelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the NotificationDelivery
+   */
+  omit?: Prisma.NotificationDeliveryOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.NotificationDeliveryInclude<ExtArgs> | null
+  where?: Prisma.NotificationDeliveryWhereInput
+  orderBy?: Prisma.NotificationDeliveryOrderByWithRelationInput | Prisma.NotificationDeliveryOrderByWithRelationInput[]
+  cursor?: Prisma.NotificationDeliveryWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.NotificationDeliveryScalarFieldEnum | Prisma.NotificationDeliveryScalarFieldEnum[]
 }
 
 /**
