@@ -1,10 +1,12 @@
 import { applyDecorators } from '@nestjs/common';
 import {
   ApiBadRequestResponse,
+  ApiConflictResponse,
   ApiOkResponse,
   ApiOperation,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
+import { SessionLimitReachedErrorResponseDto } from '../../auth/dtos/session-error-response.dto';
 
 export function ApiLogin() {
   return applyDecorators(
@@ -23,6 +25,11 @@ export function ApiLogin() {
 
     ApiUnauthorizedResponse({
       description: 'Invalid email or password.',
+    }),
+
+    ApiConflictResponse({
+      description: 'The active session limit has been reached.',
+      type: SessionLimitReachedErrorResponseDto,
     }),
   );
 }

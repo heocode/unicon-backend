@@ -6,6 +6,8 @@ const validEnvironment = {
   JWT_ACCESS_TTL_SECONDS: '900',
   JWT_REFRESH_SECRET: 'refresh-secret',
   SESSION_INACTIVITY_TTL_SECONDS: '31536000',
+  SESSION_MANAGEMENT_COOLDOWN_SECONDS: '86400',
+  SESSION_ACTIVE_LIMIT: '10',
   RESEND_API_KEY: 'resend-api-key',
   MAIL_FROM: 'noreply@unicon.local',
   CLIENT_URL: 'http://localhost:3001',
@@ -48,6 +50,28 @@ describe('validateEnvironment', () => {
       }),
     ).toThrow(
       'Environment variable JWT_ACCESS_TTL_SECONDS must be a positive integer.',
+    );
+  });
+
+  it('rejects a non-positive session revoke cooldown', () => {
+    expect(() =>
+      validateEnvironment({
+        ...validEnvironment,
+        SESSION_MANAGEMENT_COOLDOWN_SECONDS: '0',
+      }),
+    ).toThrow(
+      'Environment variable SESSION_MANAGEMENT_COOLDOWN_SECONDS must be a positive integer.',
+    );
+  });
+
+  it('rejects a non-positive active session limit', () => {
+    expect(() =>
+      validateEnvironment({
+        ...validEnvironment,
+        SESSION_ACTIVE_LIMIT: '0',
+      }),
+    ).toThrow(
+      'Environment variable SESSION_ACTIVE_LIMIT must be a positive integer.',
     );
   });
 

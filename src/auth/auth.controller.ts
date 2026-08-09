@@ -2,7 +2,10 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
+  HttpCode,
+  HttpStatus,
   Param,
   Patch,
   Post,
@@ -12,9 +15,13 @@ import {
 import {
   ApiBadRequestResponse,
   ApiBearerAuth,
+  ApiForbiddenResponse,
   ApiHeader,
   ApiNotFoundResponse,
   ApiOkResponse,
+  ApiNoContentResponse,
+  ApiOperation,
+  ApiParam,
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
@@ -37,6 +44,14 @@ import {
   UpdateSessionDto,
   UpdateSessionResponseDto,
 } from './dtos/update-session.dto';
+import { SessionParamsDto } from './dtos/session-params.dto';
+import { RevokeOtherSessionsResponseDto } from './dtos/revoke-other-sessions-response.dto';
+import {
+  SessionNotFoundErrorResponseDto,
+  SessionTooFreshErrorResponseDto,
+  UnauthorizedErrorResponseDto,
+  ValidationErrorResponseDto,
+} from './dtos/session-error-response.dto';
 
 // Internal guards
 import { AccessTokenGuard } from './guards/access-token.guard';
@@ -138,11 +153,15 @@ export class AuthController {
   @Get('sessions')
   @UseGuards(AccessTokenGuard)
   @ApiBearerAuth()
+  @ApiOperation({ summary: 'List active sessions' })
   @ApiOkResponse({
     description: 'Active sessions belonging to the authenticated user.',
     type: SessionsResponseDto,
   })
-  @ApiUnauthorizedResponse({ description: 'The user is not authorized.' })
+  @ApiUnauthorizedResponse({
+    description: 'The user is not authorized.',
+    type: UnauthorizedErrorResponseDto,
+  })
   getSessions(@Req() request: AccessAuthenticatedRequest) {
     return this.authService.getSessions(
       request.user.sub,
@@ -153,18 +172,105 @@ export class AuthController {
   @Patch('sessions/:sessionId')
   @UseGuards(AccessTokenGuard)
   @ApiBearerAuth()
+  @ApiOperation({ summary: 'Set or clear a session name' })
+  @ApiParam({
+    name: 'sessionId',
+    description: 'Session UUID.',
+    format: 'uuid',
+  })
   @ApiOkResponse({
     description: 'Session successfully renamed.',
     type: UpdateSessionResponseDto,
   })
-  @ApiBadRequestResponse({ description: 'Invalid session name.' })
-  @ApiUnauthorizedResponse({ description: 'The user is not authorized.' })
-  @ApiNotFoundResponse({ description: 'Active session not found.' })
+  @ApiBadRequestResponse({
+    description: 'Invalid session ID or session name.',
+    type: ValidationErrorResponseDto,
+  })
+  @ApiUnauthorizedResponse({
+    description: 'The user is not authorized.',
+    type: UnauthorizedErrorResponseDto,
+  })
+  @ApiForbiddenResponse({
+    description: 'The current session is too new to manage sessions.',
+    type: SessionTooFreshErrorResponseDto,
+  })
+  @ApiNotFoundResponse({
+    description: 'Active session not found.',
+    type: SessionNotFoundErrorResponseDto,
+  })
   renameSession(
     @Req() request: AccessAuthenticatedRequest,
-    @Param('sessionId') sessionId: string,
+    @Param() params: SessionParamsDto,
     @Body() dto: UpdateSessionDto,
   ) {
-    return this.authService.renameSession(request.user.sub, sessionId, dto);
+    return this.authService.renameSession(
+      request.user.sub,
+      request.user.sessionId,
+      params.sessionId,
+      dto,
+    );
+  }
+
+  @Delete('sessions/others')
+  @UseGuards(AccessTokenGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Revoke all other active sessions' })
+  @ApiOkResponse({
+    description: 'All other active sessions successfully revoked.',
+    type: RevokeOtherSessionsResponseDto,
+  })
+  @ApiUnauthorizedResponse({
+    description: 'The user is not authorized.',
+    type: UnauthorizedErrorResponseDto,
+  })
+  @ApiForbiddenResponse({
+    description: 'The current session is too new to manage sessions.',
+    type: SessionTooFreshErrorResponseDto,
+  })
+  revokeOtherSessions(
+    @Req() request: AccessAuthenticatedRequest,
+  ): Promise<RevokeOtherSessionsResponseDto> {
+    return this.authService.revokeOtherSessions(
+      request.user.sub,
+      request.user.sessionId,
+    );
+  }
+
+  @Delete('sessions/:sessionId')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @UseGuards(AccessTokenGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Revoke an active session' })
+  @ApiParam({
+    name: 'sessionId',
+    description: 'Session UUID.',
+    format: 'uuid',
+  })
+  @ApiNoContentResponse({ description: 'Session successfully revoked.' })
+  @ApiBadRequestResponse({
+    description: 'Invalid session ID.',
+    type: ValidationErrorResponseDto,
+  })
+  @ApiUnauthorizedResponse({
+    description: 'The user is not authorized.',
+    type: UnauthorizedErrorResponseDto,
+  })
+  @ApiForbiddenResponse({
+    description: 'The current session is too new to manage sessions.',
+    type: SessionTooFreshErrorResponseDto,
+  })
+  @ApiNotFoundResponse({
+    description: 'Active session not found.',
+    type: SessionNotFoundErrorResponseDto,
+  })
+  async revokeSession(
+    @Req() request: AccessAuthenticatedRequest,
+    @Param() params: SessionParamsDto,
+  ): Promise<void> {
+    await this.authService.revokeSession(
+      request.user.sub,
+      request.user.sessionId,
+      params.sessionId,
+    );
   }
 }

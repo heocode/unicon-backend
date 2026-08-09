@@ -165,8 +165,34 @@ export class AuthService {
     return this.sessionService.findActiveByUser(userId, currentSessionId);
   }
 
-  renameSession(userId: string, sessionId: string, dto: UpdateSessionDto) {
-    return this.sessionService.rename(userId, sessionId, dto.sessionName);
+  renameSession(
+    userId: string,
+    currentSessionId: string,
+    targetSessionId: string,
+    dto: UpdateSessionDto,
+  ) {
+    return this.sessionService.rename(
+      userId,
+      currentSessionId,
+      targetSessionId,
+      dto.sessionName,
+    );
+  }
+
+  revokeSession(
+    userId: string,
+    currentSessionId: string,
+    targetSessionId: string,
+  ) {
+    return this.sessionService.revokeSelected(
+      userId,
+      currentSessionId,
+      targetSessionId,
+    );
+  }
+
+  revokeOtherSessions(userId: string, currentSessionId: string) {
+    return this.sessionService.revokeOthers(userId, currentSessionId);
   }
 
   private async createPendingUser({

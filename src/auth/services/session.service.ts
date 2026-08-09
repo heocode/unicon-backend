@@ -1,5 +1,7 @@
 // NestJS
 import {
+  ConflictException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
   UnauthorizedException,
@@ -8,6 +10,9 @@ import { ConfigService } from '@nestjs/config';
 
 // Node.js
 import { randomUUID } from 'crypto';
+
+// Prisma
+import { Prisma } from '../../generated/prisma/client';
 
 // Internal services
 import { PrismaService } from '../../prisma/prisma.service';
@@ -27,6 +32,8 @@ type AuthTokens = {
 @Injectable()
 export class SessionService {
   private readonly inactivityTtlSeconds: number;
+  private readonly managementCooldownSeconds: number;
+  private readonly activeSessionLimit: number;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -37,6 +44,12 @@ export class SessionService {
   ) {
     this.inactivityTtlSeconds = configService.getOrThrow<number>(
       'SESSION_INACTIVITY_TTL_SECONDS',
+    );
+    this.managementCooldownSeconds = configService.getOrThrow<number>(
+      'SESSION_MANAGEMENT_COOLDOWN_SECONDS',
+    );
+    this.activeSessionLimit = configService.getOrThrow<number>(
+      'SESSION_ACTIVE_LIMIT',
     );
   }
 
@@ -58,22 +71,65 @@ export class SessionService {
       generatedTokens.refreshToken,
     );
 
-    await this.prisma.session.create({
-      data: {
-        id: sessionId,
-        userId,
-        hashedRefreshToken,
-        expiresAt,
-        ipAddress: metadata.ipAddress,
-        userAgent: metadata.userAgent,
-        deviceModel: metadata.deviceModel,
-        platform: metadata.platform,
-        osVersion: metadata.osVersion,
-        appVersion: metadata.appVersion,
-        locationCountryCode: location?.countryCode,
-        locationCity: location?.city,
-      },
-    });
+    const sessionData = {
+      id: sessionId,
+      userId,
+      hashedRefreshToken,
+      expiresAt,
+      ipAddress: metadata.ipAddress,
+      userAgent: metadata.userAgent,
+      deviceModel: metadata.deviceModel,
+      platform: metadata.platform,
+      osVersion: metadata.osVersion,
+      appVersion: metadata.appVersion,
+      locationCountryCode: location?.countryCode,
+      locationCity: location?.city,
+    };
+
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        await this.prisma.$transaction(
+          async (transaction) => {
+            const activeSessionCount = await transaction.session.count({
+              where: {
+                userId,
+                revokedAt: null,
+                expiresAt: {
+                  gt: new Date(),
+                },
+              },
+            });
+
+            if (activeSessionCount >= this.activeSessionLimit) {
+              throw new ConflictException({
+                code: 'SESSION_LIMIT_REACHED',
+                message: 'The active session limit has been reached.',
+                activeSessionLimit: this.activeSessionLimit,
+              });
+            }
+
+            await transaction.session.create({
+              data: sessionData,
+            });
+          },
+          {
+            isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+          },
+        );
+        break;
+      } catch (error) {
+        const shouldRetry =
+          error instanceof Prisma.PrismaClientKnownRequestError &&
+          error.code === 'P2034' &&
+          attempt < 2;
+
+        if (shouldRetry) {
+          continue;
+        }
+
+        throw error;
+      }
+    }
 
     return {
       accessToken: generatedTokens.accessToken,
@@ -195,12 +251,13 @@ export class SessionService {
     userId: string,
     currentSessionId: string,
   ): Promise<SessionsResponseDto> {
+    const now = new Date();
     const sessions = await this.prisma.session.findMany({
       where: {
         userId,
         revokedAt: null,
         expiresAt: {
-          gt: new Date(),
+          gt: now,
         },
       },
       select: {
@@ -223,7 +280,24 @@ export class SessionService {
       },
     });
 
+    const currentSession = sessions.find(
+      (session) => session.id === currentSessionId,
+    );
+
+    if (!currentSession) {
+      throw new UnauthorizedException('Access Denied. Session unavailable.');
+    }
+
+    const managementAvailableAt = this.getManagementAvailableAt(
+      currentSession.createdAt,
+    );
+    const canManageSessions = managementAvailableAt <= now;
+
     return {
+      sessionManagement: {
+        canManageSessions,
+        managementAvailableAt: canManageSessions ? null : managementAvailableAt,
+      },
       sessions: sessions.map((session) => ({
         id: session.id,
         sessionName: session.sessionName,
@@ -251,16 +325,25 @@ export class SessionService {
 
   async rename(
     userId: string,
-    sessionId: string,
-    sessionName: string,
-  ): Promise<{ id: string; sessionName: string }> {
+    currentSessionId: string,
+    targetSessionId: string,
+    sessionName: string | null,
+  ): Promise<{ id: string; sessionName: string | null }> {
+    const now = new Date();
+    const currentSession = await this.findActiveCurrentSession(
+      userId,
+      currentSessionId,
+      now,
+    );
+    this.assertManagementAvailable(currentSession.createdAt, now);
+
     const result = await this.prisma.session.updateMany({
       where: {
-        id: sessionId,
+        id: targetSessionId,
         userId,
         revokedAt: null,
         expiresAt: {
-          gt: new Date(),
+          gt: now,
         },
       },
       data: {
@@ -269,10 +352,13 @@ export class SessionService {
     });
 
     if (result.count === 0) {
-      throw new NotFoundException('Active session not found.');
+      throw new NotFoundException({
+        code: 'SESSION_NOT_FOUND',
+        message: 'Active session not found.',
+      });
     }
 
-    return { id: sessionId, sessionName };
+    return { id: targetSessionId, sessionName };
   }
 
   async revoke(userId: string, sessionId: string): Promise<void> {
@@ -293,10 +379,131 @@ export class SessionService {
     }
   }
 
+  async revokeSelected(
+    userId: string,
+    currentSessionId: string,
+    targetSessionId: string,
+  ): Promise<void> {
+    const now = new Date();
+    const currentSession = await this.findActiveCurrentSession(
+      userId,
+      currentSessionId,
+      now,
+    );
+
+    if (targetSessionId !== currentSessionId) {
+      this.assertManagementAvailable(currentSession.createdAt, now);
+    }
+
+    const result = await this.prisma.session.updateMany({
+      where: {
+        id: targetSessionId,
+        userId,
+        revokedAt: null,
+        expiresAt: {
+          gt: now,
+        },
+      },
+      data: {
+        revokedAt: now,
+      },
+    });
+
+    if (result.count === 0) {
+      throw new NotFoundException({
+        code: 'SESSION_NOT_FOUND',
+        message: 'Active session not found.',
+      });
+    }
+  }
+
+  async revokeOthers(
+    userId: string,
+    currentSessionId: string,
+  ): Promise<{ revokedSessionsCount: number }> {
+    const now = new Date();
+    const currentSession = await this.findActiveCurrentSession(
+      userId,
+      currentSessionId,
+      now,
+    );
+    this.assertManagementAvailable(currentSession.createdAt, now);
+
+    const result = await this.prisma.session.updateMany({
+      where: {
+        userId,
+        id: {
+          not: currentSessionId,
+        },
+        revokedAt: null,
+        expiresAt: {
+          gt: now,
+        },
+      },
+      data: {
+        revokedAt: now,
+      },
+    });
+
+    return {
+      revokedSessionsCount: result.count,
+    };
+  }
+
   private getNextExpiration(now: Date): Date {
     const expiresAtSeconds =
       Math.floor(now.getTime() / 1000) + this.inactivityTtlSeconds;
 
     return new Date(expiresAtSeconds * 1000);
+  }
+
+  private async findActiveCurrentSession(
+    userId: string,
+    currentSessionId: string,
+    now: Date,
+  ): Promise<{ createdAt: Date }> {
+    const currentSession = await this.prisma.session.findFirst({
+      where: {
+        id: currentSessionId,
+        userId,
+        revokedAt: null,
+        expiresAt: {
+          gt: now,
+        },
+        user: {
+          status: 'ACTIVE',
+        },
+      },
+      select: {
+        createdAt: true,
+      },
+    });
+
+    if (!currentSession) {
+      throw new UnauthorizedException('Access Denied. Session unavailable.');
+    }
+
+    return currentSession;
+  }
+
+  private assertManagementAvailable(createdAt: Date, now: Date): void {
+    const manageAvailableAt = this.getManagementAvailableAt(createdAt);
+
+    if (manageAvailableAt > now) {
+      throw new ForbiddenException({
+        code: 'SESSION_TOO_FRESH',
+        message: 'This session is too new to manage sessions.',
+        managementAvailableAt: manageAvailableAt,
+        retryAfterSeconds: Math.ceil(
+          (manageAvailableAt.getTime() - now.getTime()) / 1000,
+        ),
+      });
+    }
+  }
+
+  private getManagementAvailableAt(createdAt: Date): Date {
+    return new Date(
+      createdAt.getTime() + this.managementCooldownSeconds * 1000,
+    );
   }
 }

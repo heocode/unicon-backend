@@ -50,6 +50,8 @@ POST  /auth/refresh
 POST  /auth/logout
 GET   /auth/sessions
 PATCH /auth/sessions/:sessionId
+DELETE /auth/sessions/:sessionId
+DELETE /auth/sessions/others
 ```
 
 `GET /auth/sessions`, session naming, logout, and other protected endpoints use
@@ -116,9 +118,17 @@ normalize email
 → reject PENDING/BLOCKED/DELETED state
 → collect bounded session metadata
 → best-effort GeoIP lookup
+→ atomically verify the active-session limit
 → create Session
 → return token pair
 ```
+
+Session creation uses a serializable transaction to count the user's active,
+unexpired sessions and create the new session as one concurrency-safe
+operation. The configurable `SESSION_ACTIVE_LIMIT` is currently 10. At the
+limit, login returns `SESSION_LIMIT_REACHED`; no existing session is silently
+revoked. Until a separate verified recovery flow is implemented, the user must
+use an already authorized device to revoke a session before retrying login.
 
 JWT payloads contain:
 
@@ -156,12 +166,25 @@ locationCity
 ```
 
 `sessionName` is nullable and user-assigned after login. It is separate from
-the technical device model.
+the technical device model. `PATCH /auth/sessions/:sessionId` accepts `null` to
+remove the label; empty strings are rejected. Renaming or clearing any session
+requires the current session to be older than the fresh-session management
+cooldown.
 
 `GET /auth/sessions` returns only the authenticated user's unexpired,
 non-revoked sessions. It explicitly selects public fields, orders by
 `lastActiveAt` descending, and marks the session referenced by the caller's
-access token as `current: true`. Refresh hashes are never selected or returned.
+access token as `current: true`. It also reports whether the current session is
+old enough to manage sessions and when that capability becomes available.
+Refresh hashes are never selected or returned.
+
+`DELETE /auth/sessions/:sessionId` revokes an owned active session. A session
+may revoke itself immediately. Revoking any other session requires the current
+session to be at least `SESSION_MANAGEMENT_COOLDOWN_SECONDS` old (currently 86,400
+seconds). Once the cooldown passes, the current session may revoke any other
+owned active session regardless of relative age. This prevents a newly created
+session from immediately removing established sessions without permanently
+privileging old devices.
 
 ## Access authorization
 
@@ -222,8 +245,11 @@ Current logout sets `revokedAt` on the caller's current session. Because the
 access guard checks the database, both its access and refresh tokens become
 unusable immediately.
 
-Endpoints for revoking a selected session and all other sessions are planned
-but not yet implemented.
+`DELETE /auth/sessions/others` atomically revokes every other owned active
+session while preserving the caller's current session. The operation requires
+the current session to be older than the management cooldown and returns the
+number of sessions revoked. Repeating it when no other active sessions remain
+is successful and returns zero.
 
 ## GeoIP
 
@@ -264,12 +290,25 @@ error DTO and complete stable error-code catalog are not implemented yet.
 Frontend code must not be finalized against message strings before that work is
 complete.
 
+Session management documents its current response schemas in Swagger,
+including `SESSION_TOO_FRESH`, `SESSION_NOT_FOUND`, and
+`SESSION_LIMIT_REACHED`, plus the standard Nest validation and authorization
+responses. Structured session errors currently match their actual wire format
+and do not yet use the future shared error envelope.
+
 ## Current testing boundary
 
 Unit tests cover DTO-adjacent utilities, guards, JWT/session behavior, GeoIP IP
-normalization, degraded behavior, and MMDB hot reload. Existing e2e tests cover
-global validation and HTTP metadata normalization, but they replace
-`AuthService`; they are not full database-backed auth flow tests.
+normalization, degraded behavior, and MMDB hot reload. Lightweight e2e tests
+cover global validation and HTTP metadata normalization with a replaced
+`AuthService`. A separate database-backed suite exercises real session HTTP
+routes, JWT guards, services, Prisma queries, PostgreSQL revocation, cooldown,
+the active-session limit, and concurrent login behavior.
+
+`npm run test:e2e` prepares a dedicated PostgreSQL database from
+`TEST_DATABASE_URL`, defaulting to local `unicon_test`, applies migrations, and
+then runs both suites. Database preparation and destructive cleanup refuse to
+operate unless the database name ends with `_test`.
 
 ## Known production work
 
@@ -281,4 +320,3 @@ global validation and HTTP metadata normalization, but they replace
 - Schedule official database updates and monitor database age/reload failures.
 - Add rate limits, security headers, CORS policy, secret management, and
   security-event observability.
-

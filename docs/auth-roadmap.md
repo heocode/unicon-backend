@@ -41,14 +41,20 @@ platform authenticator participates in the WebAuthn ceremony.
 
 ## Stage 1: Finish session management
 
-- Add `DELETE /auth/sessions/:sessionId` for revoking any owned active session.
-- Define explicit behavior when the selected session is the current session.
-- Add an endpoint to revoke every session except the current one.
-- Allow `sessionName: null` to remove a custom label.
-- Add stable response DTOs, error codes, Swagger, unit tests, and e2e tests.
-- Add a configurable active-session limit. Initial product recommendation: 20.
-- On limit reached, return an explicit error and let the user manage sessions;
-  do not silently revoke an old device.
+- `DELETE /auth/sessions/:sessionId` revokes an owned active session.
+- The current session can revoke itself immediately; revoking another session
+  requires the configurable fresh-session cooldown to have elapsed.
+- `DELETE /auth/sessions/others` atomically revokes every active session except
+  the current one after the fresh-session management cooldown.
+- `sessionName: null` removes a custom label. Renaming or clearing any session
+  requires the fresh-session management cooldown to have elapsed.
+- Session response DTOs, stable session error codes, Swagger schemas, unit
+  tests, and database-backed session-management e2e tests are implemented.
+- The configurable active-session limit is 10. Session creation enforces it in
+  a serializable transaction so concurrent logins cannot exceed the limit.
+- On limit reached, `SESSION_LIMIT_REACHED` is returned and no existing session
+  is silently revoked. A separate verified recovery flow remains planned for a
+  user who no longer has access to any authorized device.
 
 ## Stage 2: Security-event foundation
 
@@ -280,4 +286,3 @@ GeoIP degraded mode and MMDB reload
 - GPS tracking or precise physical location storage.
 - GeoIP as the sole reason for automatic account blocking.
 - Silent session eviction when the active-session limit is reached.
-

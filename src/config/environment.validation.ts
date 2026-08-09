@@ -33,6 +33,15 @@ export function validateEnvironment(
     environment.SESSION_INACTIVITY_TTL_SECONDS,
     'SESSION_INACTIVITY_TTL_SECONDS',
   );
+  validatedEnvironment.SESSION_MANAGEMENT_COOLDOWN_SECONDS =
+    parsePositiveInteger(
+      environment.SESSION_MANAGEMENT_COOLDOWN_SECONDS,
+      'SESSION_MANAGEMENT_COOLDOWN_SECONDS',
+    );
+  validatedEnvironment.SESSION_ACTIVE_LIMIT = parsePositiveInteger(
+    environment.SESSION_ACTIVE_LIMIT,
+    'SESSION_ACTIVE_LIMIT',
+  );
 
   validatedEnvironment.PORT = parsePort(environment.PORT);
   validatedEnvironment.GEOIP_ENABLED = parseBoolean(

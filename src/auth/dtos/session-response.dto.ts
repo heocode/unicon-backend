@@ -55,7 +55,21 @@ export class SessionResponseDto {
   current!: boolean;
 }
 
+export class SessionManagementResponseDto {
+  @ApiProperty({ example: false })
+  canManageSessions!: boolean;
+
+  @ApiPropertyOptional({
+    example: '2026-08-09T12:00:00.000Z',
+    nullable: true,
+  })
+  managementAvailableAt!: Date | null;
+}
+
 export class SessionsResponseDto {
+  @ApiProperty({ type: SessionManagementResponseDto })
+  sessionManagement!: SessionManagementResponseDto;
+
   @ApiProperty({ type: SessionResponseDto, isArray: true })
   sessions!: SessionResponseDto[];
 }
