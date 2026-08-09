@@ -1,15 +1,11 @@
 const REQUIRED_ENVIRONMENT_VARIABLES = [
   'DATABASE_URL',
   'JWT_ACCESS_SECRET',
-  'JWT_ACCESS_EXPIRES_IN',
   'JWT_REFRESH_SECRET',
-  'JWT_REFRESH_EXPIRES_IN',
   'RESEND_API_KEY',
   'MAIL_FROM',
   'CLIENT_URL',
 ] as const;
-
-const JWT_EXPIRATION_PATTERN = /^\d+(?:ms|s|m|h|d|w|y)$/;
 
 export function validateEnvironment(
   environment: Record<string, unknown>,
@@ -29,18 +25,51 @@ export function validateEnvironment(
     'https:',
   ]);
 
-  validateJwtExpiration(
-    validatedEnvironment.JWT_ACCESS_EXPIRES_IN,
-    'JWT_ACCESS_EXPIRES_IN',
+  validatedEnvironment.JWT_ACCESS_TTL_SECONDS = parsePositiveInteger(
+    environment.JWT_ACCESS_TTL_SECONDS,
+    'JWT_ACCESS_TTL_SECONDS',
   );
-  validateJwtExpiration(
-    validatedEnvironment.JWT_REFRESH_EXPIRES_IN,
-    'JWT_REFRESH_EXPIRES_IN',
+  validatedEnvironment.SESSION_INACTIVITY_TTL_SECONDS = parsePositiveInteger(
+    environment.SESSION_INACTIVITY_TTL_SECONDS,
+    'SESSION_INACTIVITY_TTL_SECONDS',
   );
 
   validatedEnvironment.PORT = parsePort(environment.PORT);
+  validatedEnvironment.GEOIP_ENABLED = parseBoolean(
+    environment.GEOIP_ENABLED,
+    'GEOIP_ENABLED',
+    false,
+  );
+  validatedEnvironment.GEOIP_DATABASE_PATH = getRequiredString(
+    environment,
+    'GEOIP_DATABASE_PATH',
+  );
+  validatedEnvironment.GEOIP_RELOAD_INTERVAL_SECONDS = parsePositiveInteger(
+    environment.GEOIP_RELOAD_INTERVAL_SECONDS,
+    'GEOIP_RELOAD_INTERVAL_SECONDS',
+  );
 
   return validatedEnvironment;
+}
+
+function parseBoolean(
+  value: unknown,
+  key: string,
+  defaultValue: boolean,
+): boolean {
+  if (value === undefined || value === '') {
+    return defaultValue;
+  }
+
+  if (value === true || value === 'true') {
+    return true;
+  }
+
+  if (value === false || value === 'false') {
+    return false;
+  }
+
+  throw new Error(`Environment variable ${key} must be true or false.`);
 }
 
 function getRequiredString(
@@ -76,14 +105,6 @@ function validateUrl(value: unknown, key: string, protocols: string[]): void {
   }
 }
 
-function validateJwtExpiration(value: unknown, key: string): void {
-  if (typeof value !== 'string' || !JWT_EXPIRATION_PATTERN.test(value)) {
-    throw new Error(
-      `Environment variable ${key} must be a duration such as 15m, 7d, or 1000ms.`,
-    );
-  }
-}
-
 function parsePort(value: unknown): number {
   if (value === undefined || value === '') {
     return 3000;
@@ -98,4 +119,14 @@ function parsePort(value: unknown): number {
   }
 
   return port;
+}
+
+function parsePositiveInteger(value: unknown, key: string): number {
+  const parsedValue = typeof value === 'number' ? value : Number(value);
+
+  if (!Number.isInteger(parsedValue) || parsedValue <= 0) {
+    throw new Error(`Environment variable ${key} must be a positive integer.`);
+  }
+
+  return parsedValue;
 }

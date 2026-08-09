@@ -30,9 +30,16 @@ export type SessionMinAggregateOutputType = {
   hashedRefreshToken: string | null
   ipAddress: string | null
   userAgent: string | null
-  deviceName: string | null
+  sessionName: string | null
+  deviceModel: string | null
+  platform: $Enums.SessionPlatform | null
+  osVersion: string | null
+  appVersion: string | null
+  locationCountryCode: string | null
+  locationCity: string | null
   expiresAt: Date | null
   revokedAt: Date | null
+  lastActiveAt: Date | null
   createdAt: Date | null
   updatedAt: Date | null
 }
@@ -43,9 +50,16 @@ export type SessionMaxAggregateOutputType = {
   hashedRefreshToken: string | null
   ipAddress: string | null
   userAgent: string | null
-  deviceName: string | null
+  sessionName: string | null
+  deviceModel: string | null
+  platform: $Enums.SessionPlatform | null
+  osVersion: string | null
+  appVersion: string | null
+  locationCountryCode: string | null
+  locationCity: string | null
   expiresAt: Date | null
   revokedAt: Date | null
+  lastActiveAt: Date | null
   createdAt: Date | null
   updatedAt: Date | null
 }
@@ -56,9 +70,16 @@ export type SessionCountAggregateOutputType = {
   hashedRefreshToken: number
   ipAddress: number
   userAgent: number
-  deviceName: number
+  sessionName: number
+  deviceModel: number
+  platform: number
+  osVersion: number
+  appVersion: number
+  locationCountryCode: number
+  locationCity: number
   expiresAt: number
   revokedAt: number
+  lastActiveAt: number
   createdAt: number
   updatedAt: number
   _all: number
@@ -71,9 +92,16 @@ export type SessionMinAggregateInputType = {
   hashedRefreshToken?: true
   ipAddress?: true
   userAgent?: true
-  deviceName?: true
+  sessionName?: true
+  deviceModel?: true
+  platform?: true
+  osVersion?: true
+  appVersion?: true
+  locationCountryCode?: true
+  locationCity?: true
   expiresAt?: true
   revokedAt?: true
+  lastActiveAt?: true
   createdAt?: true
   updatedAt?: true
 }
@@ -84,9 +112,16 @@ export type SessionMaxAggregateInputType = {
   hashedRefreshToken?: true
   ipAddress?: true
   userAgent?: true
-  deviceName?: true
+  sessionName?: true
+  deviceModel?: true
+  platform?: true
+  osVersion?: true
+  appVersion?: true
+  locationCountryCode?: true
+  locationCity?: true
   expiresAt?: true
   revokedAt?: true
+  lastActiveAt?: true
   createdAt?: true
   updatedAt?: true
 }
@@ -97,9 +132,16 @@ export type SessionCountAggregateInputType = {
   hashedRefreshToken?: true
   ipAddress?: true
   userAgent?: true
-  deviceName?: true
+  sessionName?: true
+  deviceModel?: true
+  platform?: true
+  osVersion?: true
+  appVersion?: true
+  locationCountryCode?: true
+  locationCity?: true
   expiresAt?: true
   revokedAt?: true
+  lastActiveAt?: true
   createdAt?: true
   updatedAt?: true
   _all?: true
@@ -183,9 +225,16 @@ export type SessionGroupByOutputType = {
   hashedRefreshToken: string
   ipAddress: string | null
   userAgent: string | null
-  deviceName: string | null
+  sessionName: string | null
+  deviceModel: string | null
+  platform: $Enums.SessionPlatform
+  osVersion: string | null
+  appVersion: string | null
+  locationCountryCode: string | null
+  locationCity: string | null
   expiresAt: Date
   revokedAt: Date | null
+  lastActiveAt: Date
   createdAt: Date
   updatedAt: Date
   _count: SessionCountAggregateOutputType | null
@@ -217,9 +266,16 @@ export type SessionWhereInput = {
   hashedRefreshToken?: Prisma.StringFilter<"Session"> | string
   ipAddress?: Prisma.StringNullableFilter<"Session"> | string | null
   userAgent?: Prisma.StringNullableFilter<"Session"> | string | null
-  deviceName?: Prisma.StringNullableFilter<"Session"> | string | null
+  sessionName?: Prisma.StringNullableFilter<"Session"> | string | null
+  deviceModel?: Prisma.StringNullableFilter<"Session"> | string | null
+  platform?: Prisma.EnumSessionPlatformFilter<"Session"> | $Enums.SessionPlatform
+  osVersion?: Prisma.StringNullableFilter<"Session"> | string | null
+  appVersion?: Prisma.StringNullableFilter<"Session"> | string | null
+  locationCountryCode?: Prisma.StringNullableFilter<"Session"> | string | null
+  locationCity?: Prisma.StringNullableFilter<"Session"> | string | null
   expiresAt?: Prisma.DateTimeFilter<"Session"> | Date | string
   revokedAt?: Prisma.DateTimeNullableFilter<"Session"> | Date | string | null
+  lastActiveAt?: Prisma.DateTimeFilter<"Session"> | Date | string
   createdAt?: Prisma.DateTimeFilter<"Session"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"Session"> | Date | string
   user?: Prisma.XOR<Prisma.UserScalarRelationFilter, Prisma.UserWhereInput>
@@ -231,9 +287,16 @@ export type SessionOrderByWithRelationInput = {
   hashedRefreshToken?: Prisma.SortOrder
   ipAddress?: Prisma.SortOrderInput | Prisma.SortOrder
   userAgent?: Prisma.SortOrderInput | Prisma.SortOrder
-  deviceName?: Prisma.SortOrderInput | Prisma.SortOrder
+  sessionName?: Prisma.SortOrderInput | Prisma.SortOrder
+  deviceModel?: Prisma.SortOrderInput | Prisma.SortOrder
+  platform?: Prisma.SortOrder
+  osVersion?: Prisma.SortOrderInput | Prisma.SortOrder
+  appVersion?: Prisma.SortOrderInput | Prisma.SortOrder
+  locationCountryCode?: Prisma.SortOrderInput | Prisma.SortOrder
+  locationCity?: Prisma.SortOrderInput | Prisma.SortOrder
   expiresAt?: Prisma.SortOrder
   revokedAt?: Prisma.SortOrderInput | Prisma.SortOrder
+  lastActiveAt?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   user?: Prisma.UserOrderByWithRelationInput
@@ -248,9 +311,16 @@ export type SessionWhereUniqueInput = Prisma.AtLeast<{
   hashedRefreshToken?: Prisma.StringFilter<"Session"> | string
   ipAddress?: Prisma.StringNullableFilter<"Session"> | string | null
   userAgent?: Prisma.StringNullableFilter<"Session"> | string | null
-  deviceName?: Prisma.StringNullableFilter<"Session"> | string | null
+  sessionName?: Prisma.StringNullableFilter<"Session"> | string | null
+  deviceModel?: Prisma.StringNullableFilter<"Session"> | string | null
+  platform?: Prisma.EnumSessionPlatformFilter<"Session"> | $Enums.SessionPlatform
+  osVersion?: Prisma.StringNullableFilter<"Session"> | string | null
+  appVersion?: Prisma.StringNullableFilter<"Session"> | string | null
+  locationCountryCode?: Prisma.StringNullableFilter<"Session"> | string | null
+  locationCity?: Prisma.StringNullableFilter<"Session"> | string | null
   expiresAt?: Prisma.DateTimeFilter<"Session"> | Date | string
   revokedAt?: Prisma.DateTimeNullableFilter<"Session"> | Date | string | null
+  lastActiveAt?: Prisma.DateTimeFilter<"Session"> | Date | string
   createdAt?: Prisma.DateTimeFilter<"Session"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"Session"> | Date | string
   user?: Prisma.XOR<Prisma.UserScalarRelationFilter, Prisma.UserWhereInput>
@@ -262,9 +332,16 @@ export type SessionOrderByWithAggregationInput = {
   hashedRefreshToken?: Prisma.SortOrder
   ipAddress?: Prisma.SortOrderInput | Prisma.SortOrder
   userAgent?: Prisma.SortOrderInput | Prisma.SortOrder
-  deviceName?: Prisma.SortOrderInput | Prisma.SortOrder
+  sessionName?: Prisma.SortOrderInput | Prisma.SortOrder
+  deviceModel?: Prisma.SortOrderInput | Prisma.SortOrder
+  platform?: Prisma.SortOrder
+  osVersion?: Prisma.SortOrderInput | Prisma.SortOrder
+  appVersion?: Prisma.SortOrderInput | Prisma.SortOrder
+  locationCountryCode?: Prisma.SortOrderInput | Prisma.SortOrder
+  locationCity?: Prisma.SortOrderInput | Prisma.SortOrder
   expiresAt?: Prisma.SortOrder
   revokedAt?: Prisma.SortOrderInput | Prisma.SortOrder
+  lastActiveAt?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   _count?: Prisma.SessionCountOrderByAggregateInput
@@ -281,9 +358,16 @@ export type SessionScalarWhereWithAggregatesInput = {
   hashedRefreshToken?: Prisma.StringWithAggregatesFilter<"Session"> | string
   ipAddress?: Prisma.StringNullableWithAggregatesFilter<"Session"> | string | null
   userAgent?: Prisma.StringNullableWithAggregatesFilter<"Session"> | string | null
-  deviceName?: Prisma.StringNullableWithAggregatesFilter<"Session"> | string | null
+  sessionName?: Prisma.StringNullableWithAggregatesFilter<"Session"> | string | null
+  deviceModel?: Prisma.StringNullableWithAggregatesFilter<"Session"> | string | null
+  platform?: Prisma.EnumSessionPlatformWithAggregatesFilter<"Session"> | $Enums.SessionPlatform
+  osVersion?: Prisma.StringNullableWithAggregatesFilter<"Session"> | string | null
+  appVersion?: Prisma.StringNullableWithAggregatesFilter<"Session"> | string | null
+  locationCountryCode?: Prisma.StringNullableWithAggregatesFilter<"Session"> | string | null
+  locationCity?: Prisma.StringNullableWithAggregatesFilter<"Session"> | string | null
   expiresAt?: Prisma.DateTimeWithAggregatesFilter<"Session"> | Date | string
   revokedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"Session"> | Date | string | null
+  lastActiveAt?: Prisma.DateTimeWithAggregatesFilter<"Session"> | Date | string
   createdAt?: Prisma.DateTimeWithAggregatesFilter<"Session"> | Date | string
   updatedAt?: Prisma.DateTimeWithAggregatesFilter<"Session"> | Date | string
 }
@@ -293,9 +377,16 @@ export type SessionCreateInput = {
   hashedRefreshToken: string
   ipAddress?: string | null
   userAgent?: string | null
-  deviceName?: string | null
+  sessionName?: string | null
+  deviceModel?: string | null
+  platform?: $Enums.SessionPlatform
+  osVersion?: string | null
+  appVersion?: string | null
+  locationCountryCode?: string | null
+  locationCity?: string | null
   expiresAt: Date | string
   revokedAt?: Date | string | null
+  lastActiveAt?: Date | string
   createdAt?: Date | string
   updatedAt?: Date | string
   user: Prisma.UserCreateNestedOneWithoutSessionsInput
@@ -307,9 +398,16 @@ export type SessionUncheckedCreateInput = {
   hashedRefreshToken: string
   ipAddress?: string | null
   userAgent?: string | null
-  deviceName?: string | null
+  sessionName?: string | null
+  deviceModel?: string | null
+  platform?: $Enums.SessionPlatform
+  osVersion?: string | null
+  appVersion?: string | null
+  locationCountryCode?: string | null
+  locationCity?: string | null
   expiresAt: Date | string
   revokedAt?: Date | string | null
+  lastActiveAt?: Date | string
   createdAt?: Date | string
   updatedAt?: Date | string
 }
@@ -319,9 +417,16 @@ export type SessionUpdateInput = {
   hashedRefreshToken?: Prisma.StringFieldUpdateOperationsInput | string
   ipAddress?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   userAgent?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  deviceName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  sessionName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  deviceModel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  platform?: Prisma.EnumSessionPlatformFieldUpdateOperationsInput | $Enums.SessionPlatform
+  osVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  appVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  locationCountryCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  locationCity?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   expiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   revokedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  lastActiveAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   user?: Prisma.UserUpdateOneRequiredWithoutSessionsNestedInput
@@ -333,9 +438,16 @@ export type SessionUncheckedUpdateInput = {
   hashedRefreshToken?: Prisma.StringFieldUpdateOperationsInput | string
   ipAddress?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   userAgent?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  deviceName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  sessionName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  deviceModel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  platform?: Prisma.EnumSessionPlatformFieldUpdateOperationsInput | $Enums.SessionPlatform
+  osVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  appVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  locationCountryCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  locationCity?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   expiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   revokedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  lastActiveAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -346,9 +458,16 @@ export type SessionCreateManyInput = {
   hashedRefreshToken: string
   ipAddress?: string | null
   userAgent?: string | null
-  deviceName?: string | null
+  sessionName?: string | null
+  deviceModel?: string | null
+  platform?: $Enums.SessionPlatform
+  osVersion?: string | null
+  appVersion?: string | null
+  locationCountryCode?: string | null
+  locationCity?: string | null
   expiresAt: Date | string
   revokedAt?: Date | string | null
+  lastActiveAt?: Date | string
   createdAt?: Date | string
   updatedAt?: Date | string
 }
@@ -358,9 +477,16 @@ export type SessionUpdateManyMutationInput = {
   hashedRefreshToken?: Prisma.StringFieldUpdateOperationsInput | string
   ipAddress?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   userAgent?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  deviceName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  sessionName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  deviceModel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  platform?: Prisma.EnumSessionPlatformFieldUpdateOperationsInput | $Enums.SessionPlatform
+  osVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  appVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  locationCountryCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  locationCity?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   expiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   revokedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  lastActiveAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -371,9 +497,16 @@ export type SessionUncheckedUpdateManyInput = {
   hashedRefreshToken?: Prisma.StringFieldUpdateOperationsInput | string
   ipAddress?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   userAgent?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  deviceName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  sessionName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  deviceModel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  platform?: Prisma.EnumSessionPlatformFieldUpdateOperationsInput | $Enums.SessionPlatform
+  osVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  appVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  locationCountryCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  locationCity?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   expiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   revokedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  lastActiveAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -394,9 +527,16 @@ export type SessionCountOrderByAggregateInput = {
   hashedRefreshToken?: Prisma.SortOrder
   ipAddress?: Prisma.SortOrder
   userAgent?: Prisma.SortOrder
-  deviceName?: Prisma.SortOrder
+  sessionName?: Prisma.SortOrder
+  deviceModel?: Prisma.SortOrder
+  platform?: Prisma.SortOrder
+  osVersion?: Prisma.SortOrder
+  appVersion?: Prisma.SortOrder
+  locationCountryCode?: Prisma.SortOrder
+  locationCity?: Prisma.SortOrder
   expiresAt?: Prisma.SortOrder
   revokedAt?: Prisma.SortOrder
+  lastActiveAt?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
 }
@@ -407,9 +547,16 @@ export type SessionMaxOrderByAggregateInput = {
   hashedRefreshToken?: Prisma.SortOrder
   ipAddress?: Prisma.SortOrder
   userAgent?: Prisma.SortOrder
-  deviceName?: Prisma.SortOrder
+  sessionName?: Prisma.SortOrder
+  deviceModel?: Prisma.SortOrder
+  platform?: Prisma.SortOrder
+  osVersion?: Prisma.SortOrder
+  appVersion?: Prisma.SortOrder
+  locationCountryCode?: Prisma.SortOrder
+  locationCity?: Prisma.SortOrder
   expiresAt?: Prisma.SortOrder
   revokedAt?: Prisma.SortOrder
+  lastActiveAt?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
 }
@@ -420,9 +567,16 @@ export type SessionMinOrderByAggregateInput = {
   hashedRefreshToken?: Prisma.SortOrder
   ipAddress?: Prisma.SortOrder
   userAgent?: Prisma.SortOrder
-  deviceName?: Prisma.SortOrder
+  sessionName?: Prisma.SortOrder
+  deviceModel?: Prisma.SortOrder
+  platform?: Prisma.SortOrder
+  osVersion?: Prisma.SortOrder
+  appVersion?: Prisma.SortOrder
+  locationCountryCode?: Prisma.SortOrder
+  locationCity?: Prisma.SortOrder
   expiresAt?: Prisma.SortOrder
   revokedAt?: Prisma.SortOrder
+  lastActiveAt?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
 }
@@ -469,14 +623,25 @@ export type SessionUncheckedUpdateManyWithoutUserNestedInput = {
   deleteMany?: Prisma.SessionScalarWhereInput | Prisma.SessionScalarWhereInput[]
 }
 
+export type EnumSessionPlatformFieldUpdateOperationsInput = {
+  set?: $Enums.SessionPlatform
+}
+
 export type SessionCreateWithoutUserInput = {
   id?: string
   hashedRefreshToken: string
   ipAddress?: string | null
   userAgent?: string | null
-  deviceName?: string | null
+  sessionName?: string | null
+  deviceModel?: string | null
+  platform?: $Enums.SessionPlatform
+  osVersion?: string | null
+  appVersion?: string | null
+  locationCountryCode?: string | null
+  locationCity?: string | null
   expiresAt: Date | string
   revokedAt?: Date | string | null
+  lastActiveAt?: Date | string
   createdAt?: Date | string
   updatedAt?: Date | string
 }
@@ -486,9 +651,16 @@ export type SessionUncheckedCreateWithoutUserInput = {
   hashedRefreshToken: string
   ipAddress?: string | null
   userAgent?: string | null
-  deviceName?: string | null
+  sessionName?: string | null
+  deviceModel?: string | null
+  platform?: $Enums.SessionPlatform
+  osVersion?: string | null
+  appVersion?: string | null
+  locationCountryCode?: string | null
+  locationCity?: string | null
   expiresAt: Date | string
   revokedAt?: Date | string | null
+  lastActiveAt?: Date | string
   createdAt?: Date | string
   updatedAt?: Date | string
 }
@@ -528,9 +700,16 @@ export type SessionScalarWhereInput = {
   hashedRefreshToken?: Prisma.StringFilter<"Session"> | string
   ipAddress?: Prisma.StringNullableFilter<"Session"> | string | null
   userAgent?: Prisma.StringNullableFilter<"Session"> | string | null
-  deviceName?: Prisma.StringNullableFilter<"Session"> | string | null
+  sessionName?: Prisma.StringNullableFilter<"Session"> | string | null
+  deviceModel?: Prisma.StringNullableFilter<"Session"> | string | null
+  platform?: Prisma.EnumSessionPlatformFilter<"Session"> | $Enums.SessionPlatform
+  osVersion?: Prisma.StringNullableFilter<"Session"> | string | null
+  appVersion?: Prisma.StringNullableFilter<"Session"> | string | null
+  locationCountryCode?: Prisma.StringNullableFilter<"Session"> | string | null
+  locationCity?: Prisma.StringNullableFilter<"Session"> | string | null
   expiresAt?: Prisma.DateTimeFilter<"Session"> | Date | string
   revokedAt?: Prisma.DateTimeNullableFilter<"Session"> | Date | string | null
+  lastActiveAt?: Prisma.DateTimeFilter<"Session"> | Date | string
   createdAt?: Prisma.DateTimeFilter<"Session"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"Session"> | Date | string
 }
@@ -540,9 +719,16 @@ export type SessionCreateManyUserInput = {
   hashedRefreshToken: string
   ipAddress?: string | null
   userAgent?: string | null
-  deviceName?: string | null
+  sessionName?: string | null
+  deviceModel?: string | null
+  platform?: $Enums.SessionPlatform
+  osVersion?: string | null
+  appVersion?: string | null
+  locationCountryCode?: string | null
+  locationCity?: string | null
   expiresAt: Date | string
   revokedAt?: Date | string | null
+  lastActiveAt?: Date | string
   createdAt?: Date | string
   updatedAt?: Date | string
 }
@@ -552,9 +738,16 @@ export type SessionUpdateWithoutUserInput = {
   hashedRefreshToken?: Prisma.StringFieldUpdateOperationsInput | string
   ipAddress?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   userAgent?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  deviceName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  sessionName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  deviceModel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  platform?: Prisma.EnumSessionPlatformFieldUpdateOperationsInput | $Enums.SessionPlatform
+  osVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  appVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  locationCountryCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  locationCity?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   expiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   revokedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  lastActiveAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -564,9 +757,16 @@ export type SessionUncheckedUpdateWithoutUserInput = {
   hashedRefreshToken?: Prisma.StringFieldUpdateOperationsInput | string
   ipAddress?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   userAgent?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  deviceName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  sessionName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  deviceModel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  platform?: Prisma.EnumSessionPlatformFieldUpdateOperationsInput | $Enums.SessionPlatform
+  osVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  appVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  locationCountryCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  locationCity?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   expiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   revokedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  lastActiveAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -576,9 +776,16 @@ export type SessionUncheckedUpdateManyWithoutUserInput = {
   hashedRefreshToken?: Prisma.StringFieldUpdateOperationsInput | string
   ipAddress?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   userAgent?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  deviceName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  sessionName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  deviceModel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  platform?: Prisma.EnumSessionPlatformFieldUpdateOperationsInput | $Enums.SessionPlatform
+  osVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  appVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  locationCountryCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  locationCity?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   expiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   revokedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  lastActiveAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -591,9 +798,16 @@ export type SessionSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs 
   hashedRefreshToken?: boolean
   ipAddress?: boolean
   userAgent?: boolean
-  deviceName?: boolean
+  sessionName?: boolean
+  deviceModel?: boolean
+  platform?: boolean
+  osVersion?: boolean
+  appVersion?: boolean
+  locationCountryCode?: boolean
+  locationCity?: boolean
   expiresAt?: boolean
   revokedAt?: boolean
+  lastActiveAt?: boolean
   createdAt?: boolean
   updatedAt?: boolean
   user?: boolean | Prisma.UserDefaultArgs<ExtArgs>
@@ -605,9 +819,16 @@ export type SessionSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Exten
   hashedRefreshToken?: boolean
   ipAddress?: boolean
   userAgent?: boolean
-  deviceName?: boolean
+  sessionName?: boolean
+  deviceModel?: boolean
+  platform?: boolean
+  osVersion?: boolean
+  appVersion?: boolean
+  locationCountryCode?: boolean
+  locationCity?: boolean
   expiresAt?: boolean
   revokedAt?: boolean
+  lastActiveAt?: boolean
   createdAt?: boolean
   updatedAt?: boolean
   user?: boolean | Prisma.UserDefaultArgs<ExtArgs>
@@ -619,9 +840,16 @@ export type SessionSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Exten
   hashedRefreshToken?: boolean
   ipAddress?: boolean
   userAgent?: boolean
-  deviceName?: boolean
+  sessionName?: boolean
+  deviceModel?: boolean
+  platform?: boolean
+  osVersion?: boolean
+  appVersion?: boolean
+  locationCountryCode?: boolean
+  locationCity?: boolean
   expiresAt?: boolean
   revokedAt?: boolean
+  lastActiveAt?: boolean
   createdAt?: boolean
   updatedAt?: boolean
   user?: boolean | Prisma.UserDefaultArgs<ExtArgs>
@@ -633,14 +861,21 @@ export type SessionSelectScalar = {
   hashedRefreshToken?: boolean
   ipAddress?: boolean
   userAgent?: boolean
-  deviceName?: boolean
+  sessionName?: boolean
+  deviceModel?: boolean
+  platform?: boolean
+  osVersion?: boolean
+  appVersion?: boolean
+  locationCountryCode?: boolean
+  locationCity?: boolean
   expiresAt?: boolean
   revokedAt?: boolean
+  lastActiveAt?: boolean
   createdAt?: boolean
   updatedAt?: boolean
 }
 
-export type SessionOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "userId" | "hashedRefreshToken" | "ipAddress" | "userAgent" | "deviceName" | "expiresAt" | "revokedAt" | "createdAt" | "updatedAt", ExtArgs["result"]["session"]>
+export type SessionOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "userId" | "hashedRefreshToken" | "ipAddress" | "userAgent" | "sessionName" | "deviceModel" | "platform" | "osVersion" | "appVersion" | "locationCountryCode" | "locationCity" | "expiresAt" | "revokedAt" | "lastActiveAt" | "createdAt" | "updatedAt", ExtArgs["result"]["session"]>
 export type SessionInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   user?: boolean | Prisma.UserDefaultArgs<ExtArgs>
 }
@@ -662,9 +897,16 @@ export type $SessionPayload<ExtArgs extends runtime.Types.Extensions.InternalArg
     hashedRefreshToken: string
     ipAddress: string | null
     userAgent: string | null
-    deviceName: string | null
+    sessionName: string | null
+    deviceModel: string | null
+    platform: $Enums.SessionPlatform
+    osVersion: string | null
+    appVersion: string | null
+    locationCountryCode: string | null
+    locationCity: string | null
     expiresAt: Date
     revokedAt: Date | null
+    lastActiveAt: Date
     createdAt: Date
     updatedAt: Date
   }, ExtArgs["result"]["session"]>
@@ -1096,9 +1338,16 @@ export interface SessionFieldRefs {
   readonly hashedRefreshToken: Prisma.FieldRef<"Session", 'String'>
   readonly ipAddress: Prisma.FieldRef<"Session", 'String'>
   readonly userAgent: Prisma.FieldRef<"Session", 'String'>
-  readonly deviceName: Prisma.FieldRef<"Session", 'String'>
+  readonly sessionName: Prisma.FieldRef<"Session", 'String'>
+  readonly deviceModel: Prisma.FieldRef<"Session", 'String'>
+  readonly platform: Prisma.FieldRef<"Session", 'SessionPlatform'>
+  readonly osVersion: Prisma.FieldRef<"Session", 'String'>
+  readonly appVersion: Prisma.FieldRef<"Session", 'String'>
+  readonly locationCountryCode: Prisma.FieldRef<"Session", 'String'>
+  readonly locationCity: Prisma.FieldRef<"Session", 'String'>
   readonly expiresAt: Prisma.FieldRef<"Session", 'DateTime'>
   readonly revokedAt: Prisma.FieldRef<"Session", 'DateTime'>
+  readonly lastActiveAt: Prisma.FieldRef<"Session", 'DateTime'>
   readonly createdAt: Prisma.FieldRef<"Session", 'DateTime'>
   readonly updatedAt: Prisma.FieldRef<"Session", 'DateTime'>
 }

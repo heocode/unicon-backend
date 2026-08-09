@@ -3,12 +3,15 @@ import { validateEnvironment } from './environment.validation';
 const validEnvironment = {
   DATABASE_URL: 'postgresql://postgres:postgres@localhost:5432/unicon',
   JWT_ACCESS_SECRET: 'access-secret',
-  JWT_ACCESS_EXPIRES_IN: '15m',
+  JWT_ACCESS_TTL_SECONDS: '900',
   JWT_REFRESH_SECRET: 'refresh-secret',
-  JWT_REFRESH_EXPIRES_IN: '7d',
+  SESSION_INACTIVITY_TTL_SECONDS: '31536000',
   RESEND_API_KEY: 'resend-api-key',
   MAIL_FROM: 'noreply@unicon.local',
   CLIENT_URL: 'http://localhost:3001',
+  GEOIP_ENABLED: 'false',
+  GEOIP_DATABASE_PATH: 'data/geoip/GeoLite2-City.mmdb',
+  GEOIP_RELOAD_INTERVAL_SECONDS: '60',
 };
 
 describe('validateEnvironment', () => {
@@ -37,12 +40,34 @@ describe('validateEnvironment', () => {
     ).toThrow('Environment variable DATABASE_URL is required.');
   });
 
-  it('rejects an expiration without a duration unit', () => {
+  it('rejects a non-positive token TTL', () => {
     expect(() =>
       validateEnvironment({
         ...validEnvironment,
-        JWT_ACCESS_EXPIRES_IN: '900',
+        JWT_ACCESS_TTL_SECONDS: '0',
       }),
-    ).toThrow('Environment variable JWT_ACCESS_EXPIRES_IN must be a duration');
+    ).toThrow(
+      'Environment variable JWT_ACCESS_TTL_SECONDS must be a positive integer.',
+    );
+  });
+
+  it('parses the GeoIP enabled flag', () => {
+    const environment = validateEnvironment({
+      ...validEnvironment,
+      GEOIP_ENABLED: 'true',
+    });
+
+    expect(environment.GEOIP_ENABLED).toBe(true);
+  });
+
+  it('rejects a non-positive GeoIP reload interval', () => {
+    expect(() =>
+      validateEnvironment({
+        ...validEnvironment,
+        GEOIP_RELOAD_INTERVAL_SECONDS: '0',
+      }),
+    ).toThrow(
+      'Environment variable GEOIP_RELOAD_INTERVAL_SECONDS must be a positive integer.',
+    );
   });
 });

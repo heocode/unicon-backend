@@ -26,3 +26,13 @@ export const UserStatus = {
 } as const
 
 export type UserStatus = (typeof UserStatus)[keyof typeof UserStatus]
+
+
+export const SessionPlatform = {
+  IOS: 'IOS',
+  ANDROID: 'ANDROID',
+  WEB: 'WEB',
+  UNKNOWN: 'UNKNOWN'
+} as const
+
+export type SessionPlatform = (typeof SessionPlatform)[keyof typeof SessionPlatform]

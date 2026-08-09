@@ -41,6 +41,11 @@ lerna-debug.log*
 .env.test.local
 .env.production.local
 .env.local
+.config/
+
+# GeoIP runtime database
+data/geoip/*
+!data/geoip/.gitkeep
 
 # temp directory
 .temp

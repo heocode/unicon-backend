@@ -5,6 +5,7 @@ import { JwtModule } from '@nestjs/jwt';
 // Internal modules
 import { PrismaModule } from '../prisma/prisma.module';
 import { MailModule } from '../mail/mail.module';
+import { GeoIpModule } from '../geo-ip/geo-ip.module';
 
 // Controllers
 import { AuthController } from './auth.controller';
@@ -23,7 +24,7 @@ import { SessionService } from './services/session.service';
 import { EmailVerificationService } from './services/email-verification.service';
 
 @Module({
-  imports: [PrismaModule, JwtModule.register({}), MailModule],
+  imports: [PrismaModule, JwtModule.register({}), MailModule, GeoIpModule],
   controllers: [AuthController],
   providers: [
     AuthService,

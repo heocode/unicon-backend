@@ -5,11 +5,23 @@ import type { App } from 'supertest/types';
 import { AppModule } from '../src/app.module';
 import { AuthService } from '../src/auth/auth.service';
 import { configureApp } from '../src/configure-app';
+import type { LoginDto } from '../src/auth/dtos/login.dto';
+import type { SessionMetadata } from '../src/auth/types/session-metadata.type';
 
 describe('Application validation (e2e)', () => {
   let app: INestApplication<App>;
+  let receivedLogin: { dto: LoginDto; metadata: SessionMetadata } | undefined;
 
+  const login = jest.fn((dto: LoginDto, metadata: SessionMetadata) => {
+    receivedLogin = { dto, metadata };
+
+    return {
+      accessToken: 'access-token',
+      refreshToken: 'refresh-token',
+    };
+  });
   const authService = {
+    login,
     register: jest.fn(),
   };
 
@@ -28,6 +40,7 @@ describe('Application validation (e2e)', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    receivedLogin = undefined;
   });
 
   it('rejects a weak registration password before calling AuthService', async () => {
@@ -55,6 +68,32 @@ describe('Application validation (e2e)', () => {
       .expect(400);
 
     expect(authService.register).not.toHaveBeenCalled();
+  });
+
+  it('passes normalized device metadata to the login service', async () => {
+    await request(app.getHttpServer())
+      .post('/auth/login')
+      .set('X-Device-Model', ' iPhone 16 Pro ')
+      .set('X-Platform', ' ios ')
+      .set('X-OS-Version', ' 18.6 ')
+      .set('X-App-Version', ' 1.4.2 ')
+      .set('User-Agent', ' Unicon/1.0 (iOS 18) ')
+      .send({
+        email: 'student@my.centennialcollege.ca',
+        password: 'Password1!',
+      })
+      .expect(201);
+
+    expect(authService.login).toHaveBeenCalledTimes(1);
+
+    expect(receivedLogin?.metadata).toMatchObject({
+      userAgent: 'Unicon/1.0 (iOS 18)',
+      deviceModel: 'iPhone 16 Pro',
+      platform: 'IOS',
+      osVersion: '18.6',
+      appVersion: '1.4.2',
+    });
+    expect(typeof receivedLogin?.metadata.ipAddress).toBe('string');
   });
 
   afterAll(async () => {

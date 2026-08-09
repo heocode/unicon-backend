@@ -209,6 +209,23 @@ export type DateTimeWithAggregatesFilter<$PrismaModel = never> = {
   _max?: Prisma.NestedDateTimeFilter<$PrismaModel>
 }
 
+export type EnumSessionPlatformFilter<$PrismaModel = never> = {
+  equals?: $Enums.SessionPlatform | Prisma.EnumSessionPlatformFieldRefInput<$PrismaModel>
+  in?: $Enums.SessionPlatform[] | Prisma.ListEnumSessionPlatformFieldRefInput<$PrismaModel>
+  notIn?: $Enums.SessionPlatform[] | Prisma.ListEnumSessionPlatformFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumSessionPlatformFilter<$PrismaModel> | $Enums.SessionPlatform
+}
+
+export type EnumSessionPlatformWithAggregatesFilter<$PrismaModel = never> = {
+  equals?: $Enums.SessionPlatform | Prisma.EnumSessionPlatformFieldRefInput<$PrismaModel>
+  in?: $Enums.SessionPlatform[] | Prisma.ListEnumSessionPlatformFieldRefInput<$PrismaModel>
+  notIn?: $Enums.SessionPlatform[] | Prisma.ListEnumSessionPlatformFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumSessionPlatformWithAggregatesFilter<$PrismaModel> | $Enums.SessionPlatform
+  _count?: Prisma.NestedIntFilter<$PrismaModel>
+  _min?: Prisma.NestedEnumSessionPlatformFilter<$PrismaModel>
+  _max?: Prisma.NestedEnumSessionPlatformFilter<$PrismaModel>
+}
+
 export type NestedStringFilter<$PrismaModel = never> = {
   equals?: string | Prisma.StringFieldRefInput<$PrismaModel>
   in?: string[] | Prisma.ListStringFieldRefInput<$PrismaModel>
@@ -415,6 +432,23 @@ export type NestedDateTimeWithAggregatesFilter<$PrismaModel = never> = {
   _count?: Prisma.NestedIntFilter<$PrismaModel>
   _min?: Prisma.NestedDateTimeFilter<$PrismaModel>
   _max?: Prisma.NestedDateTimeFilter<$PrismaModel>
+}
+
+export type NestedEnumSessionPlatformFilter<$PrismaModel = never> = {
+  equals?: $Enums.SessionPlatform | Prisma.EnumSessionPlatformFieldRefInput<$PrismaModel>
+  in?: $Enums.SessionPlatform[] | Prisma.ListEnumSessionPlatformFieldRefInput<$PrismaModel>
+  notIn?: $Enums.SessionPlatform[] | Prisma.ListEnumSessionPlatformFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumSessionPlatformFilter<$PrismaModel> | $Enums.SessionPlatform
+}
+
+export type NestedEnumSessionPlatformWithAggregatesFilter<$PrismaModel = never> = {
+  equals?: $Enums.SessionPlatform | Prisma.EnumSessionPlatformFieldRefInput<$PrismaModel>
+  in?: $Enums.SessionPlatform[] | Prisma.ListEnumSessionPlatformFieldRefInput<$PrismaModel>
+  notIn?: $Enums.SessionPlatform[] | Prisma.ListEnumSessionPlatformFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumSessionPlatformWithAggregatesFilter<$PrismaModel> | $Enums.SessionPlatform
+  _count?: Prisma.NestedIntFilter<$PrismaModel>
+  _min?: Prisma.NestedEnumSessionPlatformFilter<$PrismaModel>
+  _max?: Prisma.NestedEnumSessionPlatformFilter<$PrismaModel>
 }
 
 

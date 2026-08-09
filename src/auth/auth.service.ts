@@ -23,12 +23,14 @@ import { getVerificationCooldownSeconds } from './utils/get-verification-cooldow
 
 // Internal types
 import type { SecureToken } from './types/secure-token.type';
+import type { SessionMetadata } from './types/session-metadata.type';
 
 // DTOs
 import type { LoginDto } from './dtos/login.dto';
 import type { RegisterDto } from './dtos/register.dto';
 import type { VerifyEmailDto } from './dtos/verify-email.dto';
 import type { ResendVerificationDto } from './dtos/resend-verification.dto';
+import type { UpdateSessionDto } from './dtos/update-session.dto';
 
 type CreatePendingUserParams = {
   email: string;
@@ -101,7 +103,7 @@ export class AuthService {
     );
   }
 
-  async login(dto: LoginDto) {
+  async login(dto: LoginDto, metadata: SessionMetadata) {
     const email = dto.email;
 
     const existingUser = await this.prisma.user.findUnique({
@@ -148,7 +150,7 @@ export class AuthService {
       });
     }
 
-    return this.sessionService.create(existingUser.id);
+    return this.sessionService.create(existingUser.id, metadata);
   }
 
   async logout(userId: string, sessionId: string) {
@@ -157,6 +159,14 @@ export class AuthService {
     return {
       message: 'Logged out successfully.',
     };
+  }
+
+  getSessions(userId: string, currentSessionId: string) {
+    return this.sessionService.findActiveByUser(userId, currentSessionId);
+  }
+
+  renameSession(userId: string, sessionId: string, dto: UpdateSessionDto) {
+    return this.sessionService.rename(userId, sessionId, dto.sessionName);
   }
 
   private async createPendingUser({
@@ -215,8 +225,8 @@ export class AuthService {
     );
   }
 
-  verifyEmail(dto: VerifyEmailDto) {
-    return this.emailVerificationService.verify(dto.token);
+  verifyEmail(dto: VerifyEmailDto, metadata: SessionMetadata) {
+    return this.emailVerificationService.verify(dto.token, metadata);
   }
 
   resendVerification(dto: ResendVerificationDto) {

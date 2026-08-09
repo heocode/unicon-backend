@@ -21,6 +21,9 @@ import { getVerificationCooldownSeconds } from '../utils/get-verification-cooldo
 // Internal errors
 import { MailDeliveryError } from '../../common/errors/mail-delivery.error';
 
+// Internal types
+import type { SessionMetadata } from '../types/session-metadata.type';
+
 @Injectable()
 export class EmailVerificationService {
   private readonly logger = new Logger(EmailVerificationService.name);
@@ -77,7 +80,10 @@ export class EmailVerificationService {
     };
   }
 
-  async verify(token: string): Promise<{
+  async verify(
+    token: string,
+    metadata: SessionMetadata,
+  ): Promise<{
     message: string;
     accessToken: string;
     refreshToken: string;
@@ -137,7 +143,7 @@ export class EmailVerificationService {
       );
     }
 
-    const tokens = await this.sessionService.create(user.id);
+    const tokens = await this.sessionService.create(user.id, metadata);
 
     return {
       message: 'Email verified successfully.',

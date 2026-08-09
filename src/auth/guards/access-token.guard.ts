@@ -8,6 +8,9 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 
+// Internal services
+import { SessionService } from '../services/session.service';
+
 // Internal types
 import { AccessTokenPayload } from '../types/jwt-payload.type';
 import { AccessAuthenticatedRequest } from '../types/authenticated-request.type';
@@ -22,6 +25,7 @@ export class AccessTokenGuard implements CanActivate {
 
   constructor(
     private readonly jwtService: JwtService,
+    private readonly sessionService: SessionService,
     configService: ConfigService,
   ) {
     this.accessSecret = configService.getOrThrow<string>('JWT_ACCESS_SECRET');
@@ -47,6 +51,8 @@ export class AccessTokenGuard implements CanActivate {
       if (payload.tokenType !== 'access') {
         throw new UnauthorizedException();
       }
+
+      await this.sessionService.assertActive(payload.sub, payload.sessionId);
 
       request.user = payload;
 

@@ -126,9 +126,16 @@ export const SessionScalarFieldEnum = {
   hashedRefreshToken: 'hashedRefreshToken',
   ipAddress: 'ipAddress',
   userAgent: 'userAgent',
-  deviceName: 'deviceName',
+  sessionName: 'sessionName',
+  deviceModel: 'deviceModel',
+  platform: 'platform',
+  osVersion: 'osVersion',
+  appVersion: 'appVersion',
+  locationCountryCode: 'locationCountryCode',
+  locationCity: 'locationCity',
   expiresAt: 'expiresAt',
   revokedAt: 'revokedAt',
+  lastActiveAt: 'lastActiveAt',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
 } as const

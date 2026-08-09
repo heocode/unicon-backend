@@ -1,120 +1,143 @@
-# Unicon Backend
+Unicon Backend
 
-Backend API for Unicon, a campus networking application for students.
+Backend service for Unicon — a campus networking application for students.
 
-## Tech stack
+This repository contains the server-side API built with NestJS, TypeScript, Prisma, PostgreSQL, and Docker.
 
-- NestJS and TypeScript
-- Prisma ORM and PostgreSQL
-- JWT authentication with server-side sessions
-- Resend for transactional email
-- Jest and Supertest
-- Docker
+⸻
 
-## Project structure
+Tech Stack
 
-```text
+- NestJS
+- TypeScript
+- Prisma ORM
+- PostgreSQL
+- Docker & Docker Compose
+- Jest
+
+⸻
+
+Project Structure
+
 src/
-├── auth/       Authentication, email verification and sessions
-├── common/     Shared errors and infrastructure types
-├── mail/       Transactional email integration
-├── prisma/     Prisma service and Nest module
-├── swagger/    Reusable OpenAPI decorators
-├── app.module.ts
-└── main.ts
-
+├── app.controller.ts # HTTP routes
+├── app.service.ts # Business logic
+├── app.module.ts # Main application module
+└── main.ts # Application entry point
 prisma/
-├── migrations/
-├── schema.prisma
-└── seed.ts
-
+├── schema.prisma # Database schema
+└── migrations/ # Database migration history
 test/
-└── app.e2e-spec.ts
-```
+└── app.e2e-spec.ts # End-to-end tests
 
-`src/generated/prisma` is generated from `prisma/schema.prisma` and should not
-be edited manually.
+⸻
 
-## Local setup
+Getting Started
 
-Install dependencies:
+Install dependencies
 
-```bash
-npm ci
-```
+npm install
 
-Copy the environment template and provide real credentials:
+Start PostgreSQL
 
-```bash
-cp .env.example .env
-```
-
-Start PostgreSQL:
-
-```bash
 docker compose up -d
-```
 
-Apply migrations, generate Prisma Client and optionally seed development data:
+Run database migrations
 
-```bash
 npx prisma migrate dev
-npx prisma generate
-npx prisma db seed
-```
 
-Start the API in watch mode:
+Start the development server
 
-```bash
 npm run start:dev
-```
 
-The API listens on `http://localhost:3000` by default. Swagger UI is available
-at `http://localhost:3000/api/docs`.
+The API will be available at:
 
-## Environment variables
+http://localhost:3000
 
-The application validates its environment during startup and fails fast when a
-required value is missing or malformed. See `.env.example` for the complete
-list.
+⸻
 
-JWT expiration values must include a unit, for example `15m`, `7d` or `1000ms`.
+Environment Variables
 
-## Checks
+Create a .env file in the project root.
 
-```bash
+Example:
+
+DATABASE_URL="postgresql://postgres:postgres@localhost:5432/unicon?schema=public"
+PORT=3000
+
+⸻
+
+Useful Commands
+
+Start development server
+
+npm run start:dev
+
+Build the project
+
 npm run build
-npm run lint
+
+Run tests
+
 npm test
+
+Run E2E tests
+
 npm run test:e2e
-```
 
-## Production
+Run linter
 
-Build and run locally:
+npm run lint
 
-```bash
-npm run build
-npm run start:prod
-```
+Open Prisma Studio
 
-Build the production container:
+npx prisma studio
 
-```bash
-docker build -t unicon-backend .
-```
+Update the local GeoLite2 City database
 
-Runtime environment variables must be passed to the container. PostgreSQL in
-`docker-compose.yml` is intended for local development.
+npm run geoip:update
 
-## Database workflow
+Test the local database without changing proxy trust settings
 
-Change `prisma/schema.prisma`, create a migration, and regenerate the client:
+npm run geoip:lookup -- 8.8.8.8
 
-```bash
-npx prisma migrate dev --name describe_change
-npx prisma generate
-```
+Stop Docker containers
 
-Do not edit existing migration files after they have been applied or modify the
-generated Prisma Client manually.
+docker compose down
+
+⸻
+
+GeoIP
+
+Session locations are resolved locally with the MaxMind GeoLite2 City database.
+Add MAXMIND_ACCOUNT_ID and MAXMIND_LICENSE_KEY to .env, then run the official
+MaxMind geoipupdate container:
+
+npm run geoip:update
+
+The database is stored at data/geoip/GeoLite2-City.mmdb and is intentionally
+excluded from Git and the Docker build context. Set GEOIP_ENABLED=false when
+the database is not available. Docker is required to update the database, but
+the NestJS development server can continue to run directly on the host. GeoIP
+lookup is best-effort and never prevents authentication.
+
+The backend checks GEOIP_DATABASE_PATH at the interval configured by
+GEOIP_RELOAD_INTERVAL_SECONDS. A new database is validated before the active
+reader is replaced; if reload fails, the previous reader remains available.
+
+⸻
+
+Git Workflow
+
+Development is done using feature branches.
+
+Example:
+
+git checkout -b feature/auth
+
+After a feature is completed:
+
+1. Commit your changes.
+2. Push the branch.
+3. Open a Pull Request into main.
+4. Merge after review.

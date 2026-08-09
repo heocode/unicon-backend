@@ -795,9 +795,16 @@ export const SessionScalarFieldEnum = {
   hashedRefreshToken: 'hashedRefreshToken',
   ipAddress: 'ipAddress',
   userAgent: 'userAgent',
-  deviceName: 'deviceName',
+  sessionName: 'sessionName',
+  deviceModel: 'deviceModel',
+  platform: 'platform',
+  osVersion: 'osVersion',
+  appVersion: 'appVersion',
+  locationCountryCode: 'locationCountryCode',
+  locationCity: 'locationCity',
   expiresAt: 'expiresAt',
   revokedAt: 'revokedAt',
+  lastActiveAt: 'lastActiveAt',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
 } as const
@@ -909,6 +916,20 @@ export type IntFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'In
  * Reference to a field of type 'Int[]'
  */
 export type ListIntFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Int[]'>
+    
+
+
+/**
+ * Reference to a field of type 'SessionPlatform'
+ */
+export type EnumSessionPlatformFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'SessionPlatform'>
+    
+
+
+/**
+ * Reference to a field of type 'SessionPlatform[]'
+ */
+export type ListEnumSessionPlatformFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'SessionPlatform[]'>
     
 
 

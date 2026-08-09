@@ -44,7 +44,11 @@ export class RefreshTokenGuard implements CanActivate {
 
       validateBaseTokenPayload(payload);
 
-      if (payload.tokenType !== 'refresh') {
+      if (
+        payload.tokenType !== 'refresh' ||
+        typeof payload.jti !== 'string' ||
+        payload.jti.length === 0
+      ) {
         throw new UnauthorizedException();
       }
 

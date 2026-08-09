@@ -10,4 +10,6 @@ export type AccessTokenPayload = BaseTokenPayload & {
 
 export type RefreshTokenPayload = BaseTokenPayload & {
   tokenType: 'refresh';
+  jti: string;
+  exp: number;
 };
