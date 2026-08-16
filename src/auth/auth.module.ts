@@ -22,8 +22,11 @@ import { AccessTokenGuard } from './guards/access-token.guard';
 import { RefreshTokenGuard } from './guards/refresh-token.guard';
 import { SecureTokenService } from './services/secure-token.service';
 import { UsernameService } from './services/username.service';
-import { SessionService } from './services/session.service';
 import { EmailVerificationService } from './services/email-verification.service';
+import { SessionCreationService } from './session/services/session-creation.service';
+import { SessionRefreshService } from './session/services/session-refresh.service';
+import { SessionQueryService } from './session/services/session-query.service';
+import { SessionManagementService } from './session/services/session-management.service';
 
 @Module({
   imports: [
@@ -41,7 +44,10 @@ import { EmailVerificationService } from './services/email-verification.service'
     JwtTokenService,
     SecureTokenService,
     UsernameService,
-    SessionService,
+    SessionCreationService,
+    SessionRefreshService,
+    SessionQueryService,
+    SessionManagementService,
     EmailVerificationService,
     AccessTokenGuard,
     RefreshTokenGuard,

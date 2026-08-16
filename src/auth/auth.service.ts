@@ -18,8 +18,11 @@ import { NotificationService } from '../notifications/services/notification.serv
 import { PasswordService } from './services/password.service';
 import { SecureTokenService } from './services/secure-token.service';
 import { UsernameService } from './services/username.service';
-import { SessionService } from './services/session.service';
 import { EmailVerificationService } from './services/email-verification.service';
+import { SessionCreationService } from './session/services/session-creation.service';
+import { SessionRefreshService } from './session/services/session-refresh.service';
+import { SessionQueryService } from './session/services/session-query.service';
+import { SessionManagementService } from './session/services/session-management.service';
 
 // Internal utils
 import { getVerificationCooldownSeconds } from './utils/get-verification-cooldown.util';
@@ -51,7 +54,10 @@ export class AuthService {
     private readonly passwordService: PasswordService,
     private readonly secureTokenService: SecureTokenService,
     private readonly usernameService: UsernameService,
-    private readonly sessionService: SessionService,
+    private readonly sessionCreationService: SessionCreationService,
+    private readonly sessionRefreshService: SessionRefreshService,
+    private readonly sessionQueryService: SessionQueryService,
+    private readonly sessionManagementService: SessionManagementService,
     private readonly emailVerificationService: EmailVerificationService,
     private readonly securityEventService: SecurityEventService,
     private readonly notificationService: NotificationService,
@@ -165,7 +171,7 @@ export class AuthService {
       ...this.securityEventService.snapshotFromMetadata(metadata),
     });
 
-    const { sessionId, ...tokens } = await this.sessionService.create(
+    const { sessionId, ...tokens } = await this.sessionCreationService.create(
       existingUser.id,
       metadata,
     );
@@ -178,7 +184,7 @@ export class AuthService {
   }
 
   async logout(userId: string, sessionId: string) {
-    await this.sessionService.revoke(userId, sessionId);
+    await this.sessionManagementService.revoke(userId, sessionId);
 
     return {
       message: 'Logged out successfully.',
@@ -186,7 +192,7 @@ export class AuthService {
   }
 
   getSessions(userId: string, currentSessionId: string) {
-    return this.sessionService.findActiveByUser(userId, currentSessionId);
+    return this.sessionQueryService.findActiveByUser(userId, currentSessionId);
   }
 
   renameSession(
@@ -195,7 +201,7 @@ export class AuthService {
     targetSessionId: string,
     dto: UpdateSessionDto,
   ) {
-    return this.sessionService.rename(
+    return this.sessionManagementService.rename(
       userId,
       currentSessionId,
       targetSessionId,
@@ -208,7 +214,7 @@ export class AuthService {
     currentSessionId: string,
     targetSessionId: string,
   ) {
-    return this.sessionService.revokeSelected(
+    return this.sessionManagementService.revokeSelected(
       userId,
       currentSessionId,
       targetSessionId,
@@ -216,7 +222,7 @@ export class AuthService {
   }
 
   revokeOtherSessions(userId: string, currentSessionId: string) {
-    return this.sessionService.revokeOthers(userId, currentSessionId);
+    return this.sessionManagementService.revokeOthers(userId, currentSessionId);
   }
 
   private async createPendingUser({
@@ -285,7 +291,7 @@ export class AuthService {
   }
 
   refreshTokens(userId: string, sessionId: string, refreshToken: string) {
-    return this.sessionService.refresh(userId, sessionId, refreshToken);
+    return this.sessionRefreshService.refresh(userId, sessionId, refreshToken);
   }
 
   private async recordFailedLogin(

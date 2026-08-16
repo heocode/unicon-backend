@@ -13,7 +13,7 @@ import {
 import { PrismaService } from '../../prisma/prisma.service';
 import { MailService } from '../../mail/mail.service';
 import { SecureTokenService } from './secure-token.service';
-import { SessionService } from './session.service';
+import { SessionCreationService } from '../session/services/session-creation.service';
 import { NotificationService } from '../../notifications/services/notification.service';
 
 // Internal utils
@@ -32,7 +32,7 @@ export class EmailVerificationService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly secureTokenService: SecureTokenService,
-    private readonly sessionService: SessionService,
+    private readonly sessionCreationService: SessionCreationService,
     private readonly mailService: MailService,
     private readonly notificationService: NotificationService,
   ) {}
@@ -145,7 +145,7 @@ export class EmailVerificationService {
       );
     }
 
-    const { sessionId, ...tokens } = await this.sessionService.create(
+    const { sessionId, ...tokens } = await this.sessionCreationService.create(
       user.id,
       metadata,
     );

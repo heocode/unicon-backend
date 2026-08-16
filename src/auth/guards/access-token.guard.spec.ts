@@ -1,7 +1,7 @@
 import { ExecutionContext, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
-import { SessionService } from '../services/session.service';
+import { SessionQueryService } from '../session/services/session-query.service';
 import type { AccessAuthenticatedRequest } from '../types/authenticated-request.type';
 import { AccessTokenGuard } from './access-token.guard';
 
@@ -9,7 +9,7 @@ describe('AccessTokenGuard', () => {
   const jwtService = {
     verifyAsync: jest.fn(),
   };
-  const sessionService = {
+  const sessionQueryService = {
     assertActive: jest.fn(),
   };
   const configService = {
@@ -37,7 +37,7 @@ describe('AccessTokenGuard', () => {
 
     guard = new AccessTokenGuard(
       jwtService as unknown as JwtService,
-      sessionService as unknown as SessionService,
+      sessionQueryService as unknown as SessionQueryService,
       configService as unknown as ConfigService,
     );
   });
@@ -49,11 +49,11 @@ describe('AccessTokenGuard', () => {
       tokenType: 'access' as const,
     };
     jwtService.verifyAsync.mockResolvedValue(payload);
-    sessionService.assertActive.mockResolvedValue(undefined);
+    sessionQueryService.assertActive.mockResolvedValue(undefined);
 
     await expect(guard.canActivate(context)).resolves.toBe(true);
 
-    expect(sessionService.assertActive).toHaveBeenCalledWith(
+    expect(sessionQueryService.assertActive).toHaveBeenCalledWith(
       'user-id',
       'session-id',
     );
@@ -66,7 +66,7 @@ describe('AccessTokenGuard', () => {
       sessionId: 'session-id',
       tokenType: 'access',
     });
-    sessionService.assertActive.mockRejectedValue(
+    sessionQueryService.assertActive.mockRejectedValue(
       new UnauthorizedException('Session unavailable.'),
     );
 
@@ -85,6 +85,6 @@ describe('AccessTokenGuard', () => {
     await expect(guard.canActivate(context)).rejects.toBeInstanceOf(
       UnauthorizedException,
     );
-    expect(sessionService.assertActive).not.toHaveBeenCalled();
+    expect(sessionQueryService.assertActive).not.toHaveBeenCalled();
   });
 });
