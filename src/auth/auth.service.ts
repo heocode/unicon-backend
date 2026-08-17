@@ -23,6 +23,7 @@ import { SessionCreationService } from './session/services/session-creation.serv
 import { SessionRefreshService } from './session/services/session-refresh.service';
 import { SessionQueryService } from './session/services/session-query.service';
 import { SessionManagementService } from './session/services/session-management.service';
+import { PasswordRecoveryService } from './recovery/services/password-recovery.service';
 
 // Internal utils
 import { getVerificationCooldownSeconds } from './utils/get-verification-cooldown.util';
@@ -37,6 +38,8 @@ import type { RegisterDto } from './dtos/register.dto';
 import type { VerifyEmailDto } from './dtos/verify-email.dto';
 import type { ResendVerificationDto } from './dtos/resend-verification.dto';
 import type { UpdateSessionDto } from './dtos/update-session.dto';
+import type { ForgotPasswordDto } from './dtos/forgot-password.dto';
+import type { ResetPasswordDto } from './dtos/reset-password.dto';
 
 type CreatePendingUserParams = {
   email: string;
@@ -61,6 +64,7 @@ export class AuthService {
     private readonly emailVerificationService: EmailVerificationService,
     private readonly securityEventService: SecurityEventService,
     private readonly notificationService: NotificationService,
+    private readonly passwordRecoveryService: PasswordRecoveryService,
   ) {}
 
   async register(dto: RegisterDto) {
@@ -292,6 +296,14 @@ export class AuthService {
 
   refreshTokens(userId: string, sessionId: string, refreshToken: string) {
     return this.sessionRefreshService.refresh(userId, sessionId, refreshToken);
+  }
+
+  forgotPassword(dto: ForgotPasswordDto, metadata: SessionMetadata) {
+    return this.passwordRecoveryService.requestReset(dto, metadata);
+  }
+
+  resetPassword(dto: ResetPasswordDto, metadata: SessionMetadata) {
+    return this.passwordRecoveryService.reset(dto, metadata);
   }
 
   private async recordFailedLogin(

@@ -51,6 +51,11 @@ the verification requirement.
 - `AccountModule` owns authenticated account-management flows. Password change
   keeps the caller's session, revokes other active sessions, and records the
   security event atomically.
+- `PasswordRecoveryService` owns reset-token issuance and consumption,
+  password replacement, and unconditional revocation of every session after
+  recovery. Recovery does not create a session; the user signs in again.
+- `RecoveryRateLimitService` owns database-backed password-reset request
+  limits. Email and IP bucket inputs are stored only as keyed hashes.
 - `PrismaService` is the database boundary.
 
 Controllers must stay thin. Cross-service orchestration belongs in
@@ -65,6 +70,8 @@ POST  /auth/register
 POST  /auth/login
 POST  /auth/verify-email
 POST  /auth/resend-verification
+POST  /auth/forgot-password
+POST  /auth/reset-password
 POST  /auth/refresh
 POST  /auth/logout
 GET   /auth/sessions
@@ -291,6 +298,30 @@ service attempts a best-effort password-change email from the immutable
 `PASSWORD_CHANGED` event snapshot. Delivery failure does not roll back the
 password change or session revocations.
 
+## Password recovery
+
+`POST /auth/forgot-password` returns the same accepted response for eligible,
+unknown, pending, blocked, and deleted accounts while within the request
+limits. IP- or email-limit exhaustion returns the same
+`RATE_LIMIT_EXCEEDED` response before account lookup, including
+`retryAfterSeconds` and a `Retry-After` header. Both fixed-window limits are
+database-backed and their email/IP inputs are protected by a configured HMAC
+secret.
+
+An eligible active, verified user receives a 256-bit opaque reset token with a
+configurable 30-minute default lifetime. Only its SHA-256 hash is stored in a
+dedicated `PasswordResetToken`. A new token invalidates prior active tokens.
+Email delivery occurs after commit and is retained independently; delivery
+failure does not reveal whether the account exists.
+
+`POST /auth/reset-password` conditionally consumes one valid token. Token
+consumption, conditional password replacement, invalidation of all remaining
+reset tokens, revocation of every active session, and recording
+`PASSWORD_RESET_COMPLETED` occur in one transaction. Invalid, expired, used,
+superseded, and account-ineligible tokens all return
+`PASSWORD_RESET_TOKEN_INVALID`. Every old access and refresh token is then
+unusable, and the user signs in normally with the new password.
+
 ## Security events
 
 Security events are internal, append-only records. There is no public security
@@ -306,6 +337,8 @@ SESSION_REVOKED
 OTHER_SESSIONS_REVOKED
 SUSPICIOUS_ACTIVITY_DETECTED
 PASSWORD_CHANGED
+PASSWORD_RESET_REQUESTED
+PASSWORD_RESET_COMPLETED
 ```
 
 `LOGIN_FAILED` means only that the submitted email or password was invalid.

@@ -11,6 +11,10 @@ import { MailDeliveryError } from '../common/errors/mail-delivery.error';
 // Internal types
 import type { NewSessionEmail } from './types/new-session-email.type';
 import type { PasswordChangedEmail } from './types/password-changed-email.type';
+import type {
+  PasswordResetCompletedEmail,
+  PasswordResetRequestEmail,
+} from './types/password-reset-email.type';
 
 @Injectable()
 export class MailService {
@@ -213,6 +217,74 @@ export class MailService {
         throw error;
       }
 
+      throw new MailDeliveryError();
+    }
+  }
+
+  async sendPasswordResetRequestEmail(
+    notification: PasswordResetRequestEmail,
+  ): Promise<string> {
+    const url = new URL('/reset-password', this.clientUrl);
+    url.searchParams.set('token', notification.token);
+
+    try {
+      const { data, error } = await this.resend.emails.send(
+        {
+          from: this.mailFrom,
+          to: [notification.recipient],
+          subject: 'Reset your Unicon password',
+          text: [
+            'A password reset was requested for your Unicon account.',
+            '',
+            url.toString(),
+            '',
+            `This link expires in ${Math.ceil(notification.expiresInSeconds / 60)} minutes.`,
+            'If this was not you, you can ignore this email.',
+          ].join('\n'),
+        },
+        { idempotencyKey: notification.idempotencyKey },
+      );
+      if (error || !data) throw new MailDeliveryError(error?.message);
+      return data.id;
+    } catch (error) {
+      if (error instanceof MailDeliveryError) throw error;
+      throw new MailDeliveryError();
+    }
+  }
+
+  async sendPasswordResetCompletedEmail(
+    notification: PasswordResetCompletedEmail,
+  ): Promise<string> {
+    const details = [
+      `Time: ${notification.occurredAt.toISOString()}`,
+      notification.platform ? `Platform: ${notification.platform}` : undefined,
+      notification.deviceModel
+        ? `Device: ${notification.deviceModel}`
+        : undefined,
+      this.formatLocation(notification),
+      `Sessions signed out: ${notification.revokedSessionsCount}`,
+    ].filter((line): line is string => Boolean(line));
+
+    try {
+      const { data, error } = await this.resend.emails.send(
+        {
+          from: this.mailFrom,
+          to: [notification.recipient],
+          subject: 'Your Unicon password was reset',
+          text: [
+            'The password for your Unicon account was reset.',
+            '',
+            ...details,
+            '',
+            'If this was not you, contact Unicon support immediately.',
+          ].join('\n'),
+        },
+        { idempotencyKey: notification.idempotencyKey },
+      );
+      if (error || !data) throw new MailDeliveryError(error?.message);
+      return data.id;
+    } catch (error) {
+      if (error instanceof MailDeliveryError) throw error;
       throw new MailDeliveryError();
     }
   }

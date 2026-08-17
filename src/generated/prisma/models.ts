@@ -9,6 +9,8 @@
  * 🟢 You can import this file directly.
  */
 export type * from './models/User.js'
+export type * from './models/PasswordResetToken.js'
+export type * from './models/PasswordResetRateLimit.js'
 export type * from './models/University.js'
 export type * from './models/AllowedDomain.js'
 export type * from './models/Session.js'

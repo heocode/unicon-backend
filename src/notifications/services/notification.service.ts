@@ -278,6 +278,125 @@ export class NotificationService {
     return result.count;
   }
 
+  async sendPasswordResetRequestNotification(
+    userId: string,
+    tokenId: string,
+    rawToken: string,
+    expiresInSeconds: number,
+  ): Promise<void> {
+    const token = await this.prisma.passwordResetToken.findFirst({
+      where: { id: tokenId, userId },
+      select: { user: { select: { email: true } } },
+    });
+    if (!token) return;
+
+    await this.deliverPasswordReset(
+      `PASSWORD_RESET_REQUEST:${tokenId}`,
+      'PASSWORD_RESET_REQUEST',
+      userId,
+      token.user.email,
+      (deliveryId) =>
+        this.mailService.sendPasswordResetRequestEmail({
+          recipient: token.user.email,
+          idempotencyKey: deliveryId,
+          token: rawToken,
+          expiresInSeconds,
+        }),
+    );
+  }
+
+  async sendPasswordResetCompletedNotification(
+    userId: string,
+    eventId: string,
+  ): Promise<void> {
+    const event = await this.prisma.securityEvent.findFirst({
+      where: { id: eventId, userId, type: 'PASSWORD_RESET_COMPLETED' },
+      select: {
+        occurredAt: true,
+        ipAddress: true,
+        userAgent: true,
+        deviceModel: true,
+        platform: true,
+        osVersion: true,
+        appVersion: true,
+        locationCountryCode: true,
+        locationCity: true,
+        affectedSessionCount: true,
+        user: { select: { email: true } },
+      },
+    });
+    if (!event?.user) return;
+
+    await this.deliverPasswordReset(
+      `PASSWORD_RESET_COMPLETED:${eventId}`,
+      'PASSWORD_RESET_COMPLETED',
+      userId,
+      event.user.email,
+      (deliveryId) =>
+        this.mailService.sendPasswordResetCompletedEmail({
+          recipient: event.user!.email,
+          idempotencyKey: deliveryId,
+          occurredAt: event.occurredAt,
+          ipAddress: event.ipAddress,
+          userAgent: event.userAgent,
+          deviceModel: event.deviceModel,
+          platform: event.platform,
+          osVersion: event.osVersion,
+          appVersion: event.appVersion,
+          locationCountryCode: event.locationCountryCode,
+          locationCity: event.locationCity,
+          revokedSessionsCount: event.affectedSessionCount ?? 0,
+        }),
+    );
+  }
+
+  private async deliverPasswordReset(
+    idempotencyKey: string,
+    type: 'PASSWORD_RESET_REQUEST' | 'PASSWORD_RESET_COMPLETED',
+    userId: string,
+    recipient: string,
+    send: (deliveryId: string) => Promise<string>,
+  ): Promise<void> {
+    let delivery: { id: string };
+    try {
+      const createdAt = new Date();
+      delivery = await this.prisma.notificationDelivery.create({
+        data: {
+          idempotencyKey,
+          type,
+          channel: 'EMAIL',
+          userId,
+          recipient,
+          retentionExpiresAt: new Date(
+            createdAt.getTime() + this.retentionSeconds * 1000,
+          ),
+        },
+        select: { id: true },
+      });
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002'
+      )
+        return;
+      this.logFailure('Failed to create a password-reset delivery.', error);
+      return;
+    }
+
+    const attemptedAt = new Date();
+    try {
+      const providerMessageId = await send(delivery.id);
+      await this.updateSuccessfulDelivery(
+        delivery.id,
+        providerMessageId,
+        attemptedAt,
+      );
+    } catch (error) {
+      await this.updateFailedDelivery(delivery.id, attemptedAt);
+      this.logFailure('Failed to send a password-reset email.', error);
+    }
+  }
+
   private findSession(userId: string, sessionId: string) {
     return this.prisma.session.findFirst({
       where: { id: sessionId, userId },

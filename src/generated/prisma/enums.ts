@@ -46,7 +46,9 @@ export const SecurityEventType = {
   SESSION_REVOKED: 'SESSION_REVOKED',
   OTHER_SESSIONS_REVOKED: 'OTHER_SESSIONS_REVOKED',
   SUSPICIOUS_ACTIVITY_DETECTED: 'SUSPICIOUS_ACTIVITY_DETECTED',
-  PASSWORD_CHANGED: 'PASSWORD_CHANGED'
+  PASSWORD_CHANGED: 'PASSWORD_CHANGED',
+  PASSWORD_RESET_REQUESTED: 'PASSWORD_RESET_REQUESTED',
+  PASSWORD_RESET_COMPLETED: 'PASSWORD_RESET_COMPLETED'
 } as const
 
 export type SecurityEventType = (typeof SecurityEventType)[keyof typeof SecurityEventType]
@@ -85,7 +87,9 @@ export type SecurityRiskSignal = (typeof SecurityRiskSignal)[keyof typeof Securi
 export const NotificationType = {
   NEW_SESSION: 'NEW_SESSION',
   SUSPICIOUS_ACTIVITY: 'SUSPICIOUS_ACTIVITY',
-  PASSWORD_CHANGED: 'PASSWORD_CHANGED'
+  PASSWORD_CHANGED: 'PASSWORD_CHANGED',
+  PASSWORD_RESET_REQUEST: 'PASSWORD_RESET_REQUEST',
+  PASSWORD_RESET_COMPLETED: 'PASSWORD_RESET_COMPLETED'
 } as const
 
 export type NotificationType = (typeof NotificationType)[keyof typeof NotificationType]

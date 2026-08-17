@@ -27,6 +27,8 @@ import { SessionCreationService } from './session/services/session-creation.serv
 import { SessionRefreshService } from './session/services/session-refresh.service';
 import { SessionQueryService } from './session/services/session-query.service';
 import { SessionManagementService } from './session/services/session-management.service';
+import { PasswordRecoveryService } from './recovery/services/password-recovery.service';
+import { RecoveryRateLimitService } from './recovery/services/recovery-rate-limit.service';
 
 @Module({
   imports: [
@@ -50,6 +52,8 @@ import { SessionManagementService } from './session/services/session-management.
     SessionQueryService,
     SessionManagementService,
     EmailVerificationService,
+    PasswordRecoveryService,
+    RecoveryRateLimitService,
     RefreshTokenGuard,
   ],
   exports: [AuthService],

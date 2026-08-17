@@ -5,6 +5,7 @@ const REQUIRED_ENVIRONMENT_VARIABLES = [
   'RESEND_API_KEY',
   'MAIL_FROM',
   'CLIENT_URL',
+  'PASSWORD_RESET_RATE_LIMIT_SECRET',
 ] as const;
 
 export function validateEnvironment(
@@ -67,6 +68,25 @@ export function validateEnvironment(
     environment.RISK_NEW_SESSION_THRESHOLD,
     'RISK_NEW_SESSION_THRESHOLD',
   );
+  validatedEnvironment.PASSWORD_RESET_TOKEN_TTL_SECONDS = parsePositiveInteger(
+    environment.PASSWORD_RESET_TOKEN_TTL_SECONDS,
+    'PASSWORD_RESET_TOKEN_TTL_SECONDS',
+  );
+  validatedEnvironment.PASSWORD_RESET_REQUEST_WINDOW_SECONDS =
+    parsePositiveInteger(
+      environment.PASSWORD_RESET_REQUEST_WINDOW_SECONDS,
+      'PASSWORD_RESET_REQUEST_WINDOW_SECONDS',
+    );
+  validatedEnvironment.PASSWORD_RESET_REQUEST_LIMIT_PER_EMAIL =
+    parsePositiveInteger(
+      environment.PASSWORD_RESET_REQUEST_LIMIT_PER_EMAIL,
+      'PASSWORD_RESET_REQUEST_LIMIT_PER_EMAIL',
+    );
+  validatedEnvironment.PASSWORD_RESET_REQUEST_LIMIT_PER_IP =
+    parsePositiveInteger(
+      environment.PASSWORD_RESET_REQUEST_LIMIT_PER_IP,
+      'PASSWORD_RESET_REQUEST_LIMIT_PER_IP',
+    );
 
   validatedEnvironment.PORT = parsePort(environment.PORT);
   validatedEnvironment.GEOIP_ENABLED = parseBoolean(

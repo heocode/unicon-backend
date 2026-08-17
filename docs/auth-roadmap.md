@@ -169,19 +169,26 @@ profile and account surface.
 
 ## Stage 6: Password recovery
 
-Implement:
+Implemented:
 
 ```text
 POST /auth/forgot-password
 POST /auth/reset-password
 ```
 
-- Return the same public forgot-password response whether an email exists.
-- Store only a reset-token hash with a short expiration.
-- Rate-limit requests and prevent token reuse.
-- Revoke all sessions after successful reset.
-- Emit security events and best-effort notifications.
-- Add real e2e coverage proving the old password and old sessions stop working.
+- Forgot-password returns the same accepted response for eligible and unknown
+  accounts. Email and IP throttling runs before account lookup and returns the
+  same `429` contract with a remaining cooldown for every address.
+- Opaque reset tokens are stored only as SHA-256 hashes in dedicated records,
+  expire after a configurable short lifetime, and are atomically single-use.
+- Database-backed keyed-hash rate limits cover normalized email and IP scopes.
+- A successful reset atomically changes the password, invalidates every reset
+  token, revokes every session, and records its completion event.
+- Request and completion events plus idempotent best-effort email deliveries
+  are implemented without storing or logging raw tokens.
+- Database-backed e2e coverage proves the old password, access tokens, refresh
+  tokens, and consumed reset token stop working. Recovery deliberately creates
+  no session until a future deep/universal-link contract is designed.
 
 ## Stage 7: TOTP two-factor authentication
 

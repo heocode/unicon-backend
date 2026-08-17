@@ -52,6 +52,8 @@ export const AnyNull = runtime.AnyNull
 
 export const ModelName = {
   User: 'User',
+  PasswordResetToken: 'PasswordResetToken',
+  PasswordResetRateLimit: 'PasswordResetRateLimit',
   University: 'University',
   AllowedDomain: 'AllowedDomain',
   Session: 'Session',
@@ -90,14 +92,35 @@ export const UserScalarFieldEnum = {
   verificationEmailSentAt: 'verificationEmailSentAt',
   hashedVerificationToken: 'hashedVerificationToken',
   verificationTokenExpires: 'verificationTokenExpires',
-  hashedResetPasswordToken: 'hashedResetPasswordToken',
-  resetPasswordExpires: 'resetPasswordExpires',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt',
   deletedAt: 'deletedAt'
 } as const
 
 export type UserScalarFieldEnum = (typeof UserScalarFieldEnum)[keyof typeof UserScalarFieldEnum]
+
+
+export const PasswordResetTokenScalarFieldEnum = {
+  id: 'id',
+  userId: 'userId',
+  tokenHash: 'tokenHash',
+  expiresAt: 'expiresAt',
+  usedAt: 'usedAt',
+  invalidatedAt: 'invalidatedAt',
+  createdAt: 'createdAt'
+} as const
+
+export type PasswordResetTokenScalarFieldEnum = (typeof PasswordResetTokenScalarFieldEnum)[keyof typeof PasswordResetTokenScalarFieldEnum]
+
+
+export const PasswordResetRateLimitScalarFieldEnum = {
+  key: 'key',
+  count: 'count',
+  windowEndAt: 'windowEndAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type PasswordResetRateLimitScalarFieldEnum = (typeof PasswordResetRateLimitScalarFieldEnum)[keyof typeof PasswordResetRateLimitScalarFieldEnum]
 
 
 export const UniversityScalarFieldEnum = {

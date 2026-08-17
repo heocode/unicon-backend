@@ -37,6 +37,8 @@ enum SecurityEventType {
   OTHER_SESSIONS_REVOKED
   SUSPICIOUS_ACTIVITY_DETECTED
   PASSWORD_CHANGED
+  PASSWORD_RESET_REQUESTED
+  PASSWORD_RESET_COMPLETED
 }
 
 enum SecurityEventReason {
@@ -64,6 +66,8 @@ enum NotificationType {
   NEW_SESSION
   SUSPICIOUS_ACTIVITY
   PASSWORD_CHANGED
+  PASSWORD_RESET_REQUEST
+  PASSWORD_RESET_COMPLETED
 }
 
 enum NotificationChannel {
@@ -98,8 +102,6 @@ model User {
   // tokens
   hashedVerificationToken  String?
   verificationTokenExpires DateTime?
-  hashedResetPasswordToken String?
-  resetPasswordExpires     DateTime?
 
   // timestamps
   createdAt DateTime  @default(now())
@@ -113,6 +115,31 @@ model User {
   sessions               Session[]
   securityEvents         SecurityEvent[]
   notificationDeliveries NotificationDelivery[]
+  passwordResetTokens    PasswordResetToken[]
+}
+
+model PasswordResetToken {
+  id            String    @id @default(cuid())
+  userId        String
+  tokenHash     String    @unique
+  expiresAt     DateTime
+  usedAt        DateTime?
+  invalidatedAt DateTime?
+  createdAt     DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([expiresAt])
+}
+
+model PasswordResetRateLimit {
+  key         String   @id
+  count       Int
+  windowEndAt DateTime
+  updatedAt   DateTime @updatedAt
+
+  @@index([windowEndAt])
 }
 
 model University {

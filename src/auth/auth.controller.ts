@@ -11,6 +11,7 @@ import {
   Post,
   Req,
   UseGuards,
+  UseFilters,
 } from '@nestjs/common';
 import {
   ApiBadRequestResponse,
@@ -24,6 +25,9 @@ import {
   ApiParam,
   ApiTags,
   ApiUnauthorizedResponse,
+  ApiAcceptedResponse,
+  ApiTooManyRequestsResponse,
+  ApiConflictResponse,
 } from '@nestjs/swagger';
 
 // Internal decorators
@@ -46,6 +50,14 @@ import {
 } from './dtos/update-session.dto';
 import { SessionParamsDto } from './dtos/session-params.dto';
 import { RevokeOtherSessionsResponseDto } from './dtos/revoke-other-sessions-response.dto';
+import { ForgotPasswordDto } from './dtos/forgot-password.dto';
+import { ResetPasswordDto } from './dtos/reset-password.dto';
+import {
+  ForgotPasswordResponseDto,
+  PasswordResetTokenInvalidErrorResponseDto,
+  RateLimitExceededErrorResponseDto,
+  ResetPasswordResponseDto,
+} from './dtos/password-recovery-response.dto';
 import {
   SessionNotFoundErrorResponseDto,
   SessionTooFreshErrorResponseDto,
@@ -63,6 +75,7 @@ import type {
   RefreshAuthenticatedRequest,
 } from './types/authenticated-request.type';
 import type { SessionMetadata } from './types/session-metadata.type';
+import { RecoveryRateLimitFilter } from './recovery/filters/recovery-rate-limit.filter';
 
 @ApiTags('Authentication')
 @Controller('auth')
@@ -99,6 +112,33 @@ export class AuthController {
   @Post('register')
   register(@Body() dto: RegisterDto) {
     return this.authService.register(dto);
+  }
+
+  @Post('forgot-password')
+  @HttpCode(HttpStatus.ACCEPTED)
+  @ApiOperation({ summary: 'Request password reset instructions' })
+  @ApiAcceptedResponse({ type: ForgotPasswordResponseDto })
+  @ApiBadRequestResponse({ type: ValidationErrorResponseDto })
+  @ApiTooManyRequestsResponse({ type: RateLimitExceededErrorResponseDto })
+  @UseFilters(RecoveryRateLimitFilter)
+  forgotPassword(
+    @Body() dto: ForgotPasswordDto,
+    @SessionContext() metadata: SessionMetadata,
+  ) {
+    return this.authService.forgotPassword(dto, metadata);
+  }
+
+  @Post('reset-password')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Reset a password using an emailed token' })
+  @ApiOkResponse({ type: ResetPasswordResponseDto })
+  @ApiBadRequestResponse({ type: PasswordResetTokenInvalidErrorResponseDto })
+  @ApiConflictResponse({ description: 'The password changed concurrently.' })
+  resetPassword(
+    @Body() dto: ResetPasswordDto,
+    @SessionContext() metadata: SessionMetadata,
+  ) {
+    return this.authService.resetPassword(dto, metadata);
   }
 
   @Post('verify-email')
