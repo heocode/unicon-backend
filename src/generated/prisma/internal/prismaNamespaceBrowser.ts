@@ -147,6 +147,7 @@ export type SessionScalarFieldEnum = (typeof SessionScalarFieldEnum)[keyof typeo
 
 export const NotificationDeliveryScalarFieldEnum = {
   id: 'id',
+  idempotencyKey: 'idempotencyKey',
   type: 'type',
   channel: 'channel',
   status: 'status',

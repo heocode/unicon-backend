@@ -36,6 +36,7 @@ enum SecurityEventType {
   SESSION_REVOKED
   OTHER_SESSIONS_REVOKED
   SUSPICIOUS_ACTIVITY_DETECTED
+  PASSWORD_CHANGED
 }
 
 enum SecurityEventReason {
@@ -62,6 +63,7 @@ enum SecurityRiskSignal {
 enum NotificationType {
   NEW_SESSION
   SUSPICIOUS_ACTIVITY
+  PASSWORD_CHANGED
 }
 
 enum NotificationChannel {
@@ -171,6 +173,7 @@ model Session {
 
 model NotificationDelivery {
   id                 String                     @id @default(cuid())
+  idempotencyKey     String?                    @unique
   type               NotificationType
   channel            NotificationChannel
   status             NotificationDeliveryStatus @default(PENDING)
@@ -188,7 +191,6 @@ model NotificationDelivery {
   user    User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
   session Session? @relation(fields: [sessionId], references: [id], onDelete: SetNull)
 
-  @@unique([type, channel, sessionId])
   @@index([userId, createdAt])
   @@index([status, createdAt])
   @@index([retentionExpiresAt])

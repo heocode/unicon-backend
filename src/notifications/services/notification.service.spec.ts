@@ -19,6 +19,7 @@ describe('NotificationService', () => {
   };
   const prisma = {
     session: { findFirst: jest.fn() },
+    securityEvent: { findFirst: jest.fn() },
     notificationDelivery: {
       create: jest.fn(),
       update: jest.fn(),
@@ -28,6 +29,7 @@ describe('NotificationService', () => {
   const mailService = {
     sendNewSessionEmail: jest.fn(),
     sendSuspiciousActivityEmail: jest.fn(),
+    sendPasswordChangedEmail: jest.fn(),
   };
   const configService = {
     getOrThrow: jest.fn(() => 15_552_000),
@@ -45,6 +47,9 @@ describe('NotificationService', () => {
     mailService.sendNewSessionEmail.mockResolvedValue('provider-message-id');
     mailService.sendSuspiciousActivityEmail.mockResolvedValue(
       'suspicious-provider-message-id',
+    );
+    mailService.sendPasswordChangedEmail.mockResolvedValue(
+      'password-provider-message-id',
     );
     service = new NotificationService(
       prisma as unknown as PrismaService,
@@ -64,6 +69,7 @@ describe('NotificationService', () => {
 
     expect(prisma.notificationDelivery.create).toHaveBeenCalledWith({
       data: {
+        idempotencyKey: 'NEW_SESSION:session-id',
         type: 'NEW_SESSION',
         channel: 'EMAIL',
         userId: 'user-id',
@@ -115,6 +121,7 @@ describe('NotificationService', () => {
 
     expect(prisma.notificationDelivery.create).toHaveBeenCalledWith({
       data: {
+        idempotencyKey: 'SUSPICIOUS_ACTIVITY:session-id',
         type: 'SUSPICIOUS_ACTIVITY',
         channel: 'EMAIL',
         userId: 'user-id',
@@ -139,11 +146,104 @@ describe('NotificationService', () => {
     });
   });
 
+  it('records and sends a password-change alert from the security-event snapshot', async () => {
+    const passwordEvent = {
+      actorSessionId: 'session-id',
+      occurredAt: now,
+      deviceModel: 'iPhone 16 Pro',
+      platform: 'IOS' as const,
+      osVersion: '18.6',
+      appVersion: '1.4.2',
+      locationCountryCode: 'CA',
+      locationCity: 'Toronto',
+      affectedSessionCount: 2,
+      user: { email: 'student@example.edu' },
+    };
+    prisma.securityEvent.findFirst.mockResolvedValue(passwordEvent);
+
+    await service.sendPasswordChangedNotification('user-id', 'event-id');
+
+    expect(prisma.securityEvent.findFirst).toHaveBeenCalledWith({
+      where: {
+        id: 'event-id',
+        userId: 'user-id',
+        type: 'PASSWORD_CHANGED',
+      },
+      select: {
+        actorSessionId: true,
+        occurredAt: true,
+        deviceModel: true,
+        platform: true,
+        osVersion: true,
+        appVersion: true,
+        locationCountryCode: true,
+        locationCity: true,
+        affectedSessionCount: true,
+        user: { select: { email: true } },
+      },
+    });
+    expect(prisma.notificationDelivery.create).toHaveBeenCalledWith({
+      data: {
+        idempotencyKey: 'PASSWORD_CHANGED:event-id',
+        type: 'PASSWORD_CHANGED',
+        channel: 'EMAIL',
+        userId: 'user-id',
+        sessionId: 'session-id',
+        recipient: 'student@example.edu',
+        retentionExpiresAt: new Date('2027-02-05T12:00:00.000Z'),
+      },
+      select: { id: true },
+    });
+    expect(mailService.sendPasswordChangedEmail).toHaveBeenCalledWith({
+      recipient: 'student@example.edu',
+      idempotencyKey: 'delivery-id',
+      occurredAt: now,
+      deviceModel: 'iPhone 16 Pro',
+      platform: 'IOS',
+      osVersion: '18.6',
+      appVersion: '1.4.2',
+      locationCountryCode: 'CA',
+      locationCity: 'Toronto',
+      revokedSessionsCount: 2,
+    });
+  });
+
   it('records a failed delivery without rejecting the auth flow', async () => {
     mailService.sendNewSessionEmail.mockRejectedValue(new MailDeliveryError());
 
     await expect(
       service.sendNewSessionNotification('user-id', 'session-id'),
+    ).resolves.toBeUndefined();
+
+    expect(prisma.notificationDelivery.update).toHaveBeenCalledWith({
+      where: { id: 'delivery-id' },
+      data: {
+        status: 'FAILED',
+        attemptedAt: now,
+        failureCode: 'EMAIL_DELIVERY_FAILED',
+      },
+    });
+  });
+
+  it('records a failed password-change delivery without rejecting the account flow', async () => {
+    prisma.securityEvent.findFirst.mockResolvedValue({
+      actorSessionId: 'session-id',
+      occurredAt: now,
+      deviceModel: null,
+      platform: 'WEB',
+      osVersion: null,
+      appVersion: null,
+      locationCountryCode: null,
+      locationCity: null,
+      affectedSessionCount: 0,
+      user: { email: 'student@example.edu' },
+    });
+    mailService.sendPasswordChangedEmail.mockRejectedValue(
+      new MailDeliveryError(),
+    );
+
+    await expect(
+      service.sendPasswordChangedNotification('user-id', 'event-id'),
     ).resolves.toBeUndefined();
 
     expect(prisma.notificationDelivery.update).toHaveBeenCalledWith({

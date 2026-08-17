@@ -39,11 +39,13 @@ describe('SecurityEventService', () => {
   it('records an append-only event with its retention deadline', async () => {
     prisma.securityEvent.create.mockResolvedValue({ id: 'event-id' });
 
-    await service.record({
-      type: 'LOGIN_FAILED',
-      reason: 'INVALID_CREDENTIALS',
-      ipAddress: '192.0.2.10',
-    });
+    await expect(
+      service.record({
+        type: 'LOGIN_FAILED',
+        reason: 'INVALID_CREDENTIALS',
+        ipAddress: '192.0.2.10',
+      }),
+    ).resolves.toEqual({ id: 'event-id' });
 
     expect(prisma.securityEvent.create).toHaveBeenCalledWith({
       data: {

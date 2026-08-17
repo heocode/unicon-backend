@@ -9,7 +9,7 @@ import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 
 // Internal services
-import { SessionQueryService } from '../session/services/session-query.service';
+import { SessionAuthorizationService } from '../session/services/session-authorization.service';
 
 // Internal types
 import { AccessTokenPayload } from '../types/jwt-payload.type';
@@ -25,7 +25,7 @@ export class AccessTokenGuard implements CanActivate {
 
   constructor(
     private readonly jwtService: JwtService,
-    private readonly sessionQueryService: SessionQueryService,
+    private readonly sessionAuthorizationService: SessionAuthorizationService,
     configService: ConfigService,
   ) {
     this.accessSecret = configService.getOrThrow<string>('JWT_ACCESS_SECRET');
@@ -52,7 +52,7 @@ export class AccessTokenGuard implements CanActivate {
         throw new UnauthorizedException();
       }
 
-      await this.sessionQueryService.assertActive(
+      await this.sessionAuthorizationService.assertActive(
         payload.sub,
         payload.sessionId,
       );

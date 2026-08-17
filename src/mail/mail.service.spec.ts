@@ -93,4 +93,45 @@ describe('MailService new-session email', () => {
       }),
     ).rejects.toBeInstanceOf(MailDeliveryError);
   });
+
+  it('sends a plain-text password-change notification', async () => {
+    send.mockResolvedValue({ data: { id: 'provider-id' }, error: null });
+
+    await expect(
+      service.sendPasswordChangedEmail({
+        recipient: 'student@example.edu',
+        idempotencyKey: 'delivery-id',
+        occurredAt: new Date('2026-08-16T12:00:00.000Z'),
+        deviceModel: 'iPhone 16 Pro',
+        platform: 'IOS',
+        osVersion: '18.6',
+        appVersion: '1.4.2',
+        locationCountryCode: 'CA',
+        locationCity: 'Toronto',
+        revokedSessionsCount: 2,
+      }),
+    ).resolves.toBe('provider-id');
+
+    expect(send).toHaveBeenCalledWith(
+      {
+        from: 'Unicon <test@unicon.local>',
+        to: ['student@example.edu'],
+        subject: 'Your Unicon password was changed',
+        text: [
+          'The password for your Unicon account was changed.',
+          '',
+          'Time: 2026-08-16T12:00:00.000Z',
+          'Platform: IOS',
+          'Device: iPhone 16 Pro',
+          'OS version: 18.6',
+          'App version: 1.4.2',
+          'Approximate location: Toronto, CA',
+          'Other sessions signed out: 2',
+          '',
+          'If this was not you, contact Unicon support immediately.',
+        ].join('\n'),
+      },
+      { idempotencyKey: 'delivery-id' },
+    );
+  });
 });

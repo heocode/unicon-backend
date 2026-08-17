@@ -20,14 +20,26 @@ the verification requirement.
 - `AuthController` owns the `/auth` HTTP boundary.
 - `AuthService` coordinates registration, login, session, and verification
   flows.
-- `PasswordService` hashes and compares passwords.
+- `PasswordModule` owns the shared password hashing and comparison primitive
+  used by authentication and future account/recovery flows.
 - `SecureTokenService` creates and hashes opaque security tokens.
 - `JwtTokenService` signs access and refresh JWTs.
-- `SessionService` owns session creation, refresh rotation, authorization
-  checks, listing, naming, and revocation primitives.
+- Session behavior is grouped under `auth/session` and split by responsibility:
+  - `SessionCreationService` owns expiration, the active-session limit,
+    serializable creation, transaction-conflict retries, and creation events;
+  - `SessionRefreshService` owns refresh-token validation, atomic rotation,
+    sliding expiration, reuse detection, and the resulting alert;
+  - `SessionAuthorizationService` owns the minimal active-session check used
+    by protected requests;
+  - `SessionQueryService` owns the public active-session list;
+  - `SessionManagementService` owns naming, individual and bulk revocation,
+    the fresh-session cooldown, and revocation events.
 - `EmailVerificationService` owns verification-token lifecycle and activation.
 - `AccessTokenGuard` verifies access JWTs and checks the referenced active
   session.
+- `AuthSecurityModule` packages access-token verification and session
+  authorization for protected domain modules without exposing registration,
+  login, or refresh orchestration.
 - `RefreshTokenGuard` verifies refresh JWTs and exposes the original token to
   the refresh flow.
 - `GeoIpModule` is infrastructure shared with auth. `GeoIpService` resolves a
@@ -36,6 +48,9 @@ the verification requirement.
   retention boundary. It does not send notifications or calculate risk.
 - `NotificationModule` owns best-effort notification orchestration and delivery
   status. `MailModule` remains the Resend infrastructure adapter.
+- `AccountModule` owns authenticated account-management flows. Password change
+  keeps the caller's session, revokes other active sessions, and records the
+  security event atomically.
 - `PrismaService` is the database boundary.
 
 Controllers must stay thin. Cross-service orchestration belongs in
@@ -56,6 +71,8 @@ GET   /auth/sessions
 PATCH /auth/sessions/:sessionId
 DELETE /auth/sessions/:sessionId
 DELETE /auth/sessions/others
+PATCH /account/password
+GET   /profile/me
 ```
 
 `GET /auth/sessions`, session naming, logout, and other protected endpoints use
@@ -198,7 +215,7 @@ privileging old devices.
 extract Bearer token
 → verify access signature and payload shape
 → require tokenType=access
-→ SessionService.assertActive(userId, sessionId)
+→ SessionAuthorizationService.assertActive(userId, sessionId)
 → attach payload to request.user
 ```
 
@@ -255,6 +272,25 @@ the current session to be older than the management cooldown and returns the
 number of sessions revoked. Repeating it when no other active sessions remain
 is successful and returns zero.
 
+## Authenticated password change
+
+`PATCH /account/password` requires an active access-token session and the
+current password. The service verifies that the new password is different and
+performs the following database changes in one transaction:
+
+```text
+conditionally replace the current password hash
+→ preserve the caller's current session
+→ revoke every other active session
+→ record PASSWORD_CHANGED with the current-session snapshot
+```
+
+The conditional update includes the previously read password hash so two
+concurrent changes cannot both succeed. After the transaction commits, the
+service attempts a best-effort password-change email from the immutable
+`PASSWORD_CHANGED` event snapshot. Delivery failure does not roll back the
+password change or session revocations.
+
 ## Security events
 
 Security events are internal, append-only records. There is no public security
@@ -268,6 +304,8 @@ SESSION_CREATED
 SESSION_CREATION_FAILED
 SESSION_REVOKED
 OTHER_SESSIONS_REVOKED
+SUSPICIOUS_ACTIVITY_DETECTED
+PASSWORD_CHANGED
 ```
 
 `LOGIN_FAILED` means only that the submitted email or password was invalid.
@@ -310,9 +348,11 @@ implementation makes one immediate best-effort provider attempt; automatic
 retry scheduling is not part of Stage 3.
 
 `NotificationDelivery` records `PENDING`, `SENT`, or `FAILED` independently of
-the auth response. The unique notification type, channel, and session key and
-the Resend idempotency key prevent an application retry from intentionally
-creating duplicate new-session emails. Delivery records retain the recipient
+the auth response. An explicit unique delivery idempotency key and the Resend
+idempotency key prevent an application retry from intentionally creating
+duplicate emails. Session notifications use their session ID; password-change
+notifications use their security-event ID, allowing multiple legitimate
+password changes from the same session. Delivery records retain the recipient
 snapshot, provider message ID on success, and a normalized failure code on
 failure. Provider error bodies and stack traces are not persisted.
 
@@ -324,6 +364,19 @@ be interpreted as HTML.
 Delivery records receive a configurable 180-day retention deadline through
 `NOTIFICATION_DELIVERY_RETENTION_SECONDS`. As with security events, cleanup
 scheduling remains a deployment concern.
+
+## Password-change notifications
+
+Every committed `PASSWORD_CHANGED` event attempts one email to the account's
+primary college address. The email uses the event's UTC time, device/platform,
+approximate location, and affected-session count. It never contains an IP
+address, user agent, password, or token.
+
+The event is created inside the password-change transaction. Its ID is passed
+to `NotificationService` only after commit, so mail and delivery-record writes
+remain outside the transaction. A missing event, duplicate delivery, database
+failure, or mail-provider failure cannot turn a successful password change
+into an API error.
 
 ## Suspicious-activity analysis
 

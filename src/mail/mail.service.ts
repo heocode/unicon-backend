@@ -10,6 +10,7 @@ import { MailDeliveryError } from '../common/errors/mail-delivery.error';
 
 // Internal types
 import type { NewSessionEmail } from './types/new-session-email.type';
+import type { PasswordChangedEmail } from './types/password-changed-email.type';
 
 @Injectable()
 export class MailService {
@@ -161,6 +162,61 @@ export class MailService {
     }
   }
 
+  async sendPasswordChangedEmail(
+    notification: PasswordChangedEmail,
+  ): Promise<string> {
+    const details = [
+      `Time: ${notification.occurredAt.toISOString()}`,
+      notification.platform ? `Platform: ${notification.platform}` : undefined,
+      notification.deviceModel
+        ? `Device: ${notification.deviceModel}`
+        : undefined,
+      notification.osVersion
+        ? `OS version: ${notification.osVersion}`
+        : undefined,
+      notification.appVersion
+        ? `App version: ${notification.appVersion}`
+        : undefined,
+      this.formatLocation(notification),
+      `Other sessions signed out: ${notification.revokedSessionsCount}`,
+    ].filter((line): line is string => Boolean(line));
+
+    try {
+      const { data, error } = await this.resend.emails.send(
+        {
+          from: this.mailFrom,
+          to: [notification.recipient],
+          subject: 'Your Unicon password was changed',
+          text: [
+            'The password for your Unicon account was changed.',
+            '',
+            ...details,
+            '',
+            'If this was not you, contact Unicon support immediately.',
+          ].join('\n'),
+        },
+        { idempotencyKey: notification.idempotencyKey },
+      );
+
+      if (error || !data) {
+        throw new MailDeliveryError(error?.message);
+      }
+
+      return data.id;
+    } catch (error) {
+      this.logger.error(
+        `Failed to send a password-change email to ${notification.recipient}.`,
+        error instanceof Error ? error.stack : undefined,
+      );
+
+      if (error instanceof MailDeliveryError) {
+        throw error;
+      }
+
+      throw new MailDeliveryError();
+    }
+  }
+
   private buildVerificationUrl(token: string): string {
     const url = new URL('/verify-email', this.clientUrl);
     url.searchParams.set('token', token);
@@ -168,7 +224,10 @@ export class MailService {
     return url.toString();
   }
 
-  private formatLocation(notification: NewSessionEmail): string | undefined {
+  private formatLocation(notification: {
+    locationCountryCode: string | null;
+    locationCity: string | null;
+  }): string | undefined {
     if (!notification.locationCountryCode) {
       return undefined;
     }

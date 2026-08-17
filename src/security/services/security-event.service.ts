@@ -45,13 +45,13 @@ export class SecurityEventService {
   async record(
     event: CreateSecurityEvent,
     client: SecurityEventClient = this.prisma,
-  ): Promise<void> {
+  ): Promise<{ id: string }> {
     const occurredAt = event.occurredAt ?? new Date();
     const retentionExpiresAt = new Date(
       occurredAt.getTime() + this.retentionSeconds * 1000,
     );
 
-    await client.securityEvent.create({
+    return client.securityEvent.create({
       data: {
         ...event,
         occurredAt,

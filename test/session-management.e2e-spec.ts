@@ -5,7 +5,7 @@ import type { App } from 'supertest/types';
 
 import { AppModule } from '../src/app.module';
 import { configureApp } from '../src/configure-app';
-import { PasswordService } from '../src/auth/services/password.service';
+import { PasswordService } from '../src/auth/password/services/password.service';
 import { SecureTokenService } from '../src/auth/services/secure-token.service';
 import { MailService } from '../src/mail/mail.service';
 import { PrismaService } from '../src/prisma/prisma.service';

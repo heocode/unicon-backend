@@ -143,26 +143,29 @@ REFRESH_TOKEN_REUSE
 - Blocking or step-up authentication remains deferred until false positives
   are measured.
 
-## Stage 5: Profile module
+## Stage 5: Profile and account management
 
-Create a dedicated `ProfileModule`; do not place profile resource queries in
+Keep public profile queries in `ProfileModule` and authenticated account
+lifecycle operations in `AccountModule`; do not place either in
 `AuthController`.
 
-Planned surface:
+Current surface:
 
 ```text
 GET   /profile/me
-PATCH /profile/me
-PATCH /profile/password
+PATCH /account/password
 ```
 
-`GET /profile/me` returns only public account and university data. Never expose
-password hashes, token hashes, lockout internals, or deletion/security service
-fields.
+`GET /profile/me` returns only public account and university data. Password
+hashes, token hashes, lockout internals, and deletion/security service fields
+are not exposed. `PATCH /profile/me` is deferred until editable profile fields
+are defined; the generated username remains read-only.
 
 Password change requires current-password verification, keeps the current
-session, revokes other sessions, emits a security event, and sends a best-effort
-notification.
+session, revokes other sessions, and emits a security event atomically. After
+commit, a best-effort password-change email is attempted and its independent
+delivery status is retained. Stage 5 is complete for the currently defined
+profile and account surface.
 
 ## Stage 6: Password recovery
 

@@ -21,23 +21,6 @@ export class SessionQueryService {
     );
   }
 
-  async assertActive(userId: string, sessionId: string): Promise<void> {
-    const session = await this.prisma.session.findFirst({
-      where: {
-        id: sessionId,
-        userId,
-        revokedAt: null,
-        expiresAt: { gt: new Date() },
-        user: { status: 'ACTIVE' },
-      },
-      select: { id: true },
-    });
-
-    if (!session) {
-      throw new UnauthorizedException('Access Denied. Session unavailable.');
-    }
-  }
-
   async findActiveByUser(
     userId: string,
     currentSessionId: string,

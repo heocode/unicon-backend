@@ -15,7 +15,7 @@ import { Prisma } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { SecurityEventService } from '../security/services/security-event.service';
 import { NotificationService } from '../notifications/services/notification.service';
-import { PasswordService } from './services/password.service';
+import { PasswordService } from './password/services/password.service';
 import { SecureTokenService } from './services/secure-token.service';
 import { UsernameService } from './services/username.service';
 import { EmailVerificationService } from './services/email-verification.service';

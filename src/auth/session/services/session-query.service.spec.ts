@@ -10,7 +10,6 @@ describe('SessionQueryService', () => {
   const nextExpiresAt = new Date('2027-08-08T12:00:00.000Z');
   const prisma = {
     session: {
-      findFirst: jest.fn(),
       findMany: jest.fn(),
     },
   };
@@ -39,33 +38,6 @@ describe('SessionQueryService', () => {
 
   afterEach(() => {
     jest.useRealTimers();
-  });
-
-  it('accepts an active session for access-token authorization', async () => {
-    prisma.session.findFirst.mockResolvedValue({ id: 'session-id' });
-
-    await expect(
-      service.assertActive('user-id', 'session-id'),
-    ).resolves.toBeUndefined();
-
-    expect(prisma.session.findFirst).toHaveBeenCalledWith({
-      where: {
-        id: 'session-id',
-        userId: 'user-id',
-        revokedAt: null,
-        expiresAt: { gt: now },
-        user: { status: 'ACTIVE' },
-      },
-      select: { id: true },
-    });
-  });
-
-  it('rejects a revoked, expired, missing, or blocked session', async () => {
-    prisma.session.findFirst.mockResolvedValue(null);
-
-    await expect(
-      service.assertActive('user-id', 'session-id'),
-    ).rejects.toBeInstanceOf(UnauthorizedException);
   });
 
   it('returns active sessions ordered by activity and marks the current one', async () => {

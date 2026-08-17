@@ -7,6 +7,11 @@ import {
   IsStrongPassword,
 } from 'class-validator';
 
+import {
+  PASSWORD_VALIDATION_MESSAGE,
+  PASSWORD_VALIDATION_OPTIONS,
+} from '../password/constants/password-validation.constants';
+
 export class RegisterDto {
   @ApiProperty({
     example: 'vadim@my.centennialcollege.ca',
@@ -25,18 +30,9 @@ export class RegisterDto {
   })
   @IsString()
   @IsNotEmpty()
-  @IsStrongPassword(
-    {
-      minLength: 8,
-      minUppercase: 1,
-      minNumbers: 1,
-      minSymbols: 1,
-    },
-    {
-      message:
-        'Password must be at least 8 characters long and contain at least one uppercase letter, one number, and one special character.',
-    },
-  )
+  @IsStrongPassword(PASSWORD_VALIDATION_OPTIONS, {
+    message: PASSWORD_VALIDATION_MESSAGE,
+  })
   password!: string;
 
   @ApiProperty({

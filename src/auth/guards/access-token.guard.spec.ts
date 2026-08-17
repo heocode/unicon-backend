@@ -1,7 +1,7 @@
 import { ExecutionContext, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
-import { SessionQueryService } from '../session/services/session-query.service';
+import { SessionAuthorizationService } from '../session/services/session-authorization.service';
 import type { AccessAuthenticatedRequest } from '../types/authenticated-request.type';
 import { AccessTokenGuard } from './access-token.guard';
 
@@ -9,7 +9,7 @@ describe('AccessTokenGuard', () => {
   const jwtService = {
     verifyAsync: jest.fn(),
   };
-  const sessionQueryService = {
+  const sessionAuthorizationService = {
     assertActive: jest.fn(),
   };
   const configService = {
@@ -37,7 +37,7 @@ describe('AccessTokenGuard', () => {
 
     guard = new AccessTokenGuard(
       jwtService as unknown as JwtService,
-      sessionQueryService as unknown as SessionQueryService,
+      sessionAuthorizationService as unknown as SessionAuthorizationService,
       configService as unknown as ConfigService,
     );
   });
@@ -49,11 +49,11 @@ describe('AccessTokenGuard', () => {
       tokenType: 'access' as const,
     };
     jwtService.verifyAsync.mockResolvedValue(payload);
-    sessionQueryService.assertActive.mockResolvedValue(undefined);
+    sessionAuthorizationService.assertActive.mockResolvedValue(undefined);
 
     await expect(guard.canActivate(context)).resolves.toBe(true);
 
-    expect(sessionQueryService.assertActive).toHaveBeenCalledWith(
+    expect(sessionAuthorizationService.assertActive).toHaveBeenCalledWith(
       'user-id',
       'session-id',
     );
@@ -66,7 +66,7 @@ describe('AccessTokenGuard', () => {
       sessionId: 'session-id',
       tokenType: 'access',
     });
-    sessionQueryService.assertActive.mockRejectedValue(
+    sessionAuthorizationService.assertActive.mockRejectedValue(
       new UnauthorizedException('Session unavailable.'),
     );
 
@@ -85,6 +85,6 @@ describe('AccessTokenGuard', () => {
     await expect(guard.canActivate(context)).rejects.toBeInstanceOf(
       UnauthorizedException,
     );
-    expect(sessionQueryService.assertActive).not.toHaveBeenCalled();
+    expect(sessionAuthorizationService.assertActive).not.toHaveBeenCalled();
   });
 });
