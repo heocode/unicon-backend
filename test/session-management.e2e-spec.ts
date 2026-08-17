@@ -20,6 +20,7 @@ type SessionListItem = {
   current: boolean;
   sessionName: string | null;
   device: {
+    modelIdentifier: string | null;
     model: string | null;
   };
 };
@@ -39,6 +40,9 @@ describe('Session management with PostgreSQL (e2e)', () => {
   let app: INestApplication<App>;
   let prisma: PrismaService;
   let mailService: MailService;
+  let sendNewSessionEmailSpy: jest.SpiedFunction<
+    MailService['sendNewSessionEmail']
+  >;
   let secureTokenService: SecureTokenService;
   let passwordHash: string;
 
@@ -61,7 +65,7 @@ describe('Session management with PostgreSQL (e2e)', () => {
 
   beforeEach(async () => {
     jest.clearAllMocks();
-    jest
+    sendNewSessionEmailSpy = jest
       .spyOn(mailService, 'sendNewSessionEmail')
       .mockResolvedValue('test-provider-message-id');
     jest
@@ -266,16 +270,31 @@ describe('Session management with PostgreSQL (e2e)', () => {
     });
     expect(knownLoginEvent?.userId).not.toBeNull();
 
-    const tokens = await login('Successful login device', 'IOS');
-    const sessionId = currentSessionId(await getSessions(tokens.accessToken));
+    const tokens = await login('Successful login device', 'IOS', 'iPhone17,1');
+    const successfulLoginSessions = await getSessions(tokens.accessToken);
+    const sessionId = currentSessionId(successfulLoginSessions);
+    expect(
+      successfulLoginSessions.sessions.find(({ current }) => current)?.device,
+    ).toMatchObject({
+      modelIdentifier: 'iPhone17,1',
+      model: 'Successful login device',
+    });
     const successfulEvents = await prisma.securityEvent.findMany({
       where: { type: { in: ['LOGIN_SUCCEEDED', 'SESSION_CREATED'] } },
       select: {
         type: true,
         actorSessionId: true,
         subjectSessionId: true,
+        deviceModelIdentifier: true,
       },
     });
+
+    await expect(
+      prisma.session.findUniqueOrThrow({
+        where: { id: sessionId },
+        select: { deviceModelIdentifier: true },
+      }),
+    ).resolves.toEqual({ deviceModelIdentifier: 'iPhone17,1' });
 
     expect(successfulEvents).toEqual(
       expect.arrayContaining([
@@ -283,11 +302,13 @@ describe('Session management with PostgreSQL (e2e)', () => {
           type: 'LOGIN_SUCCEEDED',
           actorSessionId: null,
           subjectSessionId: null,
+          deviceModelIdentifier: 'iPhone17,1',
         },
         {
           type: 'SESSION_CREATED',
           actorSessionId: sessionId,
           subjectSessionId: sessionId,
+          deviceModelIdentifier: 'iPhone17,1',
         },
       ]),
     );
@@ -357,6 +378,7 @@ describe('Session management with PostgreSQL (e2e)', () => {
 
     await request(app.getHttpServer())
       .post('/auth/verify-email')
+      .set('X-Device-Model-Identifier', 'iPhone17,1')
       .set('X-Device-Model', 'Verified device')
       .set('X-Platform', 'IOS')
       .send({ token: verificationToken })
@@ -368,18 +390,32 @@ describe('Session management with PostgreSQL (e2e)', () => {
         select: { status: true, recipient: true },
       }),
     ).resolves.toEqual({ status: 'SENT', recipient: email });
+
+    await expect(
+      prisma.session.findFirstOrThrow({
+        where: { user: { email } },
+        select: { deviceModelIdentifier: true },
+      }),
+    ).resolves.toEqual({ deviceModelIdentifier: 'iPhone17,1' });
+
+    await expect(
+      prisma.securityEvent.findFirstOrThrow({
+        where: { type: 'SESSION_CREATED', user: { email } },
+        select: { deviceModelIdentifier: true },
+      }),
+    ).resolves.toEqual({ deviceModelIdentifier: 'iPhone17,1' });
   });
 
   it('records explainable risk levels without blocking session creation', async () => {
-    await login('Known device', 'IOS');
-    const lowRiskTokens = await login('New device', 'ANDROID');
+    await login('Known device', 'IOS', 'iPhone17,1');
+    const lowRiskTokens = await login('New device', 'ANDROID', 'google:komodo');
     await getSessions(lowRiskTokens.accessToken);
 
     await expect(
       prisma.securityEvent.findFirstOrThrow({
         where: {
           type: 'SESSION_CREATED',
-          deviceModel: 'New device',
+          deviceModelIdentifier: 'google:komodo',
         },
         select: { riskLevel: true, riskSignals: true },
       }),
@@ -388,13 +424,17 @@ describe('Session management with PostgreSQL (e2e)', () => {
       riskSignals: ['NEW_DEVICE'],
     });
 
-    const mediumRiskTokens = await login('Third device', 'WEB');
+    const mediumRiskTokens = await login(
+      'Third device',
+      'WEB',
+      'web:test-browser',
+    );
     await getSessions(mediumRiskTokens.accessToken);
 
     const suspiciousEvent = await prisma.securityEvent.findFirstOrThrow({
       where: {
         type: 'SUSPICIOUS_ACTIVITY_DETECTED',
-        deviceModel: 'Third device',
+        deviceModelIdentifier: 'web:test-browser',
       },
       select: { riskLevel: true, riskSignals: true },
     });
@@ -403,6 +443,166 @@ describe('Session management with PostgreSQL (e2e)', () => {
       'NEW_DEVICE',
       'MANY_NEW_SESSIONS',
     ]);
+  });
+
+  it('uses legacy display history only when no prior identifier exists', async () => {
+    await login('iPhone 16 Pro', 'IOS');
+    await login('iPhone 16 Pro', 'IOS', 'iPhone17,1');
+
+    await expect(
+      prisma.securityEvent.findFirstOrThrow({
+        where: {
+          type: 'SESSION_CREATED',
+          deviceModelIdentifier: 'iPhone17,1',
+        },
+        select: { riskLevel: true, riskSignals: true },
+      }),
+    ).resolves.toEqual({ riskLevel: null, riskSignals: [] });
+
+    await login('iPhone 16 Pro', 'IOS', 'iPhone18,1');
+
+    await expect(
+      prisma.securityEvent.findFirstOrThrow({
+        where: {
+          type: 'SESSION_CREATED',
+          deviceModelIdentifier: 'iPhone18,1',
+        },
+        select: { riskLevel: true, riskSignals: true },
+      }),
+    ).resolves.toEqual({
+      riskLevel: 'MEDIUM',
+      riskSignals: ['NEW_DEVICE', 'MANY_NEW_SESSIONS'],
+    });
+  });
+
+  it('supports legacy and unknown device metadata without a backend catalog', async () => {
+    const legacyTokens = await login('Legacy iPhone', 'IOS');
+    const legacySessions = await getSessions(legacyTokens.accessToken);
+    const legacySession = legacySessions.sessions.find(
+      ({ current }) => current,
+    );
+
+    expect(legacySession?.device).toEqual({
+      modelIdentifier: null,
+      model: 'Legacy iPhone',
+      platform: 'IOS',
+      osVersion: null,
+    });
+
+    const futureIdentifier = 'iPhone99,1';
+    const futureTokens = await login('iPhone', 'IOS', futureIdentifier);
+    const futureSessions = await getSessions(futureTokens.accessToken);
+    const futureSessionId = currentSessionId(futureSessions);
+
+    await expect(
+      prisma.session.findUniqueOrThrow({
+        where: { id: futureSessionId },
+        select: {
+          deviceModelIdentifier: true,
+          deviceModel: true,
+        },
+      }),
+    ).resolves.toEqual({
+      deviceModelIdentifier: futureIdentifier,
+      deviceModel: 'iPhone',
+    });
+  });
+
+  it('bounds device headers before persisting session and event snapshots', async () => {
+    const rawIdentifier = 'i'.repeat(160);
+    const rawDisplayModel = 'm'.repeat(150);
+
+    const response = await request(app.getHttpServer())
+      .post('/auth/login')
+      .set('X-Device-Model-Identifier', rawIdentifier)
+      .set('X-Device-Model', rawDisplayModel)
+      .set('X-Platform', 'IOS')
+      .send({ email, password })
+      .expect(201);
+
+    const tokens = response.body as AuthTokens;
+    const sessionId = currentSessionId(await getSessions(tokens.accessToken));
+    const expectedIdentifier = rawIdentifier.slice(0, 128);
+    const expectedDisplayModel = rawDisplayModel.slice(0, 100);
+
+    await expect(
+      prisma.session.findUniqueOrThrow({
+        where: { id: sessionId },
+        select: {
+          deviceModelIdentifier: true,
+          deviceModel: true,
+        },
+      }),
+    ).resolves.toEqual({
+      deviceModelIdentifier: expectedIdentifier,
+      deviceModel: expectedDisplayModel,
+    });
+
+    await expect(
+      prisma.securityEvent.findFirstOrThrow({
+        where: { type: 'SESSION_CREATED', subjectSessionId: sessionId },
+        select: {
+          deviceModelIdentifier: true,
+          deviceModel: true,
+        },
+      }),
+    ).resolves.toEqual({
+      deviceModelIdentifier: expectedIdentifier,
+      deviceModel: expectedDisplayModel,
+    });
+  });
+
+  it('keeps device snapshots unchanged when a session is named', async () => {
+    const tokens = await login('iPhone 16 Pro', 'IOS', 'iPhone17,1');
+    const sessionId = currentSessionId(await getSessions(tokens.accessToken));
+
+    await prisma.session.update({
+      where: { id: sessionId },
+      data: { createdAt: new Date(Date.now() - 86_401_000) },
+    });
+
+    await request(app.getHttpServer())
+      .patch(`/auth/sessions/${sessionId}`)
+      .set('Authorization', `Bearer ${tokens.accessToken}`)
+      .send({ sessionName: 'Personal phone' })
+      .expect(200);
+
+    await expect(
+      prisma.session.findUniqueOrThrow({
+        where: { id: sessionId },
+        select: {
+          sessionName: true,
+          deviceModelIdentifier: true,
+          deviceModel: true,
+        },
+      }),
+    ).resolves.toEqual({
+      sessionName: 'Personal phone',
+      deviceModelIdentifier: 'iPhone17,1',
+      deviceModel: 'iPhone 16 Pro',
+    });
+  });
+
+  it('uses the display snapshot, not the identifier, in login notifications', async () => {
+    const identifier = 'iPhone17,1';
+    await login('iPhone 16 Pro', 'IOS', identifier);
+
+    expect(sendNewSessionEmailSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        deviceModel: 'iPhone 16 Pro',
+        platform: 'IOS',
+      }),
+    );
+
+    const notification = sendNewSessionEmailSpy.mock.calls[0][0];
+    expect(notification).not.toHaveProperty('deviceModelIdentifier');
+
+    await expect(
+      prisma.notificationDelivery.findFirstOrThrow({
+        where: { type: 'NEW_SESSION' },
+        select: { status: true },
+      }),
+    ).resolves.toEqual({ status: 'SENT' });
   });
 
   it('detects excessive login failures on a later successful login', async () => {
@@ -529,20 +729,31 @@ describe('Session management with PostgreSQL (e2e)', () => {
   async function login(
     deviceModel: string,
     platform: 'IOS' | 'ANDROID' | 'WEB',
+    deviceModelIdentifier?: string,
   ): Promise<AuthTokens> {
-    const response = await loginRequest(deviceModel, platform).expect(201);
+    const response = await loginRequest(
+      deviceModel,
+      platform,
+      deviceModelIdentifier,
+    ).expect(201);
     return response.body as AuthTokens;
   }
 
   function loginRequest(
     deviceModel: string,
     platform: 'IOS' | 'ANDROID' | 'WEB' = 'WEB',
+    deviceModelIdentifier?: string,
   ) {
-    return request(app.getHttpServer())
+    const loginRequest = request(app.getHttpServer())
       .post('/auth/login')
       .set('X-Device-Model', deviceModel)
-      .set('X-Platform', platform)
-      .send({ email, password });
+      .set('X-Platform', platform);
+
+    if (deviceModelIdentifier) {
+      loginRequest.set('X-Device-Model-Identifier', deviceModelIdentifier);
+    }
+
+    return loginRequest.send({ email, password });
   }
 
   async function getSessions(accessToken: string): Promise<SessionsResponse> {

@@ -12,13 +12,14 @@ import { PasswordService } from '../../auth/password/services/password.service';
 import { NotificationService } from '../../notifications/services/notification.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { SecurityEventService } from '../../security/services/security-event.service';
+import {
+  SECURITY_EVENT_SNAPSHOT_SELECT,
+  toSecurityEventSnapshot,
+} from '../../security/utils/security-event-snapshot.util';
 
 // Internal DTOs
 import type { ChangePasswordDto } from '../dtos/change-password.dto';
 import type { PasswordChangeResponseDto } from '../dtos/password-change-response.dto';
-
-// Internal types
-import type { SessionMetadata } from '../../auth/types/session-metadata.type';
 
 @Injectable()
 export class PasswordChangeService {
@@ -88,7 +89,7 @@ export class PasswordChangeService {
           expiresAt: { gt: now },
           user: { status: 'ACTIVE' },
         },
-        select: this.securitySnapshotSelect,
+        select: SECURITY_EVENT_SNAPSHOT_SELECT,
       });
 
       if (!currentSession) {
@@ -131,7 +132,7 @@ export class PasswordChangeService {
           actorSessionId: currentSessionId,
           affectedSessionCount: revokedSessions.count,
           occurredAt: now,
-          ...this.toSecuritySnapshot(currentSession),
+          ...toSecurityEventSnapshot(currentSession),
         },
         transaction,
       );
@@ -157,39 +158,6 @@ export class PasswordChangeService {
     return {
       message: 'Password changed successfully.',
       revokedSessionsCount: result.revokedSessionsCount,
-    };
-  }
-
-  private readonly securitySnapshotSelect = {
-    ipAddress: true,
-    userAgent: true,
-    deviceModel: true,
-    platform: true,
-    osVersion: true,
-    appVersion: true,
-    locationCountryCode: true,
-    locationCity: true,
-  } as const;
-
-  private toSecuritySnapshot(snapshot: {
-    ipAddress?: string | null;
-    userAgent?: string | null;
-    deviceModel?: string | null;
-    platform?: SessionMetadata['platform'] | null;
-    osVersion?: string | null;
-    appVersion?: string | null;
-    locationCountryCode?: string | null;
-    locationCity?: string | null;
-  }) {
-    return {
-      ipAddress: snapshot.ipAddress ?? undefined,
-      userAgent: snapshot.userAgent ?? undefined,
-      deviceModel: snapshot.deviceModel ?? undefined,
-      platform: snapshot.platform ?? undefined,
-      osVersion: snapshot.osVersion ?? undefined,
-      appVersion: snapshot.appVersion ?? undefined,
-      locationCountryCode: snapshot.locationCountryCode ?? undefined,
-      locationCity: snapshot.locationCity ?? undefined,
     };
   }
 }

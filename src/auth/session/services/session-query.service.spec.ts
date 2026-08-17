@@ -44,6 +44,7 @@ describe('SessionQueryService', () => {
     const session = {
       id: 'current-session-id',
       sessionName: 'Personal phone',
+      deviceModelIdentifier: 'iPhone17,1',
       deviceModel: 'iPhone 16 Pro',
       platform: 'IOS',
       osVersion: '18.6',
@@ -70,6 +71,7 @@ describe('SessionQueryService', () => {
           id: session.id,
           sessionName: session.sessionName,
           device: {
+            modelIdentifier: session.deviceModelIdentifier,
             model: session.deviceModel,
             platform: session.platform,
             osVersion: session.osVersion,
@@ -95,6 +97,7 @@ describe('SessionQueryService', () => {
       select: {
         id: true,
         sessionName: true,
+        deviceModelIdentifier: true,
         deviceModel: true,
         platform: true,
         osVersion: true,
@@ -117,5 +120,38 @@ describe('SessionQueryService', () => {
     await expect(
       service.findActiveByUser('user-id', 'current-session-id'),
     ).rejects.toBeInstanceOf(UnauthorizedException);
+  });
+
+  it('returns null identifiers for sessions created by legacy clients', async () => {
+    prisma.session.findMany.mockResolvedValue([
+      {
+        id: 'current-session-id',
+        sessionName: null,
+        deviceModelIdentifier: null,
+        deviceModel: 'Legacy device',
+        platform: 'IOS',
+        osVersion: null,
+        appVersion: null,
+        locationCountryCode: null,
+        locationCity: null,
+        userAgent: null,
+        ipAddress: null,
+        createdAt: new Date('2026-08-07T12:00:00.000Z'),
+        lastActiveAt: now,
+        expiresAt: nextExpiresAt,
+      },
+    ]);
+
+    const result = await service.findActiveByUser(
+      'user-id',
+      'current-session-id',
+    );
+
+    expect(result.sessions[0].device).toEqual({
+      modelIdentifier: null,
+      model: 'Legacy device',
+      platform: 'IOS',
+      osVersion: null,
+    });
   });
 });

@@ -97,6 +97,7 @@ boundary by `SessionContext`. It normalizes and bounds:
 ```text
 request.ip
 User-Agent
+X-Device-Model-Identifier
 X-Device-Model
 X-Platform
 X-OS-Version
@@ -104,7 +105,11 @@ X-App-Version
 ```
 
 Supported platforms are `IOS`, `ANDROID`, `WEB`, and `UNKNOWN`. Client metadata
-is informational and can be spoofed.
+is informational and can be spoofed. The technical model identifier is trimmed
+and bounded to 128 characters; the display model is bounded to 100 characters.
+Only the first header value is used, empty values are omitted, and metadata
+containing control characters is discarded. Invalid optional device metadata
+does not reject an otherwise valid authentication flow.
 
 ## Registration and email verification
 
@@ -183,6 +188,7 @@ lastActiveAt
 createdAt
 updatedAt
 sessionName
+deviceModelIdentifier
 deviceModel
 platform
 osVersion
@@ -206,6 +212,20 @@ access token as `current: true`. It also reports whether the current session is
 old enough to manage sessions and when that capability becomes available.
 Refresh hashes are never selected or returned.
 
+The public device object keeps the technical and display values separate:
+
+```json
+{
+  "modelIdentifier": "iPhone17,1",
+  "model": "iPhone 16 Pro",
+  "platform": "IOS",
+  "osVersion": "18.6"
+}
+```
+
+Both model fields are nullable. Sessions created by older clients return a
+`null` model identifier without changing their existing display snapshot.
+
 `DELETE /auth/sessions/:sessionId` revokes an owned active session. A session
 may revoke itself immediately. Revoking any other session requires the current
 session to be at least `SESSION_MANAGEMENT_COOLDOWN_SECONDS` old (currently 86,400
@@ -213,6 +233,32 @@ seconds). Once the cooldown passes, the current session may revoke any other
 owned active session regardless of relative age. This prevents a newly created
 session from immediately removing established sessions without permanently
 privileging old devices.
+
+## Device model normalization
+
+The mobile client owns the mapping from a platform technical identifier to a
+display name. For example, the iOS client can map `iPhone17,1` to
+`iPhone 16 Pro` and send both values:
+
+```text
+X-Device-Model-Identifier: iPhone17,1
+X-Device-Model: iPhone 16 Pro
+```
+
+The backend does not contain or download a device catalog and does not verify
+that the client-supplied display name matches the identifier. This avoids a
+backend release when a new phone appears. An unknown identifier is preserved;
+the display name may be a generic client fallback or may be absent.
+
+`deviceModelIdentifier` and `deviceModel` are immutable snapshots created with
+the session. Refresh, access requests, and session naming do not update them.
+`sessionName` remains a separate user-assigned label for one session and is
+never inferred from either device field.
+
+Older clients may continue sending only `X-Device-Model`. New clients should
+send `X-Device-Model-Identifier` in addition to the existing display header on
+password login and email verification. Neither value is a trusted-device
+credential or proof of possession.
 
 ## Access authorization
 
@@ -357,10 +403,11 @@ transaction as their corresponding session mutation. A failed mutation does
 not leave a success event. `OTHER_SESSIONS_REVOKED` records the number of
 sessions affected, including zero for a successful idempotent request.
 
-Events contain bounded request or session snapshots such as device details,
-IP, and approximate GeoIP location. They never contain credentials or raw or
-hashed security tokens. User and session relations are nullable so retained
-events can survive deletion of operational records.
+Events contain bounded request or session snapshots such as the technical
+device identifier, display model, IP, and approximate GeoIP location. They
+never contain credentials or raw or hashed security tokens. User and session
+relations are nullable so retained events can survive deletion of operational
+records.
 
 Each event receives a retention deadline based on
 `SECURITY_EVENT_RETENTION_SECONDS`, currently 180 days. The security-event
@@ -389,10 +436,11 @@ password changes from the same session. Delivery records retain the recipient
 snapshot, provider message ID on success, and a normalized failure code on
 failure. Provider error bodies and stack traces are not persisted.
 
-The email contains UTC time, device/platform details, and approximate
-country/city when available. It does not contain IP address, user agent,
-credentials, or tokens. Plain text is used so spoofable device metadata cannot
-be interpreted as HTML.
+The email contains UTC time, the display model and platform, and approximate
+country/city when available. The technical model identifier is retained for
+session and security analysis but is not included in the email. Notifications
+do not contain IP address, user agent, credentials, or tokens. Plain text is
+used so spoofable device metadata cannot be interpreted as HTML.
 
 Delivery records receive a configurable 180-day retention deadline through
 `NOTIFICATION_DELIVERY_RETENTION_SECONDS`. As with security events, cleanup
@@ -430,8 +478,14 @@ REFRESH_TOKEN_REUSE
 
 The first session does not produce new-device or new-country signals. Missing
 or `UNKNOWN` device metadata and unavailable GeoIP do not produce signals.
-Device model and GeoIP remain spoofable or approximate context and are never
-treated as security proof.
+For new clients, `NEW_DEVICE` primarily compares platform and technical model
+identifier. Display-only clients retain the previous platform-and-model
+comparison. During the first legacy-to-identifier transition, a matching
+legacy display snapshot prevents a false signal. Once identifier-bearing
+history exists for that platform and display model, a different identifier is
+treated as a new device even when the display names match. Device metadata and
+GeoIP remain spoofable or approximate context and are never treated as
+security proof.
 
 `EXCESSIVE_LOGIN_FAILURES` currently means at least five user-linked rejected
 credential attempts in 15 minutes. `MANY_NEW_SESSIONS` means at least three

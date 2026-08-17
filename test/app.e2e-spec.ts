@@ -73,6 +73,7 @@ describe('Application validation (e2e)', () => {
   it('passes normalized device metadata to the login service', async () => {
     await request(app.getHttpServer())
       .post('/auth/login')
+      .set('X-Device-Model-Identifier', ' iPhone17,1 ')
       .set('X-Device-Model', ' iPhone 16 Pro ')
       .set('X-Platform', ' ios ')
       .set('X-OS-Version', ' 18.6 ')
@@ -88,6 +89,7 @@ describe('Application validation (e2e)', () => {
 
     expect(receivedLogin?.metadata).toMatchObject({
       userAgent: 'Unicon/1.0 (iOS 18)',
+      deviceModelIdentifier: 'iPhone17,1',
       deviceModel: 'iPhone 16 Pro',
       platform: 'IOS',
       osVersion: '18.6',

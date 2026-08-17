@@ -35,6 +35,7 @@ export class SessionQueryService {
       select: {
         id: true,
         sessionName: true,
+        deviceModelIdentifier: true,
         deviceModel: true,
         platform: true,
         osVersion: true,
@@ -72,6 +73,7 @@ export class SessionQueryService {
         id: session.id,
         sessionName: session.sessionName,
         device: {
+          modelIdentifier: session.deviceModelIdentifier,
           model: session.deviceModel,
           platform: session.platform,
           osVersion: session.osVersion,

@@ -13,9 +13,10 @@ import { Prisma } from '../../../generated/prisma/client';
 // Internal services
 import { PrismaService } from '../../../prisma/prisma.service';
 import { SecurityEventService } from '../../../security/services/security-event.service';
-
-// Internal types
-import type { SessionMetadata } from '../../types/session-metadata.type';
+import {
+  SECURITY_EVENT_SNAPSHOT_SELECT,
+  toSecurityEventSnapshot,
+} from '../../../security/utils/security-event-snapshot.util';
 
 @Injectable()
 export class SessionManagementService {
@@ -73,7 +74,7 @@ export class SessionManagementService {
     await this.prisma.$transaction(async (transaction) => {
       const session = await transaction.session.findFirst({
         where: { id: sessionId, userId, revokedAt: null },
-        select: this.securitySnapshotSelect,
+        select: SECURITY_EVENT_SNAPSHOT_SELECT,
       });
 
       if (!session) {
@@ -98,7 +99,7 @@ export class SessionManagementService {
           actorSessionId: sessionId,
           subjectSessionId: sessionId,
           occurredAt: now,
-          ...this.toSecuritySnapshot(session),
+          ...toSecurityEventSnapshot(session),
         },
         transaction,
       );
@@ -152,7 +153,7 @@ export class SessionManagementService {
           actorSessionId: currentSessionId,
           subjectSessionId: targetSessionId,
           occurredAt: now,
-          ...this.toSecuritySnapshot(currentSession),
+          ...toSecurityEventSnapshot(currentSession),
         },
         transaction,
       );
@@ -197,7 +198,7 @@ export class SessionManagementService {
           actorSessionId: currentSessionId,
           affectedSessionCount: result.count,
           occurredAt: now,
-          ...this.toSecuritySnapshot(currentSession),
+          ...toSecurityEventSnapshot(currentSession),
         },
         transaction,
       );
@@ -224,7 +225,7 @@ export class SessionManagementService {
           status: 'ACTIVE',
         },
       },
-      select: { createdAt: true, ...this.securitySnapshotSelect },
+      select: { createdAt: true, ...SECURITY_EVENT_SNAPSHOT_SELECT },
     });
 
     if (!currentSession) {
@@ -232,39 +233,6 @@ export class SessionManagementService {
     }
 
     return currentSession;
-  }
-
-  private readonly securitySnapshotSelect = {
-    ipAddress: true,
-    userAgent: true,
-    deviceModel: true,
-    platform: true,
-    osVersion: true,
-    appVersion: true,
-    locationCountryCode: true,
-    locationCity: true,
-  } as const;
-
-  private toSecuritySnapshot(snapshot: {
-    ipAddress?: string | null;
-    userAgent?: string | null;
-    deviceModel?: string | null;
-    platform?: SessionMetadata['platform'] | null;
-    osVersion?: string | null;
-    appVersion?: string | null;
-    locationCountryCode?: string | null;
-    locationCity?: string | null;
-  }) {
-    return {
-      ipAddress: snapshot.ipAddress ?? undefined,
-      userAgent: snapshot.userAgent ?? undefined,
-      deviceModel: snapshot.deviceModel ?? undefined,
-      platform: snapshot.platform ?? undefined,
-      osVersion: snapshot.osVersion ?? undefined,
-      appVersion: snapshot.appVersion ?? undefined,
-      locationCountryCode: snapshot.locationCountryCode ?? undefined,
-      locationCity: snapshot.locationCity ?? undefined,
-    };
   }
 
   private assertManagementAvailable(createdAt: Date, now: Date): void {

@@ -170,15 +170,16 @@ model Session {
   hashedRefreshToken String
 
   // userInfo
-  ipAddress           String?
-  userAgent           String?
-  sessionName         String?
-  deviceModel         String?
-  platform            SessionPlatform @default(UNKNOWN)
-  osVersion           String?
-  appVersion          String?
-  locationCountryCode String?
-  locationCity        String?
+  ipAddress             String?
+  userAgent             String?
+  sessionName           String?
+  deviceModelIdentifier String?
+  deviceModel           String?
+  platform              SessionPlatform @default(UNKNOWN)
+  osVersion             String?
+  appVersion            String?
+  locationCountryCode   String?
+  locationCity          String?
 
   // timestamps
   expiresAt    DateTime
@@ -233,14 +234,15 @@ model SecurityEvent {
   riskLevel        SecurityRiskLevel?
   riskSignals      SecurityRiskSignal[] @default([])
 
-  ipAddress           String?
-  userAgent           String?
-  deviceModel         String?
-  platform            SessionPlatform?
-  osVersion           String?
-  appVersion          String?
-  locationCountryCode String?
-  locationCity        String?
+  ipAddress             String?
+  userAgent             String?
+  deviceModelIdentifier String?
+  deviceModel           String?
+  platform              SessionPlatform?
+  osVersion             String?
+  appVersion            String?
+  locationCountryCode   String?
+  locationCity          String?
 
   affectedSessionCount Int?
   occurredAt           DateTime @default(now())

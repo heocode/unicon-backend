@@ -46,17 +46,9 @@ export class RiskAnalysisService {
       if (
         snapshot.platform &&
         snapshot.platform !== 'UNKNOWN' &&
-        snapshot.deviceModel
+        (snapshot.deviceModelIdentifier || snapshot.deviceModel)
       ) {
-        const knownDevice = await client.securityEvent.findFirst({
-          where: {
-            userId,
-            type: 'SESSION_CREATED',
-            platform: snapshot.platform,
-            deviceModel: snapshot.deviceModel,
-          },
-          select: { id: true },
-        });
+        const knownDevice = await this.isKnownDevice(client, userId, snapshot);
 
         if (!knownDevice) {
           signals.push('NEW_DEVICE');
@@ -120,6 +112,72 @@ export class RiskAnalysisService {
       level: 'HIGH',
       signals: ['REFRESH_TOKEN_REUSE'],
     };
+  }
+
+  private async isKnownDevice(
+    client: Prisma.TransactionClient,
+    userId: string,
+    snapshot: SecurityEventSnapshot,
+  ): Promise<boolean> {
+    if (snapshot.deviceModelIdentifier) {
+      const identifierMatch = await client.securityEvent.findFirst({
+        where: {
+          userId,
+          type: 'SESSION_CREATED',
+          platform: snapshot.platform,
+          deviceModelIdentifier: snapshot.deviceModelIdentifier,
+        },
+        select: { id: true },
+      });
+
+      if (identifierMatch) {
+        return true;
+      }
+
+      if (!snapshot.deviceModel) {
+        return false;
+      }
+
+      const identifierDisplayHistory = await client.securityEvent.findFirst({
+        where: {
+          userId,
+          type: 'SESSION_CREATED',
+          platform: snapshot.platform,
+          deviceModelIdentifier: { not: null },
+          deviceModel: snapshot.deviceModel,
+        },
+        select: { id: true },
+      });
+
+      if (identifierDisplayHistory) {
+        return false;
+      }
+
+      const legacyDisplayMatch = await client.securityEvent.findFirst({
+        where: {
+          userId,
+          type: 'SESSION_CREATED',
+          platform: snapshot.platform,
+          deviceModelIdentifier: null,
+          deviceModel: snapshot.deviceModel,
+        },
+        select: { id: true },
+      });
+
+      return Boolean(legacyDisplayMatch);
+    }
+
+    const legacyDisplayMatch = await client.securityEvent.findFirst({
+      where: {
+        userId,
+        type: 'SESSION_CREATED',
+        platform: snapshot.platform,
+        deviceModel: snapshot.deviceModel,
+      },
+      select: { id: true },
+    });
+
+    return Boolean(legacyDisplayMatch);
   }
 
   private getLevel(

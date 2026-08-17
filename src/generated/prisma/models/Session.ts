@@ -31,6 +31,7 @@ export type SessionMinAggregateOutputType = {
   ipAddress: string | null
   userAgent: string | null
   sessionName: string | null
+  deviceModelIdentifier: string | null
   deviceModel: string | null
   platform: $Enums.SessionPlatform | null
   osVersion: string | null
@@ -51,6 +52,7 @@ export type SessionMaxAggregateOutputType = {
   ipAddress: string | null
   userAgent: string | null
   sessionName: string | null
+  deviceModelIdentifier: string | null
   deviceModel: string | null
   platform: $Enums.SessionPlatform | null
   osVersion: string | null
@@ -71,6 +73,7 @@ export type SessionCountAggregateOutputType = {
   ipAddress: number
   userAgent: number
   sessionName: number
+  deviceModelIdentifier: number
   deviceModel: number
   platform: number
   osVersion: number
@@ -93,6 +96,7 @@ export type SessionMinAggregateInputType = {
   ipAddress?: true
   userAgent?: true
   sessionName?: true
+  deviceModelIdentifier?: true
   deviceModel?: true
   platform?: true
   osVersion?: true
@@ -113,6 +117,7 @@ export type SessionMaxAggregateInputType = {
   ipAddress?: true
   userAgent?: true
   sessionName?: true
+  deviceModelIdentifier?: true
   deviceModel?: true
   platform?: true
   osVersion?: true
@@ -133,6 +138,7 @@ export type SessionCountAggregateInputType = {
   ipAddress?: true
   userAgent?: true
   sessionName?: true
+  deviceModelIdentifier?: true
   deviceModel?: true
   platform?: true
   osVersion?: true
@@ -226,6 +232,7 @@ export type SessionGroupByOutputType = {
   ipAddress: string | null
   userAgent: string | null
   sessionName: string | null
+  deviceModelIdentifier: string | null
   deviceModel: string | null
   platform: $Enums.SessionPlatform
   osVersion: string | null
@@ -267,6 +274,7 @@ export type SessionWhereInput = {
   ipAddress?: Prisma.StringNullableFilter<"Session"> | string | null
   userAgent?: Prisma.StringNullableFilter<"Session"> | string | null
   sessionName?: Prisma.StringNullableFilter<"Session"> | string | null
+  deviceModelIdentifier?: Prisma.StringNullableFilter<"Session"> | string | null
   deviceModel?: Prisma.StringNullableFilter<"Session"> | string | null
   platform?: Prisma.EnumSessionPlatformFilter<"Session"> | $Enums.SessionPlatform
   osVersion?: Prisma.StringNullableFilter<"Session"> | string | null
@@ -291,6 +299,7 @@ export type SessionOrderByWithRelationInput = {
   ipAddress?: Prisma.SortOrderInput | Prisma.SortOrder
   userAgent?: Prisma.SortOrderInput | Prisma.SortOrder
   sessionName?: Prisma.SortOrderInput | Prisma.SortOrder
+  deviceModelIdentifier?: Prisma.SortOrderInput | Prisma.SortOrder
   deviceModel?: Prisma.SortOrderInput | Prisma.SortOrder
   platform?: Prisma.SortOrder
   osVersion?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -318,6 +327,7 @@ export type SessionWhereUniqueInput = Prisma.AtLeast<{
   ipAddress?: Prisma.StringNullableFilter<"Session"> | string | null
   userAgent?: Prisma.StringNullableFilter<"Session"> | string | null
   sessionName?: Prisma.StringNullableFilter<"Session"> | string | null
+  deviceModelIdentifier?: Prisma.StringNullableFilter<"Session"> | string | null
   deviceModel?: Prisma.StringNullableFilter<"Session"> | string | null
   platform?: Prisma.EnumSessionPlatformFilter<"Session"> | $Enums.SessionPlatform
   osVersion?: Prisma.StringNullableFilter<"Session"> | string | null
@@ -342,6 +352,7 @@ export type SessionOrderByWithAggregationInput = {
   ipAddress?: Prisma.SortOrderInput | Prisma.SortOrder
   userAgent?: Prisma.SortOrderInput | Prisma.SortOrder
   sessionName?: Prisma.SortOrderInput | Prisma.SortOrder
+  deviceModelIdentifier?: Prisma.SortOrderInput | Prisma.SortOrder
   deviceModel?: Prisma.SortOrderInput | Prisma.SortOrder
   platform?: Prisma.SortOrder
   osVersion?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -368,6 +379,7 @@ export type SessionScalarWhereWithAggregatesInput = {
   ipAddress?: Prisma.StringNullableWithAggregatesFilter<"Session"> | string | null
   userAgent?: Prisma.StringNullableWithAggregatesFilter<"Session"> | string | null
   sessionName?: Prisma.StringNullableWithAggregatesFilter<"Session"> | string | null
+  deviceModelIdentifier?: Prisma.StringNullableWithAggregatesFilter<"Session"> | string | null
   deviceModel?: Prisma.StringNullableWithAggregatesFilter<"Session"> | string | null
   platform?: Prisma.EnumSessionPlatformWithAggregatesFilter<"Session"> | $Enums.SessionPlatform
   osVersion?: Prisma.StringNullableWithAggregatesFilter<"Session"> | string | null
@@ -387,6 +399,7 @@ export type SessionCreateInput = {
   ipAddress?: string | null
   userAgent?: string | null
   sessionName?: string | null
+  deviceModelIdentifier?: string | null
   deviceModel?: string | null
   platform?: $Enums.SessionPlatform
   osVersion?: string | null
@@ -411,6 +424,7 @@ export type SessionUncheckedCreateInput = {
   ipAddress?: string | null
   userAgent?: string | null
   sessionName?: string | null
+  deviceModelIdentifier?: string | null
   deviceModel?: string | null
   platform?: $Enums.SessionPlatform
   osVersion?: string | null
@@ -433,6 +447,7 @@ export type SessionUpdateInput = {
   ipAddress?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   userAgent?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   sessionName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  deviceModelIdentifier?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   deviceModel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   platform?: Prisma.EnumSessionPlatformFieldUpdateOperationsInput | $Enums.SessionPlatform
   osVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -457,6 +472,7 @@ export type SessionUncheckedUpdateInput = {
   ipAddress?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   userAgent?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   sessionName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  deviceModelIdentifier?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   deviceModel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   platform?: Prisma.EnumSessionPlatformFieldUpdateOperationsInput | $Enums.SessionPlatform
   osVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -480,6 +496,7 @@ export type SessionCreateManyInput = {
   ipAddress?: string | null
   userAgent?: string | null
   sessionName?: string | null
+  deviceModelIdentifier?: string | null
   deviceModel?: string | null
   platform?: $Enums.SessionPlatform
   osVersion?: string | null
@@ -499,6 +516,7 @@ export type SessionUpdateManyMutationInput = {
   ipAddress?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   userAgent?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   sessionName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  deviceModelIdentifier?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   deviceModel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   platform?: Prisma.EnumSessionPlatformFieldUpdateOperationsInput | $Enums.SessionPlatform
   osVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -519,6 +537,7 @@ export type SessionUncheckedUpdateManyInput = {
   ipAddress?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   userAgent?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   sessionName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  deviceModelIdentifier?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   deviceModel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   platform?: Prisma.EnumSessionPlatformFieldUpdateOperationsInput | $Enums.SessionPlatform
   osVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -549,6 +568,7 @@ export type SessionCountOrderByAggregateInput = {
   ipAddress?: Prisma.SortOrder
   userAgent?: Prisma.SortOrder
   sessionName?: Prisma.SortOrder
+  deviceModelIdentifier?: Prisma.SortOrder
   deviceModel?: Prisma.SortOrder
   platform?: Prisma.SortOrder
   osVersion?: Prisma.SortOrder
@@ -569,6 +589,7 @@ export type SessionMaxOrderByAggregateInput = {
   ipAddress?: Prisma.SortOrder
   userAgent?: Prisma.SortOrder
   sessionName?: Prisma.SortOrder
+  deviceModelIdentifier?: Prisma.SortOrder
   deviceModel?: Prisma.SortOrder
   platform?: Prisma.SortOrder
   osVersion?: Prisma.SortOrder
@@ -589,6 +610,7 @@ export type SessionMinOrderByAggregateInput = {
   ipAddress?: Prisma.SortOrder
   userAgent?: Prisma.SortOrder
   sessionName?: Prisma.SortOrder
+  deviceModelIdentifier?: Prisma.SortOrder
   deviceModel?: Prisma.SortOrder
   platform?: Prisma.SortOrder
   osVersion?: Prisma.SortOrder
@@ -707,6 +729,7 @@ export type SessionCreateWithoutUserInput = {
   ipAddress?: string | null
   userAgent?: string | null
   sessionName?: string | null
+  deviceModelIdentifier?: string | null
   deviceModel?: string | null
   platform?: $Enums.SessionPlatform
   osVersion?: string | null
@@ -729,6 +752,7 @@ export type SessionUncheckedCreateWithoutUserInput = {
   ipAddress?: string | null
   userAgent?: string | null
   sessionName?: string | null
+  deviceModelIdentifier?: string | null
   deviceModel?: string | null
   platform?: $Enums.SessionPlatform
   osVersion?: string | null
@@ -781,6 +805,7 @@ export type SessionScalarWhereInput = {
   ipAddress?: Prisma.StringNullableFilter<"Session"> | string | null
   userAgent?: Prisma.StringNullableFilter<"Session"> | string | null
   sessionName?: Prisma.StringNullableFilter<"Session"> | string | null
+  deviceModelIdentifier?: Prisma.StringNullableFilter<"Session"> | string | null
   deviceModel?: Prisma.StringNullableFilter<"Session"> | string | null
   platform?: Prisma.EnumSessionPlatformFilter<"Session"> | $Enums.SessionPlatform
   osVersion?: Prisma.StringNullableFilter<"Session"> | string | null
@@ -800,6 +825,7 @@ export type SessionCreateWithoutNotificationDeliveriesInput = {
   ipAddress?: string | null
   userAgent?: string | null
   sessionName?: string | null
+  deviceModelIdentifier?: string | null
   deviceModel?: string | null
   platform?: $Enums.SessionPlatform
   osVersion?: string | null
@@ -823,6 +849,7 @@ export type SessionUncheckedCreateWithoutNotificationDeliveriesInput = {
   ipAddress?: string | null
   userAgent?: string | null
   sessionName?: string | null
+  deviceModelIdentifier?: string | null
   deviceModel?: string | null
   platform?: $Enums.SessionPlatform
   osVersion?: string | null
@@ -860,6 +887,7 @@ export type SessionUpdateWithoutNotificationDeliveriesInput = {
   ipAddress?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   userAgent?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   sessionName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  deviceModelIdentifier?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   deviceModel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   platform?: Prisma.EnumSessionPlatformFieldUpdateOperationsInput | $Enums.SessionPlatform
   osVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -883,6 +911,7 @@ export type SessionUncheckedUpdateWithoutNotificationDeliveriesInput = {
   ipAddress?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   userAgent?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   sessionName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  deviceModelIdentifier?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   deviceModel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   platform?: Prisma.EnumSessionPlatformFieldUpdateOperationsInput | $Enums.SessionPlatform
   osVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -904,6 +933,7 @@ export type SessionCreateWithoutActorSecurityEventsInput = {
   ipAddress?: string | null
   userAgent?: string | null
   sessionName?: string | null
+  deviceModelIdentifier?: string | null
   deviceModel?: string | null
   platform?: $Enums.SessionPlatform
   osVersion?: string | null
@@ -927,6 +957,7 @@ export type SessionUncheckedCreateWithoutActorSecurityEventsInput = {
   ipAddress?: string | null
   userAgent?: string | null
   sessionName?: string | null
+  deviceModelIdentifier?: string | null
   deviceModel?: string | null
   platform?: $Enums.SessionPlatform
   osVersion?: string | null
@@ -953,6 +984,7 @@ export type SessionCreateWithoutSubjectSecurityEventsInput = {
   ipAddress?: string | null
   userAgent?: string | null
   sessionName?: string | null
+  deviceModelIdentifier?: string | null
   deviceModel?: string | null
   platform?: $Enums.SessionPlatform
   osVersion?: string | null
@@ -976,6 +1008,7 @@ export type SessionUncheckedCreateWithoutSubjectSecurityEventsInput = {
   ipAddress?: string | null
   userAgent?: string | null
   sessionName?: string | null
+  deviceModelIdentifier?: string | null
   deviceModel?: string | null
   platform?: $Enums.SessionPlatform
   osVersion?: string | null
@@ -1013,6 +1046,7 @@ export type SessionUpdateWithoutActorSecurityEventsInput = {
   ipAddress?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   userAgent?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   sessionName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  deviceModelIdentifier?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   deviceModel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   platform?: Prisma.EnumSessionPlatformFieldUpdateOperationsInput | $Enums.SessionPlatform
   osVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1036,6 +1070,7 @@ export type SessionUncheckedUpdateWithoutActorSecurityEventsInput = {
   ipAddress?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   userAgent?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   sessionName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  deviceModelIdentifier?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   deviceModel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   platform?: Prisma.EnumSessionPlatformFieldUpdateOperationsInput | $Enums.SessionPlatform
   osVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1068,6 +1103,7 @@ export type SessionUpdateWithoutSubjectSecurityEventsInput = {
   ipAddress?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   userAgent?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   sessionName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  deviceModelIdentifier?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   deviceModel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   platform?: Prisma.EnumSessionPlatformFieldUpdateOperationsInput | $Enums.SessionPlatform
   osVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1091,6 +1127,7 @@ export type SessionUncheckedUpdateWithoutSubjectSecurityEventsInput = {
   ipAddress?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   userAgent?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   sessionName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  deviceModelIdentifier?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   deviceModel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   platform?: Prisma.EnumSessionPlatformFieldUpdateOperationsInput | $Enums.SessionPlatform
   osVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1112,6 +1149,7 @@ export type SessionCreateManyUserInput = {
   ipAddress?: string | null
   userAgent?: string | null
   sessionName?: string | null
+  deviceModelIdentifier?: string | null
   deviceModel?: string | null
   platform?: $Enums.SessionPlatform
   osVersion?: string | null
@@ -1131,6 +1169,7 @@ export type SessionUpdateWithoutUserInput = {
   ipAddress?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   userAgent?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   sessionName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  deviceModelIdentifier?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   deviceModel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   platform?: Prisma.EnumSessionPlatformFieldUpdateOperationsInput | $Enums.SessionPlatform
   osVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1153,6 +1192,7 @@ export type SessionUncheckedUpdateWithoutUserInput = {
   ipAddress?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   userAgent?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   sessionName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  deviceModelIdentifier?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   deviceModel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   platform?: Prisma.EnumSessionPlatformFieldUpdateOperationsInput | $Enums.SessionPlatform
   osVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1175,6 +1215,7 @@ export type SessionUncheckedUpdateManyWithoutUserInput = {
   ipAddress?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   userAgent?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   sessionName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  deviceModelIdentifier?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   deviceModel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   platform?: Prisma.EnumSessionPlatformFieldUpdateOperationsInput | $Enums.SessionPlatform
   osVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1244,6 +1285,7 @@ export type SessionSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs 
   ipAddress?: boolean
   userAgent?: boolean
   sessionName?: boolean
+  deviceModelIdentifier?: boolean
   deviceModel?: boolean
   platform?: boolean
   osVersion?: boolean
@@ -1269,6 +1311,7 @@ export type SessionSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Exten
   ipAddress?: boolean
   userAgent?: boolean
   sessionName?: boolean
+  deviceModelIdentifier?: boolean
   deviceModel?: boolean
   platform?: boolean
   osVersion?: boolean
@@ -1290,6 +1333,7 @@ export type SessionSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Exten
   ipAddress?: boolean
   userAgent?: boolean
   sessionName?: boolean
+  deviceModelIdentifier?: boolean
   deviceModel?: boolean
   platform?: boolean
   osVersion?: boolean
@@ -1311,6 +1355,7 @@ export type SessionSelectScalar = {
   ipAddress?: boolean
   userAgent?: boolean
   sessionName?: boolean
+  deviceModelIdentifier?: boolean
   deviceModel?: boolean
   platform?: boolean
   osVersion?: boolean
@@ -1324,7 +1369,7 @@ export type SessionSelectScalar = {
   updatedAt?: boolean
 }
 
-export type SessionOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "userId" | "hashedRefreshToken" | "ipAddress" | "userAgent" | "sessionName" | "deviceModel" | "platform" | "osVersion" | "appVersion" | "locationCountryCode" | "locationCity" | "expiresAt" | "revokedAt" | "lastActiveAt" | "createdAt" | "updatedAt", ExtArgs["result"]["session"]>
+export type SessionOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "userId" | "hashedRefreshToken" | "ipAddress" | "userAgent" | "sessionName" | "deviceModelIdentifier" | "deviceModel" | "platform" | "osVersion" | "appVersion" | "locationCountryCode" | "locationCity" | "expiresAt" | "revokedAt" | "lastActiveAt" | "createdAt" | "updatedAt", ExtArgs["result"]["session"]>
 export type SessionInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   user?: boolean | Prisma.UserDefaultArgs<ExtArgs>
   actorSecurityEvents?: boolean | Prisma.Session$actorSecurityEventsArgs<ExtArgs>
@@ -1354,6 +1399,7 @@ export type $SessionPayload<ExtArgs extends runtime.Types.Extensions.InternalArg
     ipAddress: string | null
     userAgent: string | null
     sessionName: string | null
+    deviceModelIdentifier: string | null
     deviceModel: string | null
     platform: $Enums.SessionPlatform
     osVersion: string | null
@@ -1798,6 +1844,7 @@ export interface SessionFieldRefs {
   readonly ipAddress: Prisma.FieldRef<"Session", 'String'>
   readonly userAgent: Prisma.FieldRef<"Session", 'String'>
   readonly sessionName: Prisma.FieldRef<"Session", 'String'>
+  readonly deviceModelIdentifier: Prisma.FieldRef<"Session", 'String'>
   readonly deviceModel: Prisma.FieldRef<"Session", 'String'>
   readonly platform: Prisma.FieldRef<"Session", 'SessionPlatform'>
   readonly osVersion: Prisma.FieldRef<"Session", 'String'>

@@ -136,6 +136,7 @@ describe('SessionRefreshService', () => {
       expiresAt: new Date('2026-08-09T12:00:00.000Z'),
       user: { status: 'ACTIVE' },
       ipAddress: '192.0.2.10',
+      deviceModelIdentifier: 'iPhone17,1',
       platform: 'IOS',
     });
 
@@ -150,6 +151,7 @@ describe('SessionRefreshService', () => {
         riskLevel: 'HIGH',
         riskSignals: ['REFRESH_TOKEN_REUSE'],
         ipAddress: '192.0.2.10',
+        deviceModelIdentifier: 'iPhone17,1',
         platform: 'IOS',
       }),
     );

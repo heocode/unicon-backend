@@ -13,6 +13,7 @@ import { GeoIpService } from '../../../geo-ip/geo-ip.service';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { RiskAnalysisService } from '../../../security/services/risk-analysis.service';
 import { SecurityEventService } from '../../../security/services/security-event.service';
+import { toSecurityEventSnapshot } from '../../../security/utils/security-event-snapshot.util';
 import { JwtTokenService } from '../../services/jwt-token.service';
 import { SecureTokenService } from '../../services/secure-token.service';
 
@@ -66,6 +67,7 @@ export class SessionCreationService {
       expiresAt,
       ipAddress: metadata.ipAddress,
       userAgent: metadata.userAgent,
+      deviceModelIdentifier: metadata.deviceModelIdentifier,
       deviceModel: metadata.deviceModel,
       platform: metadata.platform,
       osVersion: metadata.osVersion,
@@ -94,7 +96,7 @@ export class SessionCreationService {
                   type: 'SESSION_CREATION_FAILED',
                   reason: 'ACTIVE_SESSION_LIMIT_REACHED',
                   userId,
-                  ...this.toSecuritySnapshot(sessionData),
+                  ...toSecurityEventSnapshot(sessionData),
                 },
                 transaction,
               );
@@ -102,7 +104,7 @@ export class SessionCreationService {
               return false;
             }
 
-            const snapshot = this.toSecuritySnapshot(sessionData);
+            const snapshot = toSecurityEventSnapshot(sessionData);
             const risk = await this.riskAnalysisService.assessNewSession(
               transaction,
               userId,
@@ -197,27 +199,5 @@ export class SessionCreationService {
       'kind' in cause &&
       cause.kind === 'TransactionWriteConflict'
     );
-  }
-
-  private toSecuritySnapshot(snapshot: {
-    ipAddress?: string | null;
-    userAgent?: string | null;
-    deviceModel?: string | null;
-    platform?: SessionMetadata['platform'] | null;
-    osVersion?: string | null;
-    appVersion?: string | null;
-    locationCountryCode?: string | null;
-    locationCity?: string | null;
-  }) {
-    return {
-      ipAddress: snapshot.ipAddress ?? undefined,
-      userAgent: snapshot.userAgent ?? undefined,
-      deviceModel: snapshot.deviceModel ?? undefined,
-      platform: snapshot.platform ?? undefined,
-      osVersion: snapshot.osVersion ?? undefined,
-      appVersion: snapshot.appVersion ?? undefined,
-      locationCountryCode: snapshot.locationCountryCode ?? undefined,
-      locationCity: snapshot.locationCity ?? undefined,
-    };
   }
 }

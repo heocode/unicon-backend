@@ -82,11 +82,13 @@ describe('SecurityEventService', () => {
       service.snapshotFromMetadata({
         platform: 'IOS',
         ipAddress: '192.0.2.10',
+        deviceModelIdentifier: 'iPhone17,1',
         deviceModel: 'iPhone 16 Pro',
       }),
     ).toEqual({
       platform: 'IOS',
       ipAddress: '192.0.2.10',
+      deviceModelIdentifier: 'iPhone17,1',
       deviceModel: 'iPhone 16 Pro',
       locationCountryCode: 'CA',
       locationCity: 'Toronto',

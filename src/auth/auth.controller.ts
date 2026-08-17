@@ -17,7 +17,6 @@ import {
   ApiBadRequestResponse,
   ApiBearerAuth,
   ApiForbiddenResponse,
-  ApiHeader,
   ApiNotFoundResponse,
   ApiOkResponse,
   ApiNoContentResponse,
@@ -33,6 +32,7 @@ import {
 // Internal decorators
 import { ApiLogin } from '../swagger/auth/login.decorator';
 import { ApiRegister } from '../swagger/auth/register.decorator';
+import { ApiSessionMetadataHeaders } from '../swagger/auth/session-metadata.decorator';
 import { SessionContext } from './decorators/session-context.decorator';
 
 // Internal services
@@ -83,26 +83,7 @@ export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   @ApiLogin()
-  @ApiHeader({
-    name: 'X-Device-Model',
-    required: false,
-    description: 'Device model, for example iPhone 16 Pro.',
-  })
-  @ApiHeader({
-    name: 'X-Platform',
-    required: false,
-    description: 'Client platform: IOS, ANDROID, or WEB.',
-  })
-  @ApiHeader({
-    name: 'X-OS-Version',
-    required: false,
-    description: 'Operating system version.',
-  })
-  @ApiHeader({
-    name: 'X-App-Version',
-    required: false,
-    description: 'Unicon application version.',
-  })
+  @ApiSessionMetadataHeaders()
   @Post('login')
   login(@Body() dto: LoginDto, @SessionContext() metadata: SessionMetadata) {
     return this.authService.login(dto, metadata);
@@ -142,26 +123,7 @@ export class AuthController {
   }
 
   @Post('verify-email')
-  @ApiHeader({
-    name: 'X-Device-Model',
-    required: false,
-    description: 'Device model, for example iPhone 16 Pro.',
-  })
-  @ApiHeader({
-    name: 'X-Platform',
-    required: false,
-    description: 'Client platform: IOS, ANDROID, or WEB.',
-  })
-  @ApiHeader({
-    name: 'X-OS-Version',
-    required: false,
-    description: 'Operating system version.',
-  })
-  @ApiHeader({
-    name: 'X-App-Version',
-    required: false,
-    description: 'Unicon application version.',
-  })
+  @ApiSessionMetadataHeaders()
   verifyEmail(
     @Body() dto: VerifyEmailDto,
     @SessionContext() metadata: SessionMetadata,

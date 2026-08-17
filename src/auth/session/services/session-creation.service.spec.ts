@@ -91,6 +91,7 @@ describe('SessionCreationService', () => {
       service.create('user-id', {
         ipAddress: '192.0.2.10',
         userAgent: 'Unicon/1.0 (iOS 18)',
+        deviceModelIdentifier: 'iPhone17,1',
         deviceModel: 'iPhone 16 Pro',
         platform: 'IOS',
         osVersion: '18.6',
@@ -115,6 +116,7 @@ describe('SessionCreationService', () => {
         expiresAt: nextExpiresAt,
         ipAddress: '192.0.2.10',
         userAgent: 'Unicon/1.0 (iOS 18)',
+        deviceModelIdentifier: 'iPhone17,1',
         deviceModel: 'iPhone 16 Pro',
         platform: 'IOS',
         osVersion: '18.6',
@@ -202,6 +204,7 @@ describe('SessionCreationService', () => {
         expiresAt: nextExpiresAt,
         ipAddress: undefined,
         userAgent: undefined,
+        deviceModelIdentifier: undefined,
         deviceModel: undefined,
         platform: 'UNKNOWN',
         osVersion: undefined,

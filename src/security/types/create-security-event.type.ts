@@ -10,6 +10,7 @@ import type {
 export type SecurityEventSnapshot = {
   ipAddress?: string;
   userAgent?: string;
+  deviceModelIdentifier?: string;
   deviceModel?: string;
   platform?: SessionPlatform;
   osVersion?: string;

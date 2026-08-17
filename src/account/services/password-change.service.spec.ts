@@ -20,6 +20,7 @@ describe('PasswordChangeService', () => {
   const currentSession = {
     ipAddress: '192.0.2.10',
     userAgent: 'Unicon/1.0',
+    deviceModelIdentifier: 'iPhone17,1',
     deviceModel: 'iPhone 16 Pro',
     platform: 'IOS',
     osVersion: '18.6',

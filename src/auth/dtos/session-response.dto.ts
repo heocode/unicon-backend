@@ -2,6 +2,13 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { SessionPlatform } from '../../generated/prisma/client';
 
 export class SessionDeviceResponseDto {
+  @ApiPropertyOptional({
+    example: 'iPhone17,1',
+    nullable: true,
+    description: 'Informational, client-supplied technical device identifier.',
+  })
+  modelIdentifier!: string | null;
+
   @ApiPropertyOptional({ example: 'iPhone 16 Pro', nullable: true })
   model!: string | null;
 

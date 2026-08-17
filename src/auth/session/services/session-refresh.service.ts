@@ -7,11 +7,14 @@ import { NotificationService } from '../../../notifications/services/notificatio
 import { PrismaService } from '../../../prisma/prisma.service';
 import { RiskAnalysisService } from '../../../security/services/risk-analysis.service';
 import { SecurityEventService } from '../../../security/services/security-event.service';
+import {
+  SECURITY_EVENT_SNAPSHOT_SELECT,
+  toSecurityEventSnapshot,
+  type SecurityEventSnapshotSource,
+} from '../../../security/utils/security-event-snapshot.util';
 import { JwtTokenService } from '../../services/jwt-token.service';
 import { SecureTokenService } from '../../services/secure-token.service';
 
-// Internal types
-import type { SessionMetadata } from '../../types/session-metadata.type';
 import type { AuthTokens } from '../types/session-tokens.type';
 
 @Injectable()
@@ -53,14 +56,7 @@ export class SessionRefreshService {
             status: true,
           },
         },
-        ipAddress: true,
-        userAgent: true,
-        deviceModel: true,
-        platform: true,
-        osVersion: true,
-        appVersion: true,
-        locationCountryCode: true,
-        locationCity: true,
+        ...SECURITY_EVENT_SNAPSHOT_SELECT,
       },
     });
 
@@ -144,7 +140,7 @@ export class SessionRefreshService {
   private async recordRefreshTokenReuse(
     userId: string,
     sessionId: string,
-    snapshot: Parameters<SessionRefreshService['toSecuritySnapshot']>[0],
+    snapshot: SecurityEventSnapshotSource,
   ): Promise<void> {
     const risk = this.riskAnalysisService.refreshTokenReuse();
 
@@ -156,7 +152,7 @@ export class SessionRefreshService {
         subjectSessionId: sessionId,
         riskLevel: risk.level ?? undefined,
         riskSignals: risk.signals,
-        ...this.toSecuritySnapshot(snapshot),
+        ...toSecurityEventSnapshot(snapshot),
       });
     } catch (error) {
       this.logger.error(
@@ -192,27 +188,5 @@ export class SessionRefreshService {
     return Boolean(
       currentSession && currentSession.hashedRefreshToken !== incomingTokenHash,
     );
-  }
-
-  private toSecuritySnapshot(snapshot: {
-    ipAddress?: string | null;
-    userAgent?: string | null;
-    deviceModel?: string | null;
-    platform?: SessionMetadata['platform'] | null;
-    osVersion?: string | null;
-    appVersion?: string | null;
-    locationCountryCode?: string | null;
-    locationCity?: string | null;
-  }) {
-    return {
-      ipAddress: snapshot.ipAddress ?? undefined,
-      userAgent: snapshot.userAgent ?? undefined,
-      deviceModel: snapshot.deviceModel ?? undefined,
-      platform: snapshot.platform ?? undefined,
-      osVersion: snapshot.osVersion ?? undefined,
-      appVersion: snapshot.appVersion ?? undefined,
-      locationCountryCode: snapshot.locationCountryCode ?? undefined,
-      locationCity: snapshot.locationCity ?? undefined,
-    };
   }
 }

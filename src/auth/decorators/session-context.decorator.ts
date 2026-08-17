@@ -10,6 +10,7 @@ import type { SessionPlatform } from '../../generated/prisma/client';
 
 const MAX_IP_ADDRESS_LENGTH = 45;
 const MAX_USER_AGENT_LENGTH = 500;
+const MAX_DEVICE_MODEL_IDENTIFIER_LENGTH = 128;
 const MAX_DEVICE_MODEL_LENGTH = 100;
 const MAX_OS_VERSION_LENGTH = 30;
 const MAX_APP_VERSION_LENGTH = 50;
@@ -28,6 +29,10 @@ export function getSessionMetadata(request: Request): SessionMetadata {
     userAgent: normalizeValue(
       request.headers['user-agent'],
       MAX_USER_AGENT_LENGTH,
+    ),
+    deviceModelIdentifier: normalizeValue(
+      request.headers['x-device-model-identifier'],
+      MAX_DEVICE_MODEL_IDENTIFIER_LENGTH,
     ),
     deviceModel: normalizeValue(
       request.headers['x-device-model'],
@@ -62,6 +67,11 @@ function normalizeValue(
   maxLength: number,
 ): string | undefined {
   const stringValue = Array.isArray(value) ? value[0] : value;
+
+  if (/\p{Cc}/u.test(stringValue ?? '')) {
+    return undefined;
+  }
+
   const normalizedValue = stringValue?.trim();
 
   if (!normalizedValue) {

@@ -1,8 +1,10 @@
 # Auth and Profile Roadmap
 
 The goal of this roadmap is a stable backend contract for implementing the
-complete mobile auth and profile experience without repeatedly redesigning the
-backend. Complete stages in order unless a dependency requires otherwise.
+mobile auth and profile experience without repeatedly redesigning the backend.
+Complete active stages in order unless a dependency requires otherwise. Stages
+7 and 8 are retained as post-MVP reference work and do not block product
+development or frontend readiness.
 
 ## Definition of frontend-ready
 
@@ -15,11 +17,11 @@ Auth/profile backend is ready for focused frontend integration when:
 - Swagger documents every public request, response, error, and device header;
 - primary success, authorization, replay, recovery, and revocation flows have
   real integration/e2e coverage;
-- TOTP and passkey ceremonies have defined contracts ready for client testing;
 - no known breaking auth API redesign is expected.
 
-Passkeys still require a focused frontend/backend integration pass because the
-platform authenticator participates in the WebAuthn ceremony.
+TOTP and passkeys are not required for the first product version. If either is
+prioritized later, its backend and mobile contracts must be designed and tested
+as a separate post-MVP project before implementation is considered complete.
 
 ## Completed foundation
 
@@ -32,7 +34,8 @@ platform authenticator participates in the WebAuthn ceremony.
 - Hashed refresh-token storage and atomic one-time rotation.
 - Immediate access denial for revoked, expired, missing, or blocked sessions.
 - Multiple independent device sessions.
-- Structured device metadata and application version snapshots.
+- Structured technical device identifiers, display model snapshots, and
+  application version snapshots.
 - Active-session listing with `current` marker.
 - Optional user-assigned session names.
 - Approximate country/city GeoIP snapshots.
@@ -190,7 +193,13 @@ POST /auth/reset-password
   tokens, and consumed reset token stop working. Recovery deliberately creates
   no session until a future deep/universal-link contract is designed.
 
-## Stage 7: TOTP two-factor authentication
+## Stage 7: TOTP two-factor authentication (deferred post-MVP)
+
+TOTP is not required for the first product version and does not block work on
+the application's core functionality, frontend integration, or release. Do not
+implement partial TOTP infrastructure or substitute email OTP as a second
+factor. Reassess this stage only after product usage, security requirements, or
+user demand justify the additional login and account-recovery complexity.
 
 Use authenticator-compatible TOTP as the first second factor. Do not treat email
 OTP as an equivalent strong factor.
@@ -212,7 +221,12 @@ recovery-code regeneration
 - Rate-limit challenges and record failures.
 - Define account recovery before enabling mandatory 2FA.
 
-## Stage 8: Passkeys
+## Stage 8: Passkeys (deferred post-MVP)
+
+Passkeys are not required for the first product version and do not block work
+on the application's core functionality, frontend integration, or release.
+Reassess this stage after the production web and native application topology is
+known and a focused client/backend integration pass can be scheduled.
 
 Passkeys authenticate existing `ACTIVE`, college-email-verified accounts. They
 must not create an account or bypass allowed-domain verification.
@@ -235,7 +249,9 @@ Android clients before declaring it complete.
 
 ## Stage 9: Device model normalization
 
-Keep three concepts separate:
+Implemented for the current native-client contract:
+
+The implementation keeps three concepts separate:
 
 ```text
 deviceModelIdentifier: technical identifier such as iPhone17,1
@@ -243,9 +259,29 @@ deviceModel: normalized display snapshot such as iPhone 16 Pro
 sessionName: optional user-assigned label such as Personal phone
 ```
 
-Choose whether model mapping is owned by the mobile client, backend, or a shared
-generated catalog. Preserve the raw identifier so mappings can improve without
-losing source data. Never use the displayed model as a strong security proof.
+- `X-Device-Model-Identifier` carries the optional technical identifier while
+  the existing `X-Device-Model` remains the optional display snapshot.
+- The mobile client owns identifier-to-display mapping. The backend has no
+  device catalog, so new hardware does not require a backend release.
+- `Session` and `SecurityEvent` preserve the bounded technical identifier and
+  display snapshot independently. Existing display-only data is not rewritten.
+- Older clients remain compatible and store a null identifier.
+- Session listing exposes nullable `device.modelIdentifier` without changing
+  the existing `device.model` field.
+- `NEW_DEVICE` uses identifier-first comparison with a constrained legacy
+  display fallback during client migration.
+- Session naming changes only `sessionName`; it never rewrites device
+  snapshots.
+- Notifications display the model snapshot and platform, not the technical
+  identifier.
+- Device metadata remains spoofable and is never authorization, trusted-device,
+  automatic revocation, or account-blocking proof.
+- Focused unit tests and database-backed e2e tests cover login, email
+  verification, legacy clients, unknown identifiers, bounded persistence,
+  session listing and naming, risk analysis, and notifications.
+
+A shared generated mobile catalog may be introduced later if iOS and Android
+need one source of mapping data. It is not required by the backend contract.
 
 ## Stage 10: Account deletion
 
@@ -258,7 +294,8 @@ The design must define:
 - `deletionScheduledAt` and account status behavior;
 - cancellation rules;
 - deletion/anonymization of profile and future user-generated content;
-- removal of passkeys, TOTP secrets, recovery codes, and tokens;
+- removal of passkeys, TOTP secrets, and recovery codes if those post-MVP
+  features have been implemented, plus removal of applicable tokens;
 - retention requirements for security events;
 - confirmation and completion notifications.
 
@@ -279,8 +316,9 @@ frontend freeze:
 - Remove client dependence on English message strings.
 
 Initial error-code families should cover validation, credentials, verification,
-account state, sessions, refresh replay/expiry, password recovery, 2FA,
-passkeys, rate limits, and deletion state.
+account state, sessions, refresh replay/expiry, password recovery, rate limits,
+and deletion state. Add 2FA and passkey families only if their deferred stages
+are later activated.
 
 ## Stage 12: Production hardening
 
@@ -309,12 +347,13 @@ revoke all other sessions
 session-limit rejection and recovery
 forgot password → reset → old password/session rejection
 change password → other-session revocation
-TOTP setup → challenge → recovery code
-passkey registration → passkey login → removal
 account deletion request → cancellation/completion
 security-event and notification side effects
 GeoIP degraded mode and MMDB reload
 ```
+
+TOTP and passkey integration flows are required only if their deferred
+post-MVP stages are later activated.
 
 ## Explicitly excluded
 

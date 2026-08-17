@@ -113,6 +113,129 @@ describe('RiskAnalysisService', () => {
     ).resolves.toEqual({ level: null, signals: [] });
   });
 
+  it('uses the technical identifier as the primary device identity', async () => {
+    securityEvent.count
+      .mockResolvedValueOnce(1)
+      .mockResolvedValueOnce(0)
+      .mockResolvedValueOnce(0);
+    securityEvent.findFirst.mockResolvedValueOnce({ id: 'known-device' });
+
+    await expect(
+      service.assessNewSession(
+        client,
+        'user-id',
+        {
+          platform: 'IOS',
+          deviceModelIdentifier: 'iPhone17,1',
+          deviceModel: 'Localized display name',
+        },
+        now,
+      ),
+    ).resolves.toEqual({ level: null, signals: [] });
+
+    expect(securityEvent.findFirst).toHaveBeenCalledWith({
+      where: {
+        userId: 'user-id',
+        type: 'SESSION_CREATED',
+        platform: 'IOS',
+        deviceModelIdentifier: 'iPhone17,1',
+      },
+      select: { id: true },
+    });
+  });
+
+  it('matches identifier clients against legacy display-only history', async () => {
+    securityEvent.count
+      .mockResolvedValueOnce(1)
+      .mockResolvedValueOnce(0)
+      .mockResolvedValueOnce(0);
+    securityEvent.findFirst
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({ id: 'legacy-device' });
+
+    await expect(
+      service.assessNewSession(
+        client,
+        'user-id',
+        {
+          platform: 'IOS',
+          deviceModelIdentifier: 'iPhone17,1',
+          deviceModel: 'iPhone 16 Pro',
+        },
+        now,
+      ),
+    ).resolves.toEqual({ level: null, signals: [] });
+
+    expect(securityEvent.findFirst).toHaveBeenNthCalledWith(3, {
+      where: {
+        userId: 'user-id',
+        type: 'SESSION_CREATED',
+        platform: 'IOS',
+        deviceModelIdentifier: null,
+        deviceModel: 'iPhone 16 Pro',
+      },
+      select: { id: true },
+    });
+  });
+
+  it('treats a new identifier with the same display name as a new device', async () => {
+    securityEvent.count
+      .mockResolvedValueOnce(1)
+      .mockResolvedValueOnce(0)
+      .mockResolvedValueOnce(0);
+    securityEvent.findFirst
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({ id: 'identifier-display-history' });
+
+    await expect(
+      service.assessNewSession(
+        client,
+        'user-id',
+        {
+          platform: 'ANDROID',
+          deviceModelIdentifier: 'google:komodo',
+          deviceModel: 'Pixel Pro',
+        },
+        now,
+      ),
+    ).resolves.toEqual({ level: 'LOW', signals: ['NEW_DEVICE'] });
+
+    expect(securityEvent.findFirst).toHaveBeenCalledTimes(2);
+    expect(securityEvent.findFirst).toHaveBeenNthCalledWith(2, {
+      where: {
+        userId: 'user-id',
+        type: 'SESSION_CREATED',
+        platform: 'ANDROID',
+        deviceModelIdentifier: { not: null },
+        deviceModel: 'Pixel Pro',
+      },
+      select: { id: true },
+    });
+  });
+
+  it('detects a new identifier when no display name is available', async () => {
+    securityEvent.count
+      .mockResolvedValueOnce(1)
+      .mockResolvedValueOnce(0)
+      .mockResolvedValueOnce(0);
+    securityEvent.findFirst.mockResolvedValueOnce(null);
+
+    await expect(
+      service.assessNewSession(
+        client,
+        'user-id',
+        {
+          platform: 'ANDROID',
+          deviceModelIdentifier: 'vendor:new-device',
+        },
+        now,
+      ),
+    ).resolves.toEqual({ level: 'LOW', signals: ['NEW_DEVICE'] });
+
+    expect(securityEvent.findFirst).toHaveBeenCalledTimes(1);
+  });
+
   it('classifies refresh-token reuse as high risk', () => {
     expect(service.refreshTokenReuse()).toEqual({
       level: 'HIGH',
