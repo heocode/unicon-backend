@@ -12,75 +12,43 @@ import {
 } from '@nestjs/common';
 import {
   ApiAcceptedResponse,
-  ApiBadRequestResponse,
   ApiBearerAuth,
-  ApiConflictResponse,
-  ApiExtraModels,
   ApiOkResponse,
   ApiOperation,
   ApiTags,
-  ApiTooManyRequestsResponse,
-  ApiUnauthorizedResponse,
-  getSchemaPath,
 } from '@nestjs/swagger';
 
-// Internal guards
-import { AccessTokenGuard } from '../auth/guards/access-token.guard';
+// Internal guards and decorators
 import { SessionContext } from '../auth/decorators/session-context.decorator';
+import { AccessTokenGuard } from '../auth/guards/access-token.guard';
 import { ApiSessionMetadataHeaders } from '../swagger/auth/session-metadata.decorator';
+import { ApiPublicErrorResponse } from '../swagger/common/public-error-response.decorator';
 
 // Internal services
-import { PasswordChangeService } from './services/password-change.service';
 import { AccountDeletionService } from './services/account-deletion.service';
-import { AccountDeletionCancellationRateLimitFilter } from './filters/account-deletion-cancellation-rate-limit.filter';
+import { PasswordChangeService } from './services/password-change.service';
 
 // Internal DTOs
-import {
-  AccountUnavailableErrorResponseDto,
-  AccountDeletionAlreadyCancelledErrorResponseDto,
-  AccountDeletionGracePeriodExpiredErrorResponseDto,
-  AccountStateChangedErrorResponseDto,
-  CurrentPasswordInvalidErrorResponseDto,
-  NewPasswordSameAsCurrentErrorResponseDto,
-  PasswordChangedConcurrentlyErrorResponseDto,
-  PasswordsDoNotMatchErrorResponseDto,
-  SessionUnavailableErrorResponseDto,
-  InvalidCredentialsErrorResponseDto,
-} from './dtos/account-error-response.dto';
+import { AccountDeletionCancelledResponseDto } from './dtos/account-deletion-cancelled-response.dto';
+import { AccountDeletionResponseDto } from './dtos/account-deletion-response.dto';
+import { CancelAccountDeletionDto } from './dtos/cancel-account-deletion.dto';
 import { ChangePasswordDto } from './dtos/change-password.dto';
 import { PasswordChangeResponseDto } from './dtos/password-change-response.dto';
-import { AccountDeletionResponseDto } from './dtos/account-deletion-response.dto';
 import { RequestAccountDeletionDto } from './dtos/request-account-deletion.dto';
-import { CancelAccountDeletionDto } from './dtos/cancel-account-deletion.dto';
-import { AccountDeletionCancelledResponseDto } from './dtos/account-deletion-cancelled-response.dto';
-import { AccountDeletionRateLimitErrorResponseDto } from './dtos/account-deletion-rate-limit-error-response.dto';
 import {
-  SessionLimitReachedErrorResponseDto,
-  UnauthorizedErrorResponseDto,
-  ValidationErrorResponseDto,
-} from '../auth/dtos/session-error-response.dto';
+  RateLimitErrorDetailsDto,
+  SessionLimitErrorDetailsDto,
+} from '../common/dtos/public-error-details.dto';
+import { ValidationErrorDetailsDto } from '../common/dtos/validation-error-response.dto';
+
+// Internal filters
+import { AccountDeletionCancellationRateLimitFilter } from './filters/account-deletion-cancellation-rate-limit.filter';
 
 // Internal types
 import type { AccessAuthenticatedRequest } from '../auth/types/authenticated-request.type';
 import type { SessionMetadata } from '../auth/types/session-metadata.type';
 
 @ApiTags('Account')
-@ApiExtraModels(
-  AccountUnavailableErrorResponseDto,
-  AccountDeletionAlreadyCancelledErrorResponseDto,
-  AccountDeletionGracePeriodExpiredErrorResponseDto,
-  AccountStateChangedErrorResponseDto,
-  CurrentPasswordInvalidErrorResponseDto,
-  NewPasswordSameAsCurrentErrorResponseDto,
-  PasswordChangedConcurrentlyErrorResponseDto,
-  PasswordsDoNotMatchErrorResponseDto,
-  SessionUnavailableErrorResponseDto,
-  InvalidCredentialsErrorResponseDto,
-  SessionLimitReachedErrorResponseDto,
-  UnauthorizedErrorResponseDto,
-  ValidationErrorResponseDto,
-  AccountDeletionRateLimitErrorResponseDto,
-)
 @Controller('account')
 export class AccountController {
   constructor(
@@ -92,40 +60,35 @@ export class AccountController {
   @HttpCode(HttpStatus.OK)
   @ApiSessionMetadataHeaders()
   @UseFilters(AccountDeletionCancellationRateLimitFilter)
-  @ApiOkResponse({
-    description:
-      'Deletion was cancelled and a completely new session was created.',
-    type: AccountDeletionCancelledResponseDto,
+  @ApiOperation({ summary: 'Cancel scheduled account deletion' })
+  @ApiOkResponse({ type: AccountDeletionCancelledResponseDto })
+  @ApiPublicErrorResponse({
+    status: HttpStatus.BAD_REQUEST,
+    codes: ['VALIDATION_FAILED', 'MALFORMED_JSON'],
+    description: 'The cancellation request is invalid.',
+    detailsTypes: [ValidationErrorDetailsDto],
   })
-  @ApiBadRequestResponse({
-    description: 'The cancellation credentials are invalid.',
-    type: ValidationErrorResponseDto,
-  })
-  @ApiUnauthorizedResponse({
+  @ApiPublicErrorResponse({
+    status: HttpStatus.UNAUTHORIZED,
+    codes: ['INVALID_CREDENTIALS'],
     description: 'The email or password is invalid.',
-    type: InvalidCredentialsErrorResponseDto,
   })
-  @ApiTooManyRequestsResponse({
+  @ApiPublicErrorResponse({
+    status: HttpStatus.TOO_MANY_REQUESTS,
+    codes: ['RATE_LIMIT_EXCEEDED'],
     description: 'The email or IP cancellation-attempt limit was reached.',
-    type: AccountDeletionRateLimitErrorResponseDto,
+    detailsTypes: [RateLimitErrorDetailsDto],
   })
-  @ApiConflictResponse({
-    description:
-      'The grace period expired, deletion was already cancelled, the account state changed, or a session cannot be created.',
-    schema: {
-      oneOf: [
-        {
-          $ref: getSchemaPath(AccountDeletionAlreadyCancelledErrorResponseDto),
-        },
-        {
-          $ref: getSchemaPath(
-            AccountDeletionGracePeriodExpiredErrorResponseDto,
-          ),
-        },
-        { $ref: getSchemaPath(AccountStateChangedErrorResponseDto) },
-        { $ref: getSchemaPath(SessionLimitReachedErrorResponseDto) },
-      ],
-    },
+  @ApiPublicErrorResponse({
+    status: HttpStatus.CONFLICT,
+    codes: [
+      'ACCOUNT_DELETION_ALREADY_CANCELLED',
+      'ACCOUNT_DELETION_GRACE_PERIOD_EXPIRED',
+      'ACCOUNT_STATE_CHANGED',
+      'SESSION_LIMIT_REACHED',
+    ],
+    description: 'The account state cannot be cancelled as requested.',
+    detailsTypes: [SessionLimitErrorDetailsDto],
   })
   cancelDeletion(
     @Body() dto: CancelAccountDeletionDto,
@@ -137,31 +100,35 @@ export class AccountController {
   @Post('deletion')
   @HttpCode(HttpStatus.ACCEPTED)
   @UseGuards(AccessTokenGuard)
-  @ApiBearerAuth()
+  @ApiBearerAuth('access-token')
   @ApiOperation({ summary: 'Schedule deletion of the authenticated account' })
-  @ApiAcceptedResponse({
-    description:
-      'Deletion was scheduled and every account session was revoked.',
-    type: AccountDeletionResponseDto,
+  @ApiAcceptedResponse({ type: AccountDeletionResponseDto })
+  @ApiPublicErrorResponse({
+    status: HttpStatus.BAD_REQUEST,
+    codes: ['VALIDATION_FAILED', 'MALFORMED_JSON'],
+    description: 'The deletion request is invalid.',
+    detailsTypes: [ValidationErrorDetailsDto],
   })
-  @ApiBadRequestResponse({
-    description: 'The current-password input is invalid.',
-    type: ValidationErrorResponseDto,
-  })
-  @ApiUnauthorizedResponse({
+  @ApiPublicErrorResponse({
+    status: HttpStatus.UNAUTHORIZED,
+    codes: [
+      'ACCESS_TOKEN_REQUIRED',
+      'ACCESS_TOKEN_INVALID',
+      'ACCESS_TOKEN_EXPIRED',
+      'SESSION_UNAVAILABLE',
+      'CURRENT_PASSWORD_INVALID',
+    ],
     description: 'Authorization or current-password verification failed.',
-    schema: {
-      oneOf: [
-        { $ref: getSchemaPath(UnauthorizedErrorResponseDto) },
-        { $ref: getSchemaPath(AccountUnavailableErrorResponseDto) },
-        { $ref: getSchemaPath(CurrentPasswordInvalidErrorResponseDto) },
-        { $ref: getSchemaPath(SessionUnavailableErrorResponseDto) },
-      ],
-    },
   })
-  @ApiConflictResponse({
+  @ApiPublicErrorResponse({
+    status: HttpStatus.FORBIDDEN,
+    codes: ['ACCOUNT_UNAVAILABLE'],
+    description: 'The account cannot schedule deletion.',
+  })
+  @ApiPublicErrorResponse({
+    status: HttpStatus.CONFLICT,
+    codes: ['ACCOUNT_STATE_CHANGED'],
     description: 'The account state changed concurrently.',
-    type: AccountStateChangedErrorResponseDto,
   })
   requestDeletion(
     @Req() request: AccessAuthenticatedRequest,
@@ -176,35 +143,40 @@ export class AccountController {
 
   @Patch('password')
   @UseGuards(AccessTokenGuard)
-  @ApiBearerAuth()
+  @ApiBearerAuth('access-token')
   @ApiOperation({ summary: 'Change the authenticated user password' })
-  @ApiOkResponse({
-    description: 'The password was changed and other sessions were revoked.',
-    type: PasswordChangeResponseDto,
+  @ApiOkResponse({ type: PasswordChangeResponseDto })
+  @ApiPublicErrorResponse({
+    status: HttpStatus.BAD_REQUEST,
+    codes: [
+      'VALIDATION_FAILED',
+      'MALFORMED_JSON',
+      'PASSWORDS_DO_NOT_MATCH',
+      'NEW_PASSWORD_SAME_AS_CURRENT',
+    ],
+    description: 'The password request is invalid.',
+    detailsTypes: [ValidationErrorDetailsDto],
   })
-  @ApiBadRequestResponse({
-    description: 'The password input is invalid.',
-    schema: {
-      oneOf: [
-        { $ref: getSchemaPath(PasswordsDoNotMatchErrorResponseDto) },
-        { $ref: getSchemaPath(NewPasswordSameAsCurrentErrorResponseDto) },
-      ],
-    },
-  })
-  @ApiUnauthorizedResponse({
+  @ApiPublicErrorResponse({
+    status: HttpStatus.UNAUTHORIZED,
+    codes: [
+      'ACCESS_TOKEN_REQUIRED',
+      'ACCESS_TOKEN_INVALID',
+      'ACCESS_TOKEN_EXPIRED',
+      'SESSION_UNAVAILABLE',
+      'CURRENT_PASSWORD_INVALID',
+    ],
     description: 'Authorization or current-password verification failed.',
-    schema: {
-      oneOf: [
-        { $ref: getSchemaPath(UnauthorizedErrorResponseDto) },
-        { $ref: getSchemaPath(AccountUnavailableErrorResponseDto) },
-        { $ref: getSchemaPath(CurrentPasswordInvalidErrorResponseDto) },
-        { $ref: getSchemaPath(SessionUnavailableErrorResponseDto) },
-      ],
-    },
   })
-  @ApiConflictResponse({
-    description: 'Another request changed the password concurrently.',
-    type: PasswordChangedConcurrentlyErrorResponseDto,
+  @ApiPublicErrorResponse({
+    status: HttpStatus.FORBIDDEN,
+    codes: ['ACCOUNT_UNAVAILABLE'],
+    description: 'The account cannot change its password.',
+  })
+  @ApiPublicErrorResponse({
+    status: HttpStatus.CONFLICT,
+    codes: ['PASSWORD_CHANGED_CONCURRENTLY'],
+    description: 'Another request changed the password first.',
   })
   changePassword(
     @Req() request: AccessAuthenticatedRequest,

@@ -108,7 +108,7 @@ describe('Profile with PostgreSQL (e2e)', () => {
     await request(app.getHttpServer())
       .post('/auth/logout')
       .set('Authorization', `Bearer ${tokens.accessToken}`)
-      .expect(201);
+      .expect(204);
 
     await request(app.getHttpServer())
       .get('/profile/me')

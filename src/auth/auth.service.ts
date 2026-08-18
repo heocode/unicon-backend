@@ -224,12 +224,8 @@ export class AuthService {
     return tokens;
   }
 
-  async logout(userId: string, sessionId: string) {
+  async logout(userId: string, sessionId: string): Promise<void> {
     await this.sessionManagementService.revoke(userId, sessionId);
-
-    return {
-      message: 'Logged out successfully.',
-    };
   }
 
   getSessions(userId: string, currentSessionId: string) {

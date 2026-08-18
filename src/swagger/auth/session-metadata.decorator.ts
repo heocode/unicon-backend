@@ -5,6 +5,12 @@ import { ApiHeader } from '@nestjs/swagger';
 export function ApiSessionMetadataHeaders() {
   return applyDecorators(
     ApiHeader({
+      name: 'User-Agent',
+      required: false,
+      description:
+        'Informational client user agent. Maximum 500 characters. It is not a security credential.',
+    }),
+    ApiHeader({
       name: 'X-Device-Model-Identifier',
       required: false,
       description:
@@ -19,7 +25,8 @@ export function ApiSessionMetadataHeaders() {
     ApiHeader({
       name: 'X-Platform',
       required: false,
-      description: 'Client platform: IOS, ANDROID, or WEB.',
+      description:
+        'Informational client platform: IOS, ANDROID, WEB, or UNKNOWN. Unrecognized values become UNKNOWN.',
     }),
     ApiHeader({
       name: 'X-OS-Version',

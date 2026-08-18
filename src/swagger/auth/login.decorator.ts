@@ -1,64 +1,55 @@
-import { applyDecorators } from '@nestjs/common';
+import { applyDecorators, HttpStatus } from '@nestjs/common';
+import { ApiCreatedResponse, ApiOperation } from '@nestjs/swagger';
+
+import { AuthTokensResponseDto } from '../../auth/dtos/auth-response.dto';
 import {
-  ApiBadRequestResponse,
-  ApiConflictResponse,
-  ApiCreatedResponse,
-  ApiExtraModels,
-  ApiForbiddenResponse,
-  ApiOperation,
-  ApiUnauthorizedResponse,
-  getSchemaPath,
-} from '@nestjs/swagger';
-import {
-  AccountDeletionGracePeriodExpiredLoginErrorResponseDto,
-  AccountDeletionScheduledLoginErrorResponseDto,
-} from '../../auth/dtos/account-deletion-login-error-response.dto';
-import { SessionLimitReachedErrorResponseDto } from '../../auth/dtos/session-error-response.dto';
+  AccountDeletionLoginErrorDetailsDto,
+  EmailNotVerifiedErrorDetailsDto,
+  SessionLimitErrorDetailsDto,
+} from '../../common/dtos/public-error-details.dto';
+import { ValidationErrorDetailsDto } from '../../common/dtos/validation-error-response.dto';
+import { ApiPublicErrorResponse } from '../common/public-error-response.decorator';
 
 export function ApiLogin() {
   return applyDecorators(
     ApiOperation({
-      summary: 'Log into account',
-      description: 'Authenticates a user using email and password.',
+      summary: 'Log into an account',
+      description: 'Authenticates using the current MVP email and password.',
     }),
-
-    ApiExtraModels(
-      AccountDeletionScheduledLoginErrorResponseDto,
-      AccountDeletionGracePeriodExpiredLoginErrorResponseDto,
-    ),
-
     ApiCreatedResponse({
-      description: 'User successfully authenticated.',
+      description: 'A new independent session was created.',
+      type: AuthTokensResponseDto,
     }),
-
-    ApiBadRequestResponse({
-      description: 'Invalid request data.',
+    ApiPublicErrorResponse({
+      status: HttpStatus.BAD_REQUEST,
+      codes: ['VALIDATION_FAILED', 'MALFORMED_JSON'],
+      description: 'The request body is invalid.',
+      detailsTypes: [ValidationErrorDetailsDto],
     }),
-
-    ApiUnauthorizedResponse({
-      description: 'Invalid email or password.',
+    ApiPublicErrorResponse({
+      status: HttpStatus.UNAUTHORIZED,
+      codes: ['INVALID_CREDENTIALS'],
+      description: 'The credentials are invalid.',
     }),
-
-    ApiForbiddenResponse({
-      description:
-        'The email is unverified, the account is unavailable, or account deletion is scheduled.',
-      schema: {
-        oneOf: [
-          {
-            $ref: getSchemaPath(AccountDeletionScheduledLoginErrorResponseDto),
-          },
-          {
-            $ref: getSchemaPath(
-              AccountDeletionGracePeriodExpiredLoginErrorResponseDto,
-            ),
-          },
-        ],
-      },
+    ApiPublicErrorResponse({
+      status: HttpStatus.FORBIDDEN,
+      codes: [
+        'EMAIL_NOT_VERIFIED',
+        'ACCOUNT_UNAVAILABLE',
+        'ACCOUNT_DELETION_SCHEDULED',
+        'ACCOUNT_DELETION_GRACE_PERIOD_EXPIRED',
+      ],
+      description: 'The account cannot currently create a session.',
+      detailsTypes: [
+        EmailNotVerifiedErrorDetailsDto,
+        AccountDeletionLoginErrorDetailsDto,
+      ],
     }),
-
-    ApiConflictResponse({
-      description: 'The active session limit has been reached.',
-      type: SessionLimitReachedErrorResponseDto,
+    ApiPublicErrorResponse({
+      status: HttpStatus.CONFLICT,
+      codes: ['SESSION_LIMIT_REACHED'],
+      description: 'The active-session limit was reached.',
+      detailsTypes: [SessionLimitErrorDetailsDto],
     }),
   );
 }

@@ -1,8 +1,9 @@
 import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
-import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import { SwaggerModule } from '@nestjs/swagger';
 import { configureApp } from './configure-app';
+import { createSwaggerConfig } from './swagger/swagger.config';
 
 async function start() {
   const app = await NestFactory.create(AppModule);
@@ -11,12 +12,7 @@ async function start() {
 
   configureApp(app);
 
-  const config = new DocumentBuilder()
-    .setTitle('Unicon')
-    .setDescription('RestAPI documentation / Created By Vadim Iskakov')
-    .setVersion('1.0.0')
-    .build();
-  const document = SwaggerModule.createDocument(app, config);
+  const document = SwaggerModule.createDocument(app, createSwaggerConfig());
   SwaggerModule.setup('/api/docs', app, document);
 
   await app.listen(port, () => console.log(`Server started on port = ${port}`));

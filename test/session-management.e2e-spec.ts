@@ -316,7 +316,7 @@ describe('Session management with PostgreSQL (e2e)', () => {
     await request(app.getHttpServer())
       .post('/auth/logout')
       .set('Authorization', `Bearer ${tokens.accessToken}`)
-      .expect(201);
+      .expect(204);
 
     await expect(
       prisma.securityEvent.findFirstOrThrow({

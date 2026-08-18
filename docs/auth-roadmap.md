@@ -355,20 +355,20 @@ rules are explicitly defined.
 
 ## Stage 11: Stable public contracts
 
-This work should begin incrementally in earlier stages and finish before
-frontend freeze:
+Implemented for the MVP public auth, account, and profile surface. The contract
+must remain stable through frontend freeze:
 
-The approved MVP target contract and endpoint inventory are defined in
-`public-api-contract.md`. Runtime behavior remains unchanged until the later
-Stage 11 implementation checkpoints adopt that contract.
+The approved and implemented MVP contract and endpoint inventory are defined in
+`public-api-contract.md`.
 
-- Define response DTOs for every auth/profile endpoint.
-- Define a shared error envelope and stable error-code catalog.
-- Ensure validation errors follow the same public contract.
-- Complete Swagger operation, auth, header, response, and error documentation.
+- [x] Define response DTOs for every auth/profile endpoint.
+- [x] Define a shared error envelope and stable error-code catalog.
+- [x] Ensure validation errors follow the same public contract.
+- [x] Complete Swagger operation, auth, header, response, and error documentation.
 - Consider generating the mobile API client from OpenAPI after the contract is
   stable.
-- Remove client dependence on English message strings.
+- [x] Remove server-contract dependence on English message strings; mobile
+      clients must branch on stable codes.
 
 Initial error-code families should cover validation, credentials, verification,
 account state, sessions, refresh replay/expiry, password recovery, rate limits,

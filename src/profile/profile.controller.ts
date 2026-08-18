@@ -1,10 +1,9 @@
 // NestJS
-import { Controller, Get, Req, UseGuards } from '@nestjs/common';
+import { Controller, Get, HttpStatus, Req, UseGuards } from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiOkResponse,
   ApiOperation,
-  ApiUnauthorizedResponse,
   ApiTags,
 } from '@nestjs/swagger';
 
@@ -16,7 +15,7 @@ import { AccessTokenGuard } from '../auth/guards/access-token.guard';
 
 // Internal DTOs
 import { ProfileResponseDto } from './dtos/profile-response.dto';
-import { UnauthorizedErrorResponseDto } from '../auth/dtos/session-error-response.dto';
+import { ApiPublicErrorResponse } from '../swagger/common/public-error-response.decorator';
 
 // Internal types
 import type { AccessAuthenticatedRequest } from '../auth/types/authenticated-request.type';
@@ -28,15 +27,26 @@ export class ProfileController {
 
   @Get('me')
   @UseGuards(AccessTokenGuard)
-  @ApiBearerAuth()
+  @ApiBearerAuth('access-token')
   @ApiOperation({ summary: 'Get the authenticated user profile' })
   @ApiOkResponse({
     description: 'The authenticated user profile.',
     type: ProfileResponseDto,
   })
-  @ApiUnauthorizedResponse({
-    description: 'The user is not authorized or the profile is unavailable.',
-    type: UnauthorizedErrorResponseDto,
+  @ApiPublicErrorResponse({
+    status: HttpStatus.UNAUTHORIZED,
+    codes: [
+      'ACCESS_TOKEN_REQUIRED',
+      'ACCESS_TOKEN_INVALID',
+      'ACCESS_TOKEN_EXPIRED',
+      'SESSION_UNAVAILABLE',
+    ],
+    description: 'The access credential or session is unavailable.',
+  })
+  @ApiPublicErrorResponse({
+    status: HttpStatus.CONFLICT,
+    codes: ['PROFILE_UNAVAILABLE'],
+    description: 'The profile became unavailable during the request.',
   })
   getMe(
     @Req() request: AccessAuthenticatedRequest,

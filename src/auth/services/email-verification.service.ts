@@ -219,6 +219,8 @@ export class EmailVerificationService {
       },
     });
 
-    return this.sendVerificationEmail(user.id, user.email, verification.token);
+    await this.sendVerificationEmail(user.id, user.email, verification.token);
+
+    return { message: 'Verification email sent successfully.' };
   }
 }

@@ -22,7 +22,11 @@ describe('Application validation (e2e)', () => {
   });
   const authService = {
     login,
-    register: jest.fn(),
+    register: jest.fn().mockResolvedValue({
+      message: 'Verification email sent successfully.',
+      email: 'student@my.centennialcollege.ca',
+      resendAvailableInSeconds: 60,
+    }),
   };
 
   beforeAll(async () => {
@@ -69,6 +73,22 @@ describe('Application validation (e2e)', () => {
       });
 
     expect(authService.register).not.toHaveBeenCalled();
+  });
+
+  it('returns the explicit registration response shape', async () => {
+    await request(app.getHttpServer())
+      .post('/auth/register')
+      .send({
+        email: 'student@my.centennialcollege.ca',
+        password: 'Password1!',
+        confirmedPassword: 'Password1!',
+      })
+      .expect(201)
+      .expect({
+        message: 'Verification email sent successfully.',
+        email: 'student@my.centennialcollege.ca',
+        resendAvailableInSeconds: 60,
+      });
   });
 
   it('rejects properties that are not declared in the DTO', async () => {

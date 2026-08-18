@@ -1,8 +1,9 @@
 # Public Auth, Account, and Profile API Contract
 
-This document freezes the intended MVP public contract for Stage 11. It is the
-target for the incremental implementation work; adding this document does not
-mean every current endpoint already conforms to it.
+This document defines the implemented MVP public contract for Stage 11. The
+runtime error envelope, explicit success DTOs, HTTP statuses, authentication
+schemes, and mobile metadata headers are reflected in the generated OpenAPI
+document and protected by focused contract tests.
 
 TOTP, passkeys, email-OTP login, OAuth, multiple affiliations, and other
 post-MVP identity work are intentionally excluded. Future authenticators must

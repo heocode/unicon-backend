@@ -681,21 +681,18 @@ of scope while those features are deferred post-MVP.
 
 ## Current error handling
 
-Nest exceptions are used consistently, and some flows already expose structured
-codes such as `EMAIL_NOT_VERIFIED` and `ACCOUNT_UNAVAILABLE`. A unified public
-error DTO and complete stable error-code catalog are not implemented yet.
-Frontend code must not be finalized against message strings before that work is
-complete.
+All public non-2xx JSON responses use the shared `{ code, message, details? }`
+envelope. A global exception filter maps framework exceptions, guarded auth
+failures, and unexpected errors to the stable catalog; the global validation
+pipe maps DTO violations to `VALIDATION_FAILED` with field-level violations.
+Clients branch on `code`, never on the safe English fallback `message`.
 
-The Stage 11 target is frozen in `public-api-contract.md`. It documents future
-runtime behavior and must not be read as a description of the current mixed
-Nest and structured error shapes until implementation is complete.
-
-Session management documents its current response schemas in Swagger,
-including `SESSION_TOO_FRESH`, `SESSION_NOT_FOUND`, and
-`SESSION_LIMIT_REACHED`, plus the standard Nest validation and authorization
-responses. Structured session errors currently match their actual wire format
-and do not yet use the future shared error envelope.
+The implemented Stage 11 contract is defined in `public-api-contract.md`.
+Controllers document explicit success DTOs, named access- or refresh-token
+bearer authentication, mobile metadata headers, and endpoint-specific error
+statuses and codes. The generated OpenAPI document is covered by a focused
+contract test so response schemas and authentication requirements cannot drift
+silently.
 
 ## Current testing boundary
 
