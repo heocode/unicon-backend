@@ -8,6 +8,11 @@ import { PasswordService } from '../src/auth/password/services/password.service'
 import { configureApp } from '../src/configure-app';
 import { MailService } from '../src/mail/mail.service';
 import { PrismaService } from '../src/prisma/prisma.service';
+import {
+  expectNoInternalFields,
+  expectOnlyKeys,
+  expectPublicError,
+} from './public-contract.assertions';
 
 type AuthTokens = {
   accessToken: string;
@@ -81,6 +86,16 @@ describe('Profile with PostgreSQL (e2e)', () => {
       .set('Authorization', `Bearer ${tokens.accessToken}`)
       .expect(200)
       .expect(({ body }) => {
+        expectOnlyKeys(body, [
+          'id',
+          'username',
+          'email',
+          'emailVerified',
+          'role',
+          'createdAt',
+          'university',
+        ]);
+        expectOnlyKeys(body.university, ['id', 'name']);
         expect(body).toMatchObject({
           username: 'profile-e2e-user',
           email,
@@ -92,14 +107,15 @@ describe('Profile with PostgreSQL (e2e)', () => {
         });
         expect(body).toHaveProperty('id');
         expect(body).toHaveProperty('createdAt');
-        expect(body).not.toHaveProperty('passwordHash');
-        expect(body).not.toHaveProperty('status');
-        expect(body).not.toHaveProperty('sessions');
+        expectNoInternalFields(body);
       });
   });
 
   it('rejects a request without an access token', async () => {
-    await request(app.getHttpServer()).get('/profile/me').expect(401);
+    await request(app.getHttpServer())
+      .get('/profile/me')
+      .expect(401)
+      .expect(({ body }) => expectPublicError(body, 'ACCESS_TOKEN_REQUIRED'));
   });
 
   it('rejects an access token after its session is revoked', async () => {
@@ -108,12 +124,14 @@ describe('Profile with PostgreSQL (e2e)', () => {
     await request(app.getHttpServer())
       .post('/auth/logout')
       .set('Authorization', `Bearer ${tokens.accessToken}`)
-      .expect(204);
+      .expect(204)
+      .expect('');
 
     await request(app.getHttpServer())
       .get('/profile/me')
       .set('Authorization', `Bearer ${tokens.accessToken}`)
-      .expect(401);
+      .expect(401)
+      .expect(({ body }) => expectPublicError(body, 'SESSION_UNAVAILABLE'));
   });
 
   async function login(): Promise<AuthTokens> {
@@ -121,6 +139,9 @@ describe('Profile with PostgreSQL (e2e)', () => {
       .post('/auth/login')
       .send({ email, password })
       .expect(201);
+
+    expectOnlyKeys(response.body, ['accessToken', 'refreshToken']);
+    expectNoInternalFields(response.body);
 
     return response.body as AuthTokens;
   }

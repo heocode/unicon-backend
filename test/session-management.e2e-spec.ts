@@ -9,6 +9,11 @@ import { PasswordService } from '../src/auth/password/services/password.service'
 import { SecureTokenService } from '../src/auth/services/secure-token.service';
 import { MailService } from '../src/mail/mail.service';
 import { PrismaService } from '../src/prisma/prisma.service';
+import {
+  expectNoInternalFields,
+  expectOnlyKeys,
+  expectPublicError,
+} from './public-contract.assertions';
 
 type AuthTokens = {
   accessToken: string;
@@ -172,7 +177,8 @@ describe('Session management with PostgreSQL (e2e)', () => {
     await request(app.getHttpServer())
       .delete(`/auth/sessions/${sessionBId}`)
       .set('Authorization', `Bearer ${sessionA.accessToken}`)
-      .expect(204);
+      .expect(204)
+      .expect('');
 
     await request(app.getHttpServer())
       .get('/auth/sessions')
@@ -632,17 +638,19 @@ describe('Session management with PostgreSQL (e2e)', () => {
   it('records refresh-token reuse as high risk without blocking the account', async () => {
     const tokens = await login('Refresh reuse device', 'WEB');
 
-    await request(app.getHttpServer())
+    const rotated = await request(app.getHttpServer())
       .post('/auth/refresh')
       .set('Authorization', `Bearer ${tokens.refreshToken}`)
       .expect(201);
+    expectOnlyKeys(rotated.body, ['accessToken', 'refreshToken']);
+    expectNoInternalFields(rotated.body);
 
     await request(app.getHttpServer())
       .post('/auth/refresh')
       .set('Authorization', `Bearer ${tokens.refreshToken}`)
       .expect(401)
       .expect(({ body }) => {
-        expect(body).toMatchObject({ code: 'REFRESH_TOKEN_REUSED' });
+        expectPublicError(body, 'REFRESH_TOKEN_REUSED');
       });
 
     await getSessions(tokens.accessToken);
@@ -739,6 +747,8 @@ describe('Session management with PostgreSQL (e2e)', () => {
       platform,
       deviceModelIdentifier,
     ).expect(201);
+    expectOnlyKeys(response.body, ['accessToken', 'refreshToken']);
+    expectNoInternalFields(response.body);
     return response.body as AuthTokens;
   }
 
@@ -764,6 +774,37 @@ describe('Session management with PostgreSQL (e2e)', () => {
       .get('/auth/sessions')
       .set('Authorization', `Bearer ${accessToken}`)
       .expect(200);
+
+    expectOnlyKeys(response.body, ['sessionManagement', 'sessions']);
+    expectOnlyKeys(response.body.sessionManagement, [
+      'canManageSessions',
+      'managementAvailableAt',
+    ]);
+    for (const session of response.body.sessions) {
+      expectOnlyKeys(session, [
+        'id',
+        'sessionName',
+        'device',
+        'appVersion',
+        'location',
+        'userAgent',
+        'ipAddress',
+        'createdAt',
+        'lastActiveAt',
+        'expiresAt',
+        'current',
+      ]);
+      expectOnlyKeys(session.device, [
+        'modelIdentifier',
+        'model',
+        'platform',
+        'osVersion',
+      ]);
+      if (session.location !== null) {
+        expectOnlyKeys(session.location, ['countryCode', 'city']);
+      }
+    }
+    expectNoInternalFields(response.body);
 
     return response.body as SessionsResponse;
   }

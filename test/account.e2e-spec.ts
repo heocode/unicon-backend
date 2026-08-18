@@ -9,6 +9,11 @@ import { PasswordService } from '../src/auth/password/services/password.service'
 import { configureApp } from '../src/configure-app';
 import { MailService } from '../src/mail/mail.service';
 import { PrismaService } from '../src/prisma/prisma.service';
+import {
+  expectNoInternalFields,
+  expectOnlyKeys,
+  expectPublicError,
+} from './public-contract.assertions';
 
 type AuthTokens = {
   accessToken: string;
@@ -251,6 +256,12 @@ describe('Account password change with PostgreSQL (e2e)', () => {
       .expect(202);
     const deletionResponse = response.body as AccountDeletionResponse;
 
+    expectOnlyKeys(response.body, [
+      'status',
+      'deletionScheduledAt',
+      'gracePeriodSeconds',
+    ]);
+    expectNoInternalFields(response.body);
     expect(response.body).toMatchObject({
       status: 'DELETION_SCHEDULED',
       gracePeriodSeconds: 2_592_000,
@@ -345,6 +356,13 @@ describe('Account password change with PostgreSQL (e2e)', () => {
       status: string;
       deletionCancelled: boolean;
     };
+    expectOnlyKeys(cancellation.body, [
+      'status',
+      'deletionCancelled',
+      'accessToken',
+      'refreshToken',
+    ]);
+    expectNoInternalFields(cancellation.body);
     expect(cancellationTokens).toMatchObject({
       status: 'ACTIVE',
       deletionCancelled: true,
@@ -720,6 +738,8 @@ describe('Account password change with PostgreSQL (e2e)', () => {
     const limitedBody = limited.body as RateLimitResponse;
 
     expect(limited.headers['retry-after']).toEqual(expect.any(String));
+    expectPublicError(limited.body, 'RATE_LIMIT_EXCEEDED');
+    expectOnlyKeys(limitedBody.details, ['retryAfterSeconds']);
     expect(limitedBody).toMatchObject({
       code: 'RATE_LIMIT_EXCEEDED',
       message:

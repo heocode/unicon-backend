@@ -698,10 +698,13 @@ silently.
 
 Unit tests cover DTO-adjacent utilities, guards, JWT/session behavior, GeoIP IP
 normalization, degraded behavior, and MMDB hot reload. Lightweight e2e tests
-cover global validation and HTTP metadata normalization with a replaced
-`AuthService`. A separate database-backed suite exercises real session HTTP
-routes, JWT guards, services, Prisma queries, PostgreSQL revocation, cooldown,
-the active-session limit, and concurrent login behavior.
+cover global validation, the stable public error envelope, malformed tokens,
+and HTTP metadata normalization with a replaced `AuthService`. Separate
+database-backed suites exercise real auth, account, and profile HTTP routes,
+JWT guards, services, Prisma queries, PostgreSQL state transitions, refresh
+rotation, rate limits, and concurrent behavior. Shared contract assertions
+verify exact representative success shapes, empty 204 responses, and the
+absence of internal persistence and security fields.
 
 `npm run test:e2e` prepares a dedicated PostgreSQL database from
 `TEST_DATABASE_URL`, defaulting to local `unicon_test`, applies migrations, and

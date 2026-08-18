@@ -7,6 +7,10 @@ import { AuthService } from '../src/auth/auth.service';
 import { configureApp } from '../src/configure-app';
 import type { LoginDto } from '../src/auth/dtos/login.dto';
 import type { SessionMetadata } from '../src/auth/types/session-metadata.type';
+import {
+  expectOnlyKeys,
+  expectPublicError,
+} from './public-contract.assertions';
 
 describe('Application validation (e2e)', () => {
   let app: INestApplication<App>;
@@ -119,6 +123,38 @@ describe('Application validation (e2e)', () => {
     expect(authService.register).not.toHaveBeenCalled();
   });
 
+  it('returns every validation violation in one stable public envelope', async () => {
+    await request(app.getHttpServer())
+      .post('/auth/register')
+      .send({
+        email: 'not-an-email',
+        password: 'weak',
+        confirmedPassword: 42,
+        unexpected: true,
+      })
+      .expect(400)
+      .expect(({ body }) => {
+        expectPublicError(body, 'VALIDATION_FAILED');
+        expectOnlyKeys(body.details, ['violations']);
+        expect(body.details.violations).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({ field: 'email' }),
+            expect.objectContaining({ field: 'password' }),
+            expect.objectContaining({ field: 'confirmedPassword' }),
+            expect.objectContaining({
+              field: 'unexpected',
+              code: 'UNKNOWN_FIELD',
+            }),
+          ]),
+        );
+        for (const violation of body.details.violations) {
+          expectOnlyKeys(violation, ['field', 'code', 'message']);
+        }
+      });
+
+    expect(authService.register).not.toHaveBeenCalled();
+  });
+
   it('passes normalized device metadata to the login service', async () => {
     await request(app.getHttpServer())
       .post('/auth/login')
@@ -153,27 +189,37 @@ describe('Application validation (e2e)', () => {
       .set('Content-Type', 'application/json')
       .send('{"email":')
       .expect(400)
-      .expect({
-        code: 'MALFORMED_JSON',
-        message: 'The request body contains malformed JSON.',
+      .expect(({ body }) => {
+        expectPublicError(body, 'MALFORMED_JSON');
       });
 
     expect(authService.login).not.toHaveBeenCalled();
   });
 
   it('distinguishes missing access and refresh credentials', async () => {
-    await request(app.getHttpServer()).get('/profile/me').expect(401).expect({
-      code: 'ACCESS_TOKEN_REQUIRED',
-      message: 'An access token is required.',
-    });
+    await request(app.getHttpServer())
+      .get('/profile/me')
+      .expect(401)
+      .expect(({ body }) => expectPublicError(body, 'ACCESS_TOKEN_REQUIRED'));
 
     await request(app.getHttpServer())
       .post('/auth/refresh')
       .expect(401)
-      .expect({
-        code: 'REFRESH_TOKEN_REQUIRED',
-        message: 'A refresh token is required.',
-      });
+      .expect(({ body }) => expectPublicError(body, 'REFRESH_TOKEN_REQUIRED'));
+  });
+
+  it('returns stable errors for malformed access and refresh tokens', async () => {
+    await request(app.getHttpServer())
+      .get('/profile/me')
+      .set('Authorization', 'Bearer malformed-token')
+      .expect(401)
+      .expect(({ body }) => expectPublicError(body, 'ACCESS_TOKEN_INVALID'));
+
+    await request(app.getHttpServer())
+      .post('/auth/refresh')
+      .set('Authorization', 'Bearer malformed-token')
+      .expect(401)
+      .expect(({ body }) => expectPublicError(body, 'REFRESH_TOKEN_INVALID'));
   });
 
   afterAll(async () => {
