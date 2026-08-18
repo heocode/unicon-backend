@@ -6,6 +6,26 @@ Complete active stages in order unless a dependency requires otherwise. Stages
 7 and 8 are retained as post-MVP reference work and do not block product
 development or frontend readiness.
 
+## MVP authentication decision
+
+The MVP keeps the implemented password login, institutional-email
+verification, password recovery, and password-authenticated sensitive account
+operations. A pre-launch passwordless or identity-schema refactor is not
+required. Replacing a working password flow before recovery, mailbox lifecycle,
+and account-linking rules are defined would introduce more security and delivery
+risk than it removes.
+
+This is a delivery decision, not a permanent identity decision. The permanent
+application identity is `User.id`; the current `User.email`, `passwordHash`,
+and `universityId` layout is an MVP representation. New product data must be
+owned through `User.id`, and new services must not assume that a user will
+always have exactly one email, one college, or one authentication method.
+
+Begin a passwordless migration only when a concrete product trigger exists,
+such as multiple colleges, material password friction, graduate mailbox loss,
+personal recovery email, passkeys, or external identity providers. Production
+evidence should determine that priority rather than speculative schema work.
+
 ## Definition of frontend-ready
 
 Auth/profile backend is ready for focused frontend integration when:
@@ -231,6 +251,12 @@ known and a focused client/backend integration pass can be scheduled.
 Passkeys authenticate existing `ACTIVE`, college-email-verified accounts. They
 must not create an account or bypass allowed-domain verification.
 
+Passkeys must attach to the existing stable `User.id`; they do not replace the
+user record or the historical college-affiliation proof. Registration of a
+passkey requires an authenticated session plus recent authentication. A passkey
+login verifier should resolve a `User.id` and then call the same credential-
+neutral session-creation path used by password or future email-OTP login.
+
 Planned surface:
 
 ```text
@@ -332,6 +358,10 @@ rules are explicitly defined.
 This work should begin incrementally in earlier stages and finish before
 frontend freeze:
 
+The approved MVP target contract and endpoint inventory are defined in
+`public-api-contract.md`. Runtime behavior remains unchanged until the later
+Stage 11 implementation checkpoints adopt that contract.
+
 - Define response DTOs for every auth/profile endpoint.
 - Define a shared error envelope and stable error-code catalog.
 - Ensure validation errors follow the same public contract.
@@ -380,9 +410,78 @@ GeoIP degraded mode and MMDB reload
 TOTP and passkey integration flows are required only if their deferred
 post-MVP stages are later activated.
 
+## Post-MVP identity and passwordless migration
+
+Do not implement this work merely to make the MVP schema look future-proof.
+When a concrete trigger exists, evolve the model incrementally around the
+existing `User.id` rather than moving product data to newly created users.
+
+The intended conceptual boundaries are:
+
+```text
+User
+├── stable User.id and product ownership
+├── EmailAddress or other contact methods
+├── CollegeAffiliation → Institution
+├── PasswordCredential during migration
+├── PasskeyCredential when implemented
+└── OAuthIdentity when explicitly implemented
+```
+
+Prefer specialized credential models with type-specific constraints over one
+table containing many nullable credential fields. A temporary nullable
+`passwordHash` may be useful during migration, but a separate
+`PasswordCredential` is the cleaner transition boundary before passwords are
+eventually removed.
+
+An institutional email verification proves control of that mailbox at a point
+in time. It should eventually create or update a `CollegeAffiliation` and may
+also enable a time-bounded email authentication method. Losing that mailbox
+must not delete the `User`, profile, relationships, messages, posts, clubs, or
+history. A historical affiliation and an active login credential are different
+states.
+
+Mailbox reassignment is a mandatory threat-model case. If a college gives a
+former student's address to another person, successful OTP delivery must not
+automatically grant access to the former student's account. Periodic OTP to the
+same mailbox cannot distinguish the two people. Durable access therefore
+requires an independent method established while the original user still has
+an authenticated session, such as a verified personal email or passkey.
+
+Account linking must always start from an authenticated existing account,
+require recent or step-up authentication, independently verify the new
+credential, and attach it to the same `User.id`. Never merge or link accounts
+only because email strings match. Unlinking must not remove the last usable
+authentication or recovery method.
+
+The safe migration sequence for existing users is:
+
+```text
+keep password login
+→ add credential-neutral authentication result
+→ add email challenge and independent recovery models
+→ offer passwordless enrollment to authenticated users
+→ verify at least one usable non-password method per migrated user
+→ move sensitive operations to recent/step-up authentication
+→ disable password login behind a rollback-capable rollout
+→ remove password hashes and legacy infrastructure after the rollback window
+```
+
+Email OTP must use cryptographically random short-lived codes, keyed hashes
+rather than stored raw codes, atomic single-use consumption, resend
+invalidation, attempt limits, and database-backed email and IP rate limits.
+OTP is not assumed to be stronger than a password: it removes password reuse
+and credential stuffing but makes mailbox compromise and email availability
+direct authentication risks.
+
+Password infrastructure may be removed only after legacy clients no longer use
+it, migrated users have a verified non-password authentication path, account
+deletion and recovery no longer require a password, production OTP reliability
+and abuse controls are acceptable, and the rollback period has ended.
+
 ## Explicitly excluded
 
-- Google, Apple, or other OAuth login.
+- Google, Apple, or other OAuth login for the MVP.
 - Account creation through passkeys.
 - GPS tracking or precise physical location storage.
 - GeoIP as the sole reason for automatic account blocking.

@@ -11,9 +11,73 @@ Unicon is restricted to students with an email domain present in
 sends a verification email. Successful verification activates the account and
 creates its first session.
 
+The current database model stores the login email, password hash, and
+university relation directly on `User`. This is the implemented MVP model, not
+a claim that these fields are the permanent identity of the person. The stable
+application identity is `User.id`. User-owned product data must reference that
+ID rather than email, username, password credential, or university.
+
+Institutional-email verification currently has two effects that the schema
+does not yet model separately:
+
+```text
+control of an allowed institutional email
+→ evidence of college affiliation at the time of verification
+→ creation or activation of an authentication account
+```
+
+Long term, institutional email should be treated as affiliation evidence and a
+replaceable authentication identifier, not as an immutable personal identity.
+College mailboxes may be disabled after graduation or reassigned to another
+person. Control of a previously used address must therefore never be sufficient
+by itself to recover a historical account after that address has ceased to be
+an active authentication method for the original user.
+
+The MVP deliberately keeps password authentication and the current schema.
+Passwordless authentication, multiple colleges, personal recovery email,
+passkeys, and external identity providers are post-MVP work. New domain models
+must nevertheless preserve these migration invariants:
+
+- `User.id` is the permanent owner identity for profiles, friendships,
+  messages, posts, clubs, and other user data;
+- new user-owned relations must not use email as an ownership key;
+- a user may eventually have multiple historical or current college
+  affiliations;
+- authentication methods must be able to change without changing `User.id`;
+- matching email addresses from different identity providers are not proof
+  that two credentials belong to the same person;
+- a historical institutional address must not automatically authenticate a
+  user if the college later reassigns the mailbox;
+- sensitive operations should evolve toward recent or step-up authentication
+  rather than permanently requiring a current password.
+
 OAuth is intentionally excluded. A third-party identity does not prove control
 of an allowed college email and would add account-linking risk without removing
-the verification requirement.
+the verification requirement. If OAuth is added later, it must be explicitly
+linked to an already authenticated `User.id`; email equality alone is not an
+account-linking mechanism.
+
+## Authentication and session boundary
+
+Authentication proves which active `User.id` is acting. Session management
+starts only after that proof succeeds:
+
+```text
+password today ─────┐
+email OTP later ────┼→ authenticated User.id → SessionCreationService
+passkey later ──────┘
+```
+
+`SessionCreationService`, refresh rotation, access authorization, session
+queries, revocation, the active-session limit, device metadata, GeoIP, and
+session notifications must remain independent of the credential used to prove
+identity. Future authenticators should converge on a credential-neutral result
+containing at least the user ID, authentication method, and authentication
+time, then use the existing session layer.
+
+`Session.createdAt` is not a general substitute for recent authentication. A
+future step-up design must record or issue a purpose-bound proof of when and how
+the user most recently re-authenticated.
 
 ## Module responsibilities
 
@@ -82,6 +146,8 @@ PATCH /auth/sessions/:sessionId
 DELETE /auth/sessions/:sessionId
 DELETE /auth/sessions/others
 PATCH /account/password
+POST  /account/deletion
+POST  /account/deletion/cancel
 GET   /profile/me
 ```
 
@@ -620,6 +686,10 @@ codes such as `EMAIL_NOT_VERIFIED` and `ACCOUNT_UNAVAILABLE`. A unified public
 error DTO and complete stable error-code catalog are not implemented yet.
 Frontend code must not be finalized against message strings before that work is
 complete.
+
+The Stage 11 target is frozen in `public-api-contract.md`. It documents future
+runtime behavior and must not be read as a description of the current mixed
+Nest and structured error shapes until implementation is complete.
 
 Session management documents its current response schemas in Swagger,
 including `SESSION_TOO_FRESH`, `SESSION_NOT_FOUND`, and
