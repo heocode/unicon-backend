@@ -61,24 +61,36 @@ export class SessionRefreshService {
     });
 
     if (!session) {
-      throw new UnauthorizedException('Access Denied. Please log in again.');
+      throw new UnauthorizedException({
+        code: 'REFRESH_TOKEN_INVALID',
+        message: 'The refresh token is invalid.',
+      });
     }
 
     const now = new Date();
 
     if (session.expiresAt <= now) {
-      throw new UnauthorizedException('Access Denied. Session expired.');
+      throw new UnauthorizedException({
+        code: 'REFRESH_TOKEN_EXPIRED',
+        message: 'The refresh token has expired.',
+      });
     }
 
     if (session.user.status !== 'ACTIVE') {
-      throw new UnauthorizedException('Access Denied. Account is not active.');
+      throw new UnauthorizedException({
+        code: 'REFRESH_TOKEN_INVALID',
+        message: 'The refresh token is invalid.',
+      });
     }
 
     const incomingTokenHash = this.secureTokenService.hash(refreshToken);
 
     if (incomingTokenHash !== session.hashedRefreshToken) {
       await this.recordRefreshTokenReuse(userId, session.id, session);
-      throw new UnauthorizedException('Access Denied. Invalid token.');
+      throw new UnauthorizedException({
+        code: 'REFRESH_TOKEN_REUSED',
+        message: 'The refresh token has already been used.',
+      });
     }
 
     const nextExpiresAt = this.getNextExpiration(now);
@@ -108,20 +120,21 @@ export class SessionRefreshService {
     });
 
     if (result.count !== 1) {
-      if (
-        await this.hasRefreshTokenBeenRotated(
-          userId,
-          session.id,
-          incomingTokenHash,
-          now,
-        )
-      ) {
+      const wasRotated = await this.hasRefreshTokenBeenRotated(
+        userId,
+        session.id,
+        incomingTokenHash,
+        now,
+      );
+
+      if (wasRotated) {
         await this.recordRefreshTokenReuse(userId, session.id, session);
       }
 
-      throw new UnauthorizedException(
-        'Access Denied. Token already used or session unavailable.',
-      );
+      throw new UnauthorizedException({
+        code: wasRotated ? 'REFRESH_TOKEN_REUSED' : 'REFRESH_TOKEN_INVALID',
+        message: 'The refresh token is invalid or has already been used.',
+      });
     }
 
     return {

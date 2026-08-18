@@ -3,8 +3,8 @@ import {
   Injectable,
   Logger,
   ServiceUnavailableException,
-  UnauthorizedException,
   BadRequestException,
+  ConflictException,
   HttpException,
   HttpStatus,
 } from '@nestjs/common';
@@ -50,9 +50,10 @@ export class EmailVerificationService {
       await this.mailService.sendVerificationEmail(email, token);
     } catch (error) {
       if (error instanceof MailDeliveryError) {
-        throw new ServiceUnavailableException(
-          'Unable to send verification email. Please try again later.',
-        );
+        throw new ServiceUnavailableException({
+          code: 'VERIFICATION_EMAIL_UNAVAILABLE',
+          message: 'Unable to send verification email. Please try again later.',
+        });
       }
 
       throw error;
@@ -106,18 +107,27 @@ export class EmailVerificationService {
     });
 
     if (!user) {
-      throw new UnauthorizedException('The verification token is invalid.');
+      throw new BadRequestException({
+        code: 'EMAIL_VERIFICATION_TOKEN_INVALID',
+        message: 'The email verification token is invalid.',
+      });
     }
 
     if (
       !user.verificationTokenExpires ||
       user.verificationTokenExpires <= now
     ) {
-      throw new BadRequestException('The verification token has expired.');
+      throw new BadRequestException({
+        code: 'EMAIL_VERIFICATION_TOKEN_EXPIRED',
+        message: 'The email verification token has expired.',
+      });
     }
 
     if (user.emailVerified || user.status !== 'PENDING') {
-      throw new BadRequestException('The email has already been verified.');
+      throw new ConflictException({
+        code: 'EMAIL_ALREADY_VERIFIED',
+        message: 'The email has already been verified.',
+      });
     }
 
     const result = await this.prisma.user.updateMany({
@@ -140,9 +150,10 @@ export class EmailVerificationService {
     });
 
     if (result.count !== 1) {
-      throw new BadRequestException(
-        'The verification token is invalid, expired, or has already been used.',
-      );
+      throw new BadRequestException({
+        code: 'EMAIL_VERIFICATION_TOKEN_INVALID',
+        message: 'The email verification token is invalid.',
+      });
     }
 
     const { sessionId, ...tokens } = await this.sessionCreationService.create(
@@ -188,7 +199,7 @@ export class EmailVerificationService {
         {
           code: 'VERIFICATION_EMAIL_COOLDOWN',
           message: 'Please wait before requesting another verification email.',
-          resendAvailableInSeconds,
+          details: { retryAfterSeconds: resendAvailableInSeconds },
         },
         HttpStatus.TOO_MANY_REQUESTS,
       );

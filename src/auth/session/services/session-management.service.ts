@@ -78,7 +78,10 @@ export class SessionManagementService {
       });
 
       if (!session) {
-        throw new UnauthorizedException('Access Denied. Session not found.');
+        throw new UnauthorizedException({
+          code: 'SESSION_UNAVAILABLE',
+          message: 'The session is unavailable.',
+        });
       }
 
       const now = new Date();
@@ -88,7 +91,10 @@ export class SessionManagementService {
       });
 
       if (result.count === 0) {
-        throw new UnauthorizedException('Access Denied. Session not found.');
+        throw new UnauthorizedException({
+          code: 'SESSION_UNAVAILABLE',
+          message: 'The session is unavailable.',
+        });
       }
 
       await this.securityEventService.record(
@@ -229,7 +235,10 @@ export class SessionManagementService {
     });
 
     if (!currentSession) {
-      throw new UnauthorizedException('Access Denied. Session unavailable.');
+      throw new UnauthorizedException({
+        code: 'SESSION_UNAVAILABLE',
+        message: 'The session is unavailable.',
+      });
     }
 
     return currentSession;
@@ -242,10 +251,12 @@ export class SessionManagementService {
       throw new ForbiddenException({
         code: 'SESSION_TOO_FRESH',
         message: 'This session is too new to manage sessions.',
-        managementAvailableAt: manageAvailableAt,
-        retryAfterSeconds: Math.ceil(
-          (manageAvailableAt.getTime() - now.getTime()) / 1000,
-        ),
+        details: {
+          managementAvailableAt: manageAvailableAt,
+          retryAfterSeconds: Math.ceil(
+            (manageAvailableAt.getTime() - now.getTime()) / 1000,
+          ),
+        },
       });
     }
   }

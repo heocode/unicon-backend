@@ -280,13 +280,13 @@ describe('Password recovery with PostgreSQL (e2e)', () => {
         const response = body as {
           code: string;
           message: string;
-          retryAfterSeconds: number;
+          details: { retryAfterSeconds: number };
         };
         expect(response).toMatchObject({
           code: 'RATE_LIMIT_EXCEEDED',
           message: 'Too many password reset requests. Please try again later.',
         });
-        expect(response.retryAfterSeconds).toBeGreaterThan(0);
+        expect(response.details.retryAfterSeconds).toBeGreaterThan(0);
       });
   });
 

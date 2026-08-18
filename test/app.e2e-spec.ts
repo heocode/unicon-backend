@@ -51,7 +51,22 @@ describe('Application validation (e2e)', () => {
         password: 'password',
         confirmedPassword: 'password',
       })
-      .expect(400);
+      .expect(400)
+      .expect(({ body }) => {
+        expect(body).toEqual({
+          code: 'VALIDATION_FAILED',
+          message: 'The request is invalid.',
+          details: {
+            violations: [
+              {
+                field: 'password',
+                code: 'WEAK_PASSWORD',
+                message: 'Password does not meet the security requirements.',
+              },
+            ],
+          },
+        });
+      });
 
     expect(authService.register).not.toHaveBeenCalled();
   });
@@ -65,7 +80,21 @@ describe('Application validation (e2e)', () => {
         confirmedPassword: 'Password1!',
         role: 'ADMIN',
       })
-      .expect(400);
+      .expect(400)
+      .expect(({ body }) => {
+        expect(body).toMatchObject({
+          code: 'VALIDATION_FAILED',
+          details: {
+            violations: [
+              {
+                field: 'role',
+                code: 'UNKNOWN_FIELD',
+                message: 'This field is not allowed.',
+              },
+            ],
+          },
+        });
+      });
 
     expect(authService.register).not.toHaveBeenCalled();
   });
@@ -96,6 +125,35 @@ describe('Application validation (e2e)', () => {
       appVersion: '1.4.2',
     });
     expect(typeof receivedLogin?.metadata.ipAddress).toBe('string');
+  });
+
+  it('returns a stable error for malformed JSON', async () => {
+    await request(app.getHttpServer())
+      .post('/auth/login')
+      .set('Content-Type', 'application/json')
+      .send('{"email":')
+      .expect(400)
+      .expect({
+        code: 'MALFORMED_JSON',
+        message: 'The request body contains malformed JSON.',
+      });
+
+    expect(authService.login).not.toHaveBeenCalled();
+  });
+
+  it('distinguishes missing access and refresh credentials', async () => {
+    await request(app.getHttpServer()).get('/profile/me').expect(401).expect({
+      code: 'ACCESS_TOKEN_REQUIRED',
+      message: 'An access token is required.',
+    });
+
+    await request(app.getHttpServer())
+      .post('/auth/refresh')
+      .expect(401)
+      .expect({
+        code: 'REFRESH_TOKEN_REQUIRED',
+        message: 'A refresh token is required.',
+      });
   });
 
   afterAll(async () => {

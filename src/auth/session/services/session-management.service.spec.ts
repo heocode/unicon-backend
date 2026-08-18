@@ -121,8 +121,10 @@ describe('SessionManagementService', () => {
       response: {
         code: 'SESSION_TOO_FRESH',
         message: 'This session is too new to manage sessions.',
-        managementAvailableAt: new Date('2026-08-09T12:00:00.000Z'),
-        retryAfterSeconds: 86_400,
+        details: {
+          managementAvailableAt: new Date('2026-08-09T12:00:00.000Z'),
+          retryAfterSeconds: 86_400,
+        },
       },
     });
 
@@ -143,8 +145,10 @@ describe('SessionManagementService', () => {
       response: {
         code: 'SESSION_TOO_FRESH',
         message: 'This session is too new to manage sessions.',
-        managementAvailableAt: new Date('2026-08-09T12:00:00.000Z'),
-        retryAfterSeconds: 86_400,
+        details: {
+          managementAvailableAt: new Date('2026-08-09T12:00:00.000Z'),
+          retryAfterSeconds: 86_400,
+        },
       },
     });
 
@@ -202,8 +206,10 @@ describe('SessionManagementService', () => {
       response: {
         code: 'SESSION_TOO_FRESH',
         message: 'This session is too new to manage sessions.',
-        managementAvailableAt: new Date('2026-08-09T12:00:00.000Z'),
-        retryAfterSeconds: 86_400,
+        details: {
+          managementAvailableAt: new Date('2026-08-09T12:00:00.000Z'),
+          retryAfterSeconds: 86_400,
+        },
       },
     });
 
@@ -300,8 +306,10 @@ describe('SessionManagementService', () => {
       response: {
         code: 'SESSION_TOO_FRESH',
         message: 'This session is too new to manage sessions.',
-        managementAvailableAt: new Date('2026-08-09T12:00:00.000Z'),
-        retryAfterSeconds: 86_400,
+        details: {
+          managementAvailableAt: new Date('2026-08-09T12:00:00.000Z'),
+          retryAfterSeconds: 86_400,
+        },
       },
     });
 

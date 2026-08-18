@@ -6,7 +6,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { JwtService } from '@nestjs/jwt';
+import { JwtService, TokenExpiredError } from '@nestjs/jwt';
 
 // Internal types
 import { RefreshTokenPayload } from '../types/jwt-payload.type';
@@ -32,15 +32,22 @@ export class RefreshTokenGuard implements CanActivate {
       .switchToHttp()
       .getRequest<RefreshAuthenticatedRequest>();
 
-    try {
-      const token = extractBearerToken(request.headers.authorization);
+    if (!request.headers.authorization) {
+      throw new UnauthorizedException({
+        code: 'REFRESH_TOKEN_REQUIRED',
+        message: 'A refresh token is required.',
+      });
+    }
 
-      const payload = await this.jwtService.verifyAsync<RefreshTokenPayload>(
-        token,
-        {
-          secret: this.refreshSecret,
-        },
-      );
+    let token: string;
+    let payload: RefreshTokenPayload;
+
+    try {
+      token = extractBearerToken(request.headers.authorization);
+
+      payload = await this.jwtService.verifyAsync<RefreshTokenPayload>(token, {
+        secret: this.refreshSecret,
+      });
 
       validateBaseTokenPayload(payload);
 
@@ -51,13 +58,23 @@ export class RefreshTokenGuard implements CanActivate {
       ) {
         throw new UnauthorizedException();
       }
+    } catch (error) {
+      if (error instanceof TokenExpiredError) {
+        throw new UnauthorizedException({
+          code: 'REFRESH_TOKEN_EXPIRED',
+          message: 'The refresh token has expired.',
+        });
+      }
 
-      request.user = payload;
-      request.refreshToken = token;
-
-      return true;
-    } catch {
-      throw new UnauthorizedException('The user is not authorized.');
+      throw new UnauthorizedException({
+        code: 'REFRESH_TOKEN_INVALID',
+        message: 'The refresh token is invalid.',
+      });
     }
+
+    request.user = payload;
+    request.refreshToken = token;
+
+    return true;
   }
 }

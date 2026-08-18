@@ -1,4 +1,4 @@
-import { ConflictException, UnauthorizedException } from '@nestjs/common';
+import { ConflictException, ForbiddenException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
 import { Prisma } from '../../../generated/prisma/client';
@@ -145,7 +145,7 @@ describe('SessionCreationService', () => {
     ).rejects.toMatchObject<ConflictException>({
       response: {
         code: 'SESSION_LIMIT_REACHED',
-        activeSessionLimit,
+        details: { activeSessionLimit },
       },
     });
     expect(prisma.session.create).not.toHaveBeenCalled();
@@ -163,7 +163,7 @@ describe('SessionCreationService', () => {
 
     await expect(
       service.create('user-id'),
-    ).rejects.toMatchObject<UnauthorizedException>({
+    ).rejects.toMatchObject<ForbiddenException>({
       response: {
         code: 'ACCOUNT_UNAVAILABLE',
       },

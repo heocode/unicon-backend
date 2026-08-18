@@ -22,7 +22,7 @@ type AccountDeletionResponse = {
 type RateLimitResponse = {
   code: string;
   message: string;
-  retryAfterSeconds: number;
+  details: { retryAfterSeconds: number };
 };
 
 describe('Account password change with PostgreSQL (e2e)', () => {
@@ -317,8 +317,10 @@ describe('Account password change with PostgreSQL (e2e)', () => {
       .expect(({ body }) =>
         expect(body).toMatchObject({
           code: 'ACCOUNT_DELETION_SCHEDULED',
-          deletionScheduledAt: deletionResponse.deletionScheduledAt,
-          canCancel: true,
+          details: {
+            deletionScheduledAt: deletionResponse.deletionScheduledAt,
+            canCancel: true,
+          },
         }),
       );
     expect(
@@ -723,7 +725,7 @@ describe('Account password change with PostgreSQL (e2e)', () => {
       message:
         'Too many account deletion cancellation attempts. Please try again later.',
     });
-    expect(limitedBody.retryAfterSeconds).toBeGreaterThan(0);
+    expect(limitedBody.details.retryAfterSeconds).toBeGreaterThan(0);
 
     const buckets =
       await prisma.accountDeletionCancellationRateLimit.findMany();
@@ -759,8 +761,10 @@ describe('Account password change with PostgreSQL (e2e)', () => {
       .expect(({ body }) =>
         expect(body).toMatchObject({
           code: 'ACCOUNT_DELETION_GRACE_PERIOD_EXPIRED',
-          deletionScheduledAt: expiredDeadline.toISOString(),
-          canCancel: false,
+          details: {
+            deletionScheduledAt: expiredDeadline.toISOString(),
+            canCancel: false,
+          },
         }),
       );
 

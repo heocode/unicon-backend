@@ -105,25 +105,25 @@ branching keys.
 
 ### Authentication and credentials
 
-| Code | HTTP | Meaning |
-| --- | ---: | --- |
-| `INVALID_CREDENTIALS` | 401 | Email/password credentials are invalid without revealing which value failed. |
-| `CURRENT_PASSWORD_INVALID` | 401 | Re-authentication with the current MVP password failed. |
-| `PASSWORDS_DO_NOT_MATCH` | 400 | Password confirmation differs. |
-| `NEW_PASSWORD_SAME_AS_CURRENT` | 400 | The requested new password is unchanged. |
+| Code                           | HTTP | Meaning                                                                      |
+| ------------------------------ | ---: | ---------------------------------------------------------------------------- |
+| `INVALID_CREDENTIALS`          |  401 | Email/password credentials are invalid without revealing which value failed. |
+| `CURRENT_PASSWORD_INVALID`     |  401 | Re-authentication with the current MVP password failed.                      |
+| `PASSWORDS_DO_NOT_MATCH`       |  400 | Password confirmation differs.                                               |
+| `NEW_PASSWORD_SAME_AS_CURRENT` |  400 | The requested new password is unchanged.                                     |
 
 ### Registration and email verification
 
-| Code | HTTP | Meaning |
-| --- | ---: | --- |
-| `EMAIL_ALREADY_REGISTERED` | 409 | The normalized login email is already registered. |
-| `EMAIL_DOMAIN_NOT_ALLOWED` | 400 | The institutional domain is not currently eligible. |
-| `EMAIL_NOT_VERIFIED` | 403 | Login requires institutional-email verification. |
-| `EMAIL_VERIFICATION_TOKEN_INVALID` | 400 | The token is invalid, used, superseded, or otherwise unusable. |
-| `EMAIL_VERIFICATION_TOKEN_EXPIRED` | 400 | The token expired and the client may offer resend. |
-| `EMAIL_ALREADY_VERIFIED` | 409 | Verification was already completed. |
-| `VERIFICATION_EMAIL_COOLDOWN` | 429 | A resend is temporarily rate-limited. |
-| `VERIFICATION_EMAIL_UNAVAILABLE` | 503 | Required verification-email delivery failed. |
+| Code                               | HTTP | Meaning                                                        |
+| ---------------------------------- | ---: | -------------------------------------------------------------- |
+| `EMAIL_ALREADY_REGISTERED`         |  409 | The normalized login email is already registered.              |
+| `EMAIL_DOMAIN_NOT_ALLOWED`         |  400 | The institutional domain is not currently eligible.            |
+| `EMAIL_NOT_VERIFIED`               |  403 | Login requires institutional-email verification.               |
+| `EMAIL_VERIFICATION_TOKEN_INVALID` |  400 | The token is invalid, used, superseded, or otherwise unusable. |
+| `EMAIL_VERIFICATION_TOKEN_EXPIRED` |  400 | The token expired and the client may offer resend.             |
+| `EMAIL_ALREADY_VERIFIED`           |  409 | Verification was already completed.                            |
+| `VERIFICATION_EMAIL_COOLDOWN`      |  429 | A resend is temporarily rate-limited.                          |
+| `VERIFICATION_EMAIL_UNAVAILABLE`   |  503 | Required verification-email delivery failed.                   |
 
 `EMAIL_NOT_VERIFIED` details contain `email` and
 `resendAvailableInSeconds`. `VERIFICATION_EMAIL_COOLDOWN` details contain
@@ -131,23 +131,24 @@ branching keys.
 
 ### Account and profile state
 
-| Code | HTTP | Meaning |
-| --- | ---: | --- |
-| `ACCOUNT_UNAVAILABLE` | 403 | The account cannot perform the requested authenticated flow. |
-| `ACCOUNT_STATE_CHANGED` | 409 | A concurrent state transition invalidated the operation. |
-| `PROFILE_UNAVAILABLE` | 409 | The authorized profile became unavailable during the request. |
+| Code                    | HTTP | Meaning                                                       |
+| ----------------------- | ---: | ------------------------------------------------------------- |
+| `ACCOUNT_UNAVAILABLE`   |  403 | The account cannot perform the requested authenticated flow.  |
+| `ACCOUNT_STATE_CHANGED` |  409 | A concurrent state transition invalidated the operation.      |
+| `PROFILE_UNAVAILABLE`   |  409 | The authorized profile became unavailable during the request. |
+| `RESOURCE_NOT_FOUND`    |  404 | No public route or resource matches the request.              |
 
 ### Access and refresh tokens
 
-| Code | HTTP | Meaning |
-| --- | ---: | --- |
-| `ACCESS_TOKEN_REQUIRED` | 401 | An access bearer token was not supplied. |
-| `ACCESS_TOKEN_INVALID` | 401 | The supplied access token is malformed, has an invalid signature, or has the wrong token type. |
-| `ACCESS_TOKEN_EXPIRED` | 401 | The access JWT expired; a client with a refresh token may refresh once. |
-| `REFRESH_TOKEN_REQUIRED` | 401 | A refresh bearer token was not supplied. |
-| `REFRESH_TOKEN_INVALID` | 401 | The supplied refresh token is invalid or its session cannot refresh. |
-| `REFRESH_TOKEN_EXPIRED` | 401 | The refresh JWT or its session expired. |
-| `REFRESH_TOKEN_REUSED` | 401 | A previously rotated refresh token was presented again. |
+| Code                     | HTTP | Meaning                                                                                        |
+| ------------------------ | ---: | ---------------------------------------------------------------------------------------------- |
+| `ACCESS_TOKEN_REQUIRED`  |  401 | An access bearer token was not supplied.                                                       |
+| `ACCESS_TOKEN_INVALID`   |  401 | The supplied access token is malformed, has an invalid signature, or has the wrong token type. |
+| `ACCESS_TOKEN_EXPIRED`   |  401 | The access JWT expired; a client with a refresh token may refresh once.                        |
+| `REFRESH_TOKEN_REQUIRED` |  401 | A refresh bearer token was not supplied.                                                       |
+| `REFRESH_TOKEN_INVALID`  |  401 | The supplied refresh token is invalid or its session cannot refresh.                           |
+| `REFRESH_TOKEN_EXPIRED`  |  401 | The refresh JWT or its session expired.                                                        |
+| `REFRESH_TOKEN_REUSED`   |  401 | A previously rotated refresh token was presented again.                                        |
 
 Token errors do not reveal whether a referenced user or session record exists.
 Except for `ACCESS_TOKEN_EXPIRED`, clients clear the affected local auth state
@@ -157,12 +158,12 @@ tokens.
 
 ### Sessions
 
-| Code | HTTP | Meaning |
-| --- | ---: | --- |
-| `SESSION_UNAVAILABLE` | 401 | The authenticated session is missing, revoked, expired, or inactive. |
-| `SESSION_NOT_FOUND` | 404 | An owned active target session was not found. |
-| `SESSION_TOO_FRESH` | 403 | The current session cannot yet manage other sessions. |
-| `SESSION_LIMIT_REACHED` | 409 | Creating another active session would exceed the limit. |
+| Code                    | HTTP | Meaning                                                              |
+| ----------------------- | ---: | -------------------------------------------------------------------- |
+| `SESSION_UNAVAILABLE`   |  401 | The authenticated session is missing, revoked, expired, or inactive. |
+| `SESSION_NOT_FOUND`     |  404 | An owned active target session was not found.                        |
+| `SESSION_TOO_FRESH`     |  403 | The current session cannot yet manage other sessions.                |
+| `SESSION_LIMIT_REACHED` |  409 | Creating another active session would exceed the limit.              |
 
 `SESSION_TOO_FRESH` details contain `managementAvailableAt` and
 `retryAfterSeconds`. `SESSION_LIMIT_REACHED` details contain
@@ -170,10 +171,10 @@ tokens.
 
 ### Password recovery and change
 
-| Code | HTTP | Meaning |
-| --- | ---: | --- |
-| `PASSWORD_RESET_TOKEN_INVALID` | 400 | A reset token is invalid, expired, used, superseded, or account-ineligible. |
-| `PASSWORD_CHANGED_CONCURRENTLY` | 409 | Another request changed the credential first. |
+| Code                            | HTTP | Meaning                                                                     |
+| ------------------------------- | ---: | --------------------------------------------------------------------------- |
+| `PASSWORD_RESET_TOKEN_INVALID`  |  400 | A reset token is invalid, expired, used, superseded, or account-ineligible. |
+| `PASSWORD_CHANGED_CONCURRENTLY` |  409 | Another request changed the credential first.                               |
 
 Password mismatch and current-password failures reuse the authentication and
 credential codes above. Reset-token variants intentionally remain
@@ -181,9 +182,9 @@ indistinguishable.
 
 ### Rate limits
 
-| Code | HTTP | Meaning |
-| --- | ---: | --- |
-| `RATE_LIMIT_EXCEEDED` | 429 | A database-backed request or attempt limit was reached. |
+| Code                  | HTTP | Meaning                                                 |
+| --------------------- | ---: | ------------------------------------------------------- |
+| `RATE_LIMIT_EXCEEDED` |  429 | A database-backed request or attempt limit was reached. |
 
 All 429 responses contain `details.retryAfterSeconds` and an integer
 `Retry-After` header. Clients use the header as authoritative and never parse
@@ -191,11 +192,11 @@ the message.
 
 ### Account deletion
 
-| Code | HTTP | Meaning |
-| --- | ---: | --- |
-| `ACCOUNT_DELETION_SCHEDULED` | 403 | Login is unavailable during the cancellable grace period. |
-| `ACCOUNT_DELETION_GRACE_PERIOD_EXPIRED` | 403 login, 409 cancellation | The account passed its cancellation deadline. |
-| `ACCOUNT_DELETION_ALREADY_CANCELLED` | 409 | A concurrent or prior request already restored the account. |
+| Code                                    |                        HTTP | Meaning                                                     |
+| --------------------------------------- | --------------------------: | ----------------------------------------------------------- |
+| `ACCOUNT_DELETION_SCHEDULED`            |                         403 | Login is unavailable during the cancellable grace period.   |
+| `ACCOUNT_DELETION_GRACE_PERIOD_EXPIRED` | 403 login, 409 cancellation | The account passed its cancellation deadline.               |
+| `ACCOUNT_DELETION_ALREADY_CANCELLED`    |                         409 | A concurrent or prior request already restored the account. |
 
 Scheduled and expired login details contain `deletionScheduledAt` and
 `canCancel`. After requesting deletion, clients immediately discard all local
@@ -204,32 +205,32 @@ or sessions.
 
 ### Internal and required infrastructure
 
-| Code | HTTP | Meaning |
-| --- | ---: | --- |
-| `REGISTRATION_UNAVAILABLE` | 503 | Registration could not complete safely after bounded internal retries. |
-| `SERVICE_UNAVAILABLE` | 503 | A required infrastructure dependency is temporarily unavailable. |
-| `INTERNAL_ERROR` | 500 | An unexpected internal failure occurred. |
+| Code                       | HTTP | Meaning                                                                |
+| -------------------------- | ---: | ---------------------------------------------------------------------- |
+| `REGISTRATION_UNAVAILABLE` |  503 | Registration could not complete safely after bounded internal retries. |
+| `SERVICE_UNAVAILABLE`      |  503 | A required infrastructure dependency is temporarily unavailable.       |
+| `INTERNAL_ERROR`           |  500 | An unexpected internal failure occurred.                               |
 
 ## Endpoint inventory and target statuses
 
-| Endpoint | Request DTO | Success DTO | Status | Authentication and headers | Documented error codes |
-| --- | --- | --- | ---: | --- | --- |
-| `POST /auth/register` | `RegisterDto` | `RegistrationResponseDto` | 201 | Public | `VALIDATION_FAILED`, `PASSWORDS_DO_NOT_MATCH`, `EMAIL_DOMAIN_NOT_ALLOWED`, `EMAIL_ALREADY_REGISTERED`, `REGISTRATION_UNAVAILABLE`, `VERIFICATION_EMAIL_UNAVAILABLE` |
-| `POST /auth/login` | `LoginDto` | `AuthTokensResponseDto` | 201 | Session metadata headers | `VALIDATION_FAILED`, `INVALID_CREDENTIALS`, `EMAIL_NOT_VERIFIED`, `ACCOUNT_UNAVAILABLE`, deletion-state codes, `SESSION_LIMIT_REACHED` |
-| `POST /auth/verify-email` | `VerifyEmailDto` | `EmailVerificationResponseDto` | 201 | Session metadata headers | validation and verification-token codes, `EMAIL_ALREADY_VERIFIED`, `SESSION_LIMIT_REACHED` |
-| `POST /auth/resend-verification` | `ResendVerificationDto` | `ResendVerificationResponseDto` | 201 | Public | `VALIDATION_FAILED`, `VERIFICATION_EMAIL_COOLDOWN`, `VERIFICATION_EMAIL_UNAVAILABLE` |
-| `POST /auth/forgot-password` | `ForgotPasswordDto` | `ForgotPasswordResponseDto` | 202 | Request IP; informational metadata accepted | `VALIDATION_FAILED`, `RATE_LIMIT_EXCEEDED` |
-| `POST /auth/reset-password` | `ResetPasswordDto` | `ResetPasswordResponseDto` | 200 | Request IP; informational metadata accepted | `VALIDATION_FAILED`, `PASSWORDS_DO_NOT_MATCH`, `PASSWORD_RESET_TOKEN_INVALID`, `PASSWORD_CHANGED_CONCURRENTLY` |
-| `POST /auth/refresh` | none | `AuthTokensResponseDto` | 201 | Refresh bearer token | refresh-token codes |
-| `POST /auth/logout` | none | none | 204 | Access bearer token | access-token and `SESSION_UNAVAILABLE` codes |
-| `GET /auth/sessions` | none | `SessionsResponseDto` | 200 | Access bearer token | access-token and `SESSION_UNAVAILABLE` codes |
-| `PATCH /auth/sessions/:sessionId` | `SessionParamsDto`, `UpdateSessionDto` | `UpdateSessionResponseDto` | 200 | Access bearer token | validation, access/session codes, `SESSION_TOO_FRESH`, `SESSION_NOT_FOUND` |
-| `DELETE /auth/sessions/others` | none | `RevokeOtherSessionsResponseDto` | 200 | Access bearer token | access/session codes, `SESSION_TOO_FRESH` |
-| `DELETE /auth/sessions/:sessionId` | `SessionParamsDto` | none | 204 | Access bearer token | validation, access/session codes, `SESSION_TOO_FRESH`, `SESSION_NOT_FOUND` |
-| `PATCH /account/password` | `ChangePasswordDto` | `PasswordChangeResponseDto` | 200 | Access bearer token | validation, access/session/account codes, credential codes, `PASSWORD_CHANGED_CONCURRENTLY` |
-| `POST /account/deletion` | `RequestAccountDeletionDto` | `AccountDeletionResponseDto` | 202 | Access bearer token | validation, access/session/account codes, `CURRENT_PASSWORD_INVALID` |
-| `POST /account/deletion/cancel` | `CancelAccountDeletionDto` | `AccountDeletionCancelledResponseDto` | 200 | Session metadata headers | validation, credentials, rate-limit and deletion-state codes, `SESSION_LIMIT_REACHED` |
-| `GET /profile/me` | none | `ProfileResponseDto` | 200 | Access bearer token | access/session/account codes, `PROFILE_UNAVAILABLE` |
+| Endpoint                           | Request DTO                            | Success DTO                           | Status | Authentication and headers                  | Documented error codes                                                                                                                                              |
+| ---------------------------------- | -------------------------------------- | ------------------------------------- | -----: | ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `POST /auth/register`              | `RegisterDto`                          | `RegistrationResponseDto`             |    201 | Public                                      | `VALIDATION_FAILED`, `PASSWORDS_DO_NOT_MATCH`, `EMAIL_DOMAIN_NOT_ALLOWED`, `EMAIL_ALREADY_REGISTERED`, `REGISTRATION_UNAVAILABLE`, `VERIFICATION_EMAIL_UNAVAILABLE` |
+| `POST /auth/login`                 | `LoginDto`                             | `AuthTokensResponseDto`               |    201 | Session metadata headers                    | `VALIDATION_FAILED`, `INVALID_CREDENTIALS`, `EMAIL_NOT_VERIFIED`, `ACCOUNT_UNAVAILABLE`, deletion-state codes, `SESSION_LIMIT_REACHED`                              |
+| `POST /auth/verify-email`          | `VerifyEmailDto`                       | `EmailVerificationResponseDto`        |    201 | Session metadata headers                    | validation and verification-token codes, `EMAIL_ALREADY_VERIFIED`, `SESSION_LIMIT_REACHED`                                                                          |
+| `POST /auth/resend-verification`   | `ResendVerificationDto`                | `ResendVerificationResponseDto`       |    201 | Public                                      | `VALIDATION_FAILED`, `VERIFICATION_EMAIL_COOLDOWN`, `VERIFICATION_EMAIL_UNAVAILABLE`                                                                                |
+| `POST /auth/forgot-password`       | `ForgotPasswordDto`                    | `ForgotPasswordResponseDto`           |    202 | Request IP; informational metadata accepted | `VALIDATION_FAILED`, `RATE_LIMIT_EXCEEDED`                                                                                                                          |
+| `POST /auth/reset-password`        | `ResetPasswordDto`                     | `ResetPasswordResponseDto`            |    200 | Request IP; informational metadata accepted | `VALIDATION_FAILED`, `PASSWORDS_DO_NOT_MATCH`, `PASSWORD_RESET_TOKEN_INVALID`, `PASSWORD_CHANGED_CONCURRENTLY`                                                      |
+| `POST /auth/refresh`               | none                                   | `AuthTokensResponseDto`               |    201 | Refresh bearer token                        | refresh-token codes                                                                                                                                                 |
+| `POST /auth/logout`                | none                                   | none                                  |    204 | Access bearer token                         | access-token and `SESSION_UNAVAILABLE` codes                                                                                                                        |
+| `GET /auth/sessions`               | none                                   | `SessionsResponseDto`                 |    200 | Access bearer token                         | access-token and `SESSION_UNAVAILABLE` codes                                                                                                                        |
+| `PATCH /auth/sessions/:sessionId`  | `SessionParamsDto`, `UpdateSessionDto` | `UpdateSessionResponseDto`            |    200 | Access bearer token                         | validation, access/session codes, `SESSION_TOO_FRESH`, `SESSION_NOT_FOUND`                                                                                          |
+| `DELETE /auth/sessions/others`     | none                                   | `RevokeOtherSessionsResponseDto`      |    200 | Access bearer token                         | access/session codes, `SESSION_TOO_FRESH`                                                                                                                           |
+| `DELETE /auth/sessions/:sessionId` | `SessionParamsDto`                     | none                                  |    204 | Access bearer token                         | validation, access/session codes, `SESSION_TOO_FRESH`, `SESSION_NOT_FOUND`                                                                                          |
+| `PATCH /account/password`          | `ChangePasswordDto`                    | `PasswordChangeResponseDto`           |    200 | Access bearer token                         | validation, access/session/account codes, credential codes, `PASSWORD_CHANGED_CONCURRENTLY`                                                                         |
+| `POST /account/deletion`           | `RequestAccountDeletionDto`            | `AccountDeletionResponseDto`          |    202 | Access bearer token                         | validation, access/session/account codes, `CURRENT_PASSWORD_INVALID`                                                                                                |
+| `POST /account/deletion/cancel`    | `CancelAccountDeletionDto`             | `AccountDeletionCancelledResponseDto` |    200 | Session metadata headers                    | validation, credentials, rate-limit and deletion-state codes, `SESSION_LIMIT_REACHED`                                                                               |
+| `GET /profile/me`                  | none                                   | `ProfileResponseDto`                  |    200 | Access bearer token                         | access/session/account codes, `PROFILE_UNAVAILABLE`                                                                                                                 |
 
 There is no public security-event endpoint in the MVP.
 

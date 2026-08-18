@@ -116,7 +116,7 @@ describe('PasswordRecoveryService', () => {
       status: 429,
       response: {
         code: 'RATE_LIMIT_EXCEEDED',
-        retryAfterSeconds: 120,
+        details: { retryAfterSeconds: 120 },
       },
     });
     expect(rateLimitService.consumeEmail).not.toHaveBeenCalled();
@@ -134,7 +134,7 @@ describe('PasswordRecoveryService', () => {
       status: 429,
       response: {
         code: 'RATE_LIMIT_EXCEEDED',
-        retryAfterSeconds: 90,
+        details: { retryAfterSeconds: 90 },
       },
     });
     expect(prisma.user.findFirst).not.toHaveBeenCalled();

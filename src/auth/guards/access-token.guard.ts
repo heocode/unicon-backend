@@ -6,7 +6,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { JwtService } from '@nestjs/jwt';
+import { JwtService, TokenExpiredError } from '@nestjs/jwt';
 
 // Internal services
 import { SessionAuthorizationService } from '../session/services/session-authorization.service';
@@ -36,32 +36,55 @@ export class AccessTokenGuard implements CanActivate {
       .switchToHttp()
       .getRequest<AccessAuthenticatedRequest>();
 
+    if (!request.headers.authorization) {
+      throw new UnauthorizedException({
+        code: 'ACCESS_TOKEN_REQUIRED',
+        message: 'An access token is required.',
+      });
+    }
+
+    let payload: AccessTokenPayload;
+
     try {
       const token = extractBearerToken(request.headers.authorization);
 
-      const payload = await this.jwtService.verifyAsync<AccessTokenPayload>(
-        token,
-        {
-          secret: this.accessSecret,
-        },
-      );
+      payload = await this.jwtService.verifyAsync<AccessTokenPayload>(token, {
+        secret: this.accessSecret,
+      });
 
       validateBaseTokenPayload(payload);
 
       if (payload.tokenType !== 'access') {
         throw new UnauthorizedException();
       }
+    } catch (error) {
+      if (error instanceof TokenExpiredError) {
+        throw new UnauthorizedException({
+          code: 'ACCESS_TOKEN_EXPIRED',
+          message: 'The access token has expired.',
+        });
+      }
 
+      throw new UnauthorizedException({
+        code: 'ACCESS_TOKEN_INVALID',
+        message: 'The access token is invalid.',
+      });
+    }
+
+    try {
       await this.sessionAuthorizationService.assertActive(
         payload.sub,
         payload.sessionId,
       );
-
-      request.user = payload;
-
-      return true;
     } catch {
-      throw new UnauthorizedException('The user is not authorized.');
+      throw new UnauthorizedException({
+        code: 'SESSION_UNAVAILABLE',
+        message: 'The session is unavailable.',
+      });
     }
+
+    request.user = payload;
+
+    return true;
   }
 }

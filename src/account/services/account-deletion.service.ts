@@ -1,6 +1,7 @@
 // NestJS
 import {
   ConflictException,
+  ForbiddenException,
   Injectable,
   Logger,
   UnauthorizedException,
@@ -62,7 +63,7 @@ export class AccountDeletionService {
     });
 
     if (!user) {
-      throw new UnauthorizedException({
+      throw new ForbiddenException({
         code: 'ACCOUNT_UNAVAILABLE',
         message: 'The account is unavailable.',
       });

@@ -21,7 +21,10 @@ export class SessionAuthorizationService {
     });
 
     if (!session) {
-      throw new UnauthorizedException('Access Denied. Session unavailable.');
+      throw new UnauthorizedException({
+        code: 'SESSION_UNAVAILABLE',
+        message: 'The session is unavailable.',
+      });
     }
   }
 }

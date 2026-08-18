@@ -2,10 +2,11 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   Logger,
+  ServiceUnavailableException,
   UnauthorizedException,
-  ForbiddenException,
 } from '@nestjs/common';
 
 // Prisma
@@ -71,7 +72,10 @@ export class AuthService {
     const email = dto.email;
 
     if (dto.password !== dto.confirmedPassword) {
-      throw new BadRequestException('Passwords do not match.');
+      throw new BadRequestException({
+        code: 'PASSWORDS_DO_NOT_MATCH',
+        message: 'The passwords do not match.',
+      });
     }
 
     const existingUser = await this.prisma.user.findUnique({
@@ -82,7 +86,10 @@ export class AuthService {
     });
 
     if (existingUser) {
-      throw new ConflictException('Email is already taken.');
+      throw new ConflictException({
+        code: 'EMAIL_ALREADY_REGISTERED',
+        message: 'An account with this email already exists.',
+      });
     }
 
     const emailDomain = email.split('@')[1];
@@ -97,9 +104,10 @@ export class AuthService {
     });
 
     if (!allowedDomain) {
-      throw new BadRequestException(
-        'Registration with this email domain is not available.',
-      );
+      throw new BadRequestException({
+        code: 'EMAIL_DOMAIN_NOT_ALLOWED',
+        message: 'Registration with this email domain is not available.',
+      });
     }
 
     const passwordHash = await this.passwordService.hash(dto.password);
@@ -137,7 +145,10 @@ export class AuthService {
 
     if (!existingUser) {
       await this.recordFailedLogin(metadata);
-      throw new UnauthorizedException('Invalid email or password.');
+      throw new UnauthorizedException({
+        code: 'INVALID_CREDENTIALS',
+        message: 'Invalid email or password.',
+      });
     }
 
     const passwordMatches = await this.passwordService.compare(
@@ -147,7 +158,10 @@ export class AuthService {
 
     if (!passwordMatches) {
       await this.recordFailedLogin(metadata, existingUser.id);
-      throw new UnauthorizedException('Invalid email or password.');
+      throw new UnauthorizedException({
+        code: 'INVALID_CREDENTIALS',
+        message: 'Invalid email or password.',
+      });
     }
 
     if (existingUser.status === 'PENDING') {
@@ -158,8 +172,10 @@ export class AuthService {
       throw new ForbiddenException({
         code: 'EMAIL_NOT_VERIFIED',
         message: 'Please verify your student email before continuing.',
-        email: existingUser.email,
-        resendAvailableInSeconds,
+        details: {
+          email: existingUser.email,
+          resendAvailableInSeconds,
+        },
       });
     }
 
@@ -176,8 +192,10 @@ export class AuthService {
         message: canCancel
           ? 'Account deletion is scheduled.'
           : 'The account deletion grace period has expired.',
-        deletionScheduledAt: existingUser.deletionScheduledAt,
-        canCancel,
+        details: {
+          deletionScheduledAt: existingUser.deletionScheduledAt,
+          canCancel,
+        },
       });
     }
 
@@ -290,7 +308,10 @@ export class AuthService {
             }
 
             if (target.includes('email')) {
-              throw new ConflictException('Email is already taken.');
+              throw new ConflictException({
+                code: 'EMAIL_ALREADY_REGISTERED',
+                message: 'An account with this email already exists.',
+              });
             }
           }
         }
@@ -299,9 +320,10 @@ export class AuthService {
       }
     }
 
-    throw new ConflictException(
-      'Unable to generate a unique username. Please try again.',
-    );
+    throw new ServiceUnavailableException({
+      code: 'REGISTRATION_UNAVAILABLE',
+      message: 'Registration is temporarily unavailable.',
+    });
   }
 
   verifyEmail(dto: VerifyEmailDto, metadata: SessionMetadata) {

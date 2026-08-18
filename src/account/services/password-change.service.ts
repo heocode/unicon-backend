@@ -2,6 +2,7 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   Logger,
   UnauthorizedException,
@@ -50,7 +51,7 @@ export class PasswordChangeService {
     });
 
     if (!user) {
-      throw new UnauthorizedException({
+      throw new ForbiddenException({
         code: 'ACCOUNT_UNAVAILABLE',
         message: 'The account is unavailable.',
       });

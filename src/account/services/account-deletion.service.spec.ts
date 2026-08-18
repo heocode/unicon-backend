@@ -1,4 +1,8 @@
-import { ConflictException, UnauthorizedException } from '@nestjs/common';
+import {
+  ConflictException,
+  ForbiddenException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
 import { PasswordService } from '../../auth/password/services/password.service';
@@ -198,7 +202,7 @@ describe('AccountDeletionService', () => {
 
     await expect(
       service.request('user-id', 'session-id', dto),
-    ).rejects.toMatchObject<UnauthorizedException>({
+    ).rejects.toMatchObject<ForbiddenException>({
       response: { code: 'ACCOUNT_UNAVAILABLE' },
     });
 
@@ -406,7 +410,10 @@ describe('AccountDeletionService', () => {
         { ipAddress: '192.0.2.20', platform: 'WEB' },
       ),
     ).rejects.toMatchObject({
-      response: { code: 'RATE_LIMIT_EXCEEDED', retryAfterSeconds: 120 },
+      response: {
+        code: 'RATE_LIMIT_EXCEEDED',
+        details: { retryAfterSeconds: 120 },
+      },
     });
 
     expect(cancellationRateLimitService.consumeEmail).not.toHaveBeenCalled();
@@ -425,7 +432,10 @@ describe('AccountDeletionService', () => {
         { ipAddress: '192.0.2.20', platform: 'WEB' },
       ),
     ).rejects.toMatchObject({
-      response: { code: 'RATE_LIMIT_EXCEEDED', retryAfterSeconds: 60 },
+      response: {
+        code: 'RATE_LIMIT_EXCEEDED',
+        details: { retryAfterSeconds: 60 },
+      },
     });
 
     expect(prisma.user.findUnique).not.toHaveBeenCalled();

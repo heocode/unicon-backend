@@ -640,7 +640,10 @@ describe('Session management with PostgreSQL (e2e)', () => {
     await request(app.getHttpServer())
       .post('/auth/refresh')
       .set('Authorization', `Bearer ${tokens.refreshToken}`)
-      .expect(401);
+      .expect(401)
+      .expect(({ body }) => {
+        expect(body).toMatchObject({ code: 'REFRESH_TOKEN_REUSED' });
+      });
 
     await getSessions(tokens.accessToken);
 
@@ -677,7 +680,7 @@ describe('Session management with PostgreSQL (e2e)', () => {
       .expect({
         code: 'SESSION_LIMIT_REACHED',
         message: 'The active session limit has been reached.',
-        activeSessionLimit: 10,
+        details: { activeSessionLimit: 10 },
       });
 
     expect(await activeSessionCount()).toBe(10);

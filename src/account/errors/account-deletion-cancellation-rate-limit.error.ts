@@ -7,7 +7,7 @@ export class AccountDeletionCancellationRateLimitError extends HttpException {
         code: 'RATE_LIMIT_EXCEEDED',
         message:
           'Too many account deletion cancellation attempts. Please try again later.',
-        retryAfterSeconds,
+        details: { retryAfterSeconds },
       },
       HttpStatus.TOO_MANY_REQUESTS,
     );

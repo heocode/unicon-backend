@@ -1,5 +1,5 @@
 // NestJS
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { ConflictException, Injectable } from '@nestjs/common';
 
 // Internal services
 import { PrismaService } from '../../prisma/prisma.service';
@@ -34,7 +34,7 @@ export class ProfileQueryService {
     });
 
     if (!user) {
-      throw new UnauthorizedException({
+      throw new ConflictException({
         code: 'PROFILE_UNAVAILABLE',
         message: 'The profile is unavailable.',
       });

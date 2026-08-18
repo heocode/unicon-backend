@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   UnauthorizedException,
 } from '@nestjs/common';
 
@@ -108,7 +109,7 @@ describe('PasswordChangeService', () => {
 
     await expect(
       service.change('user-id', 'session-id', dto),
-    ).rejects.toMatchObject<UnauthorizedException>({
+    ).rejects.toMatchObject<ForbiddenException>({
       response: {
         code: 'ACCOUNT_UNAVAILABLE',
         message: 'The account is unavailable.',

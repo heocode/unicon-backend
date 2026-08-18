@@ -70,8 +70,7 @@ describe('AuthService deletion-aware login', () => {
     ).rejects.toMatchObject<ForbiddenException>({
       response: {
         code: 'ACCOUNT_DELETION_SCHEDULED',
-        deletionScheduledAt: deadline,
-        canCancel: true,
+        details: { deletionScheduledAt: deadline, canCancel: true },
       },
     });
 
@@ -101,8 +100,7 @@ describe('AuthService deletion-aware login', () => {
     ).rejects.toMatchObject<ForbiddenException>({
       response: {
         code: 'ACCOUNT_DELETION_GRACE_PERIOD_EXPIRED',
-        deletionScheduledAt: deadline,
-        canCancel: false,
+        details: { deletionScheduledAt: deadline, canCancel: false },
       },
     });
 

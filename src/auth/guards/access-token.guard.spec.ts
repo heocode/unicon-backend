@@ -1,6 +1,6 @@
 import { ExecutionContext, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { JwtService } from '@nestjs/jwt';
+import { JwtService, TokenExpiredError } from '@nestjs/jwt';
 import { SessionAuthorizationService } from '../session/services/session-authorization.service';
 import type { AccessAuthenticatedRequest } from '../types/authenticated-request.type';
 import { AccessTokenGuard } from './access-token.guard';
@@ -70,9 +70,12 @@ describe('AccessTokenGuard', () => {
       new UnauthorizedException('Session unavailable.'),
     );
 
-    await expect(guard.canActivate(context)).rejects.toThrow(
-      'The user is not authorized.',
-    );
+    await expect(guard.canActivate(context)).rejects.toMatchObject({
+      response: {
+        code: 'SESSION_UNAVAILABLE',
+        message: 'The session is unavailable.',
+      },
+    });
   });
 
   it('does not query a session for a refresh token', async () => {
@@ -82,9 +85,28 @@ describe('AccessTokenGuard', () => {
       tokenType: 'refresh',
     });
 
-    await expect(guard.canActivate(context)).rejects.toBeInstanceOf(
-      UnauthorizedException,
-    );
+    await expect(guard.canActivate(context)).rejects.toMatchObject({
+      response: { code: 'ACCESS_TOKEN_INVALID' },
+    });
     expect(sessionAuthorizationService.assertActive).not.toHaveBeenCalled();
+  });
+
+  it('distinguishes a missing access token', async () => {
+    request.headers.authorization = undefined;
+
+    await expect(guard.canActivate(context)).rejects.toMatchObject({
+      response: { code: 'ACCESS_TOKEN_REQUIRED' },
+    });
+    expect(jwtService.verifyAsync).not.toHaveBeenCalled();
+  });
+
+  it('distinguishes an expired access token', async () => {
+    jwtService.verifyAsync.mockRejectedValue(
+      new TokenExpiredError('expired', new Date()),
+    );
+
+    await expect(guard.canActivate(context)).rejects.toMatchObject({
+      response: { code: 'ACCESS_TOKEN_EXPIRED' },
+    });
   });
 });

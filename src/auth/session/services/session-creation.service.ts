@@ -1,8 +1,8 @@
 // NestJS
 import {
   ConflictException,
+  ForbiddenException,
   Injectable,
-  UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
@@ -133,7 +133,7 @@ export class SessionCreationService {
     const user = await lockUserForUpdate(transaction, data.userId);
 
     if (!user || user.status !== 'ACTIVE') {
-      throw new UnauthorizedException({
+      throw new ForbiddenException({
         code: 'ACCOUNT_UNAVAILABLE',
         message: 'The account is unavailable.',
       });
@@ -208,7 +208,7 @@ export class SessionCreationService {
       throw new ConflictException({
         code: 'SESSION_LIMIT_REACHED',
         message: 'The active session limit has been reached.',
-        activeSessionLimit: this.activeSessionLimit,
+        details: { activeSessionLimit: this.activeSessionLimit },
       });
     }
   }
