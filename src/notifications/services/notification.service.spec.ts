@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { MailService } from '../../mail/mail.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { NotificationService } from './notification.service';
+import { NotificationDeliveryService } from './notification-delivery.service';
 
 describe('NotificationService', () => {
   const now = new Date('2026-08-09T12:00:00.000Z');
@@ -54,7 +55,10 @@ describe('NotificationService', () => {
     service = new NotificationService(
       prisma as unknown as PrismaService,
       mailService as unknown as MailService,
-      configService as unknown as ConfigService,
+      new NotificationDeliveryService(
+        prisma as unknown as PrismaService,
+        configService as unknown as ConfigService,
+      ),
     );
   });
 

@@ -1,13 +1,10 @@
 // NestJS
 import { Injectable, Logger } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
-
-// Prisma
-import { Prisma } from '../../generated/prisma/client';
 
 // Internal services
 import { MailService } from '../../mail/mail.service';
 import { PrismaService } from '../../prisma/prisma.service';
+import { NotificationDeliveryService } from './notification-delivery.service';
 
 // Internal types
 import type { RiskAssessment } from '../../security/types/risk-assessment.type';
@@ -15,17 +12,12 @@ import type { RiskAssessment } from '../../security/types/risk-assessment.type';
 @Injectable()
 export class NotificationService {
   private readonly logger = new Logger(NotificationService.name);
-  private readonly retentionSeconds: number;
 
   constructor(
     private readonly prisma: PrismaService,
     private readonly mailService: MailService,
-    configService: ConfigService,
-  ) {
-    this.retentionSeconds = configService.getOrThrow<number>(
-      'NOTIFICATION_DELIVERY_RETENTION_SECONDS',
-    );
-  }
+    private readonly deliveryService: NotificationDeliveryService,
+  ) {}
 
   async sendNewSessionNotification(
     userId: string,
@@ -40,35 +32,21 @@ export class NotificationService {
       return;
     }
 
-    let delivery: { id: string };
+    let delivery: { id: string } | null;
 
     try {
-      const createdAt = new Date();
-      delivery = await this.prisma.notificationDelivery.create({
-        data: {
-          idempotencyKey: `NEW_SESSION:${sessionId}`,
-          type: 'NEW_SESSION',
-          channel: 'EMAIL',
-          userId,
-          sessionId,
-          recipient: session.user.email,
-          retentionExpiresAt: new Date(
-            createdAt.getTime() + this.retentionSeconds * 1000,
-          ),
-        },
-        select: { id: true },
+      delivery = await this.deliveryService.createIdempotent({
+        idempotencyKey: `NEW_SESSION:${sessionId}`,
+        type: 'NEW_SESSION',
+        userId,
+        sessionId,
+        recipient: session.user.email,
       });
     } catch (error) {
-      if (
-        error instanceof Prisma.PrismaClientKnownRequestError &&
-        error.code === 'P2002'
-      ) {
-        return;
-      }
-
       this.logFailure('Failed to create a notification delivery.', error);
       return;
     }
+    if (!delivery) return;
 
     const attemptedAt = new Date();
 
@@ -88,28 +66,20 @@ export class NotificationService {
       });
 
       try {
-        await this.prisma.notificationDelivery.update({
-          where: { id: delivery.id },
-          data: {
-            status: 'SENT',
-            providerMessageId,
-            attemptedAt,
-            sentAt: new Date(),
-            failureCode: null,
-          },
+        await this.deliveryService.markSent({
+          deliveryId: delivery.id,
+          providerMessageId,
+          attemptedAt,
         });
       } catch (error) {
         this.logFailure('Failed to save a successful email delivery.', error);
       }
     } catch (error) {
       try {
-        await this.prisma.notificationDelivery.update({
-          where: { id: delivery.id },
-          data: {
-            status: 'FAILED',
-            attemptedAt,
-            failureCode: 'EMAIL_DELIVERY_FAILED',
-          },
+        await this.deliveryService.markFailed({
+          deliveryId: delivery.id,
+          attemptedAt,
+          failureCode: 'EMAIL_DELIVERY_FAILED',
         });
       } catch (statusError) {
         this.logFailure('Failed to save a failed email delivery.', statusError);
@@ -133,38 +103,24 @@ export class NotificationService {
       return;
     }
 
-    let delivery: { id: string };
+    let delivery: { id: string } | null;
 
     try {
-      const createdAt = new Date();
-      delivery = await this.prisma.notificationDelivery.create({
-        data: {
-          idempotencyKey: `SUSPICIOUS_ACTIVITY:${sessionId}`,
-          type: 'SUSPICIOUS_ACTIVITY',
-          channel: 'EMAIL',
-          userId,
-          sessionId,
-          recipient: session.user.email,
-          retentionExpiresAt: new Date(
-            createdAt.getTime() + this.retentionSeconds * 1000,
-          ),
-        },
-        select: { id: true },
+      delivery = await this.deliveryService.createIdempotent({
+        idempotencyKey: `SUSPICIOUS_ACTIVITY:${sessionId}`,
+        type: 'SUSPICIOUS_ACTIVITY',
+        userId,
+        sessionId,
+        recipient: session.user.email,
       });
     } catch (error) {
-      if (
-        error instanceof Prisma.PrismaClientKnownRequestError &&
-        error.code === 'P2002'
-      ) {
-        return;
-      }
-
       this.logFailure(
         'Failed to create a suspicious-activity delivery.',
         error,
       );
       return;
     }
+    if (!delivery) return;
 
     const attemptedAt = new Date();
 
@@ -211,35 +167,21 @@ export class NotificationService {
       return;
     }
 
-    let delivery: { id: string };
+    let delivery: { id: string } | null;
 
     try {
-      const createdAt = new Date();
-      delivery = await this.prisma.notificationDelivery.create({
-        data: {
-          idempotencyKey: `PASSWORD_CHANGED:${securityEventId}`,
-          type: 'PASSWORD_CHANGED',
-          channel: 'EMAIL',
-          userId,
-          sessionId: event.actorSessionId,
-          recipient: event.user.email,
-          retentionExpiresAt: new Date(
-            createdAt.getTime() + this.retentionSeconds * 1000,
-          ),
-        },
-        select: { id: true },
+      delivery = await this.deliveryService.createIdempotent({
+        idempotencyKey: `PASSWORD_CHANGED:${securityEventId}`,
+        type: 'PASSWORD_CHANGED',
+        userId,
+        sessionId: event.actorSessionId,
+        recipient: event.user.email,
       });
     } catch (error) {
-      if (
-        error instanceof Prisma.PrismaClientKnownRequestError &&
-        error.code === 'P2002'
-      ) {
-        return;
-      }
-
       this.logFailure('Failed to create a password-change delivery.', error);
       return;
     }
+    if (!delivery) return;
 
     const attemptedAt = new Date();
 
@@ -271,11 +213,7 @@ export class NotificationService {
   }
 
   async deleteExpired(now: Date = new Date()): Promise<number> {
-    const result = await this.prisma.notificationDelivery.deleteMany({
-      where: { retentionExpiresAt: { lte: now } },
-    });
-
-    return result.count;
+    return this.deliveryService.deleteExpired(now);
   }
 
   async sendPasswordResetRequestNotification(
@@ -357,31 +295,19 @@ export class NotificationService {
     recipient: string,
     send: (deliveryId: string) => Promise<string>,
   ): Promise<void> {
-    let delivery: { id: string };
+    let delivery: { id: string } | null;
     try {
-      const createdAt = new Date();
-      delivery = await this.prisma.notificationDelivery.create({
-        data: {
-          idempotencyKey,
-          type,
-          channel: 'EMAIL',
-          userId,
-          recipient,
-          retentionExpiresAt: new Date(
-            createdAt.getTime() + this.retentionSeconds * 1000,
-          ),
-        },
-        select: { id: true },
+      delivery = await this.deliveryService.createIdempotent({
+        idempotencyKey,
+        type,
+        userId,
+        recipient,
       });
     } catch (error) {
-      if (
-        error instanceof Prisma.PrismaClientKnownRequestError &&
-        error.code === 'P2002'
-      )
-        return;
       this.logFailure('Failed to create a password-reset delivery.', error);
       return;
     }
+    if (!delivery) return;
 
     const attemptedAt = new Date();
     try {
@@ -450,15 +376,10 @@ export class NotificationService {
     attemptedAt: Date,
   ): Promise<void> {
     try {
-      await this.prisma.notificationDelivery.update({
-        where: { id: deliveryId },
-        data: {
-          status: 'SENT',
-          providerMessageId,
-          attemptedAt,
-          sentAt: new Date(),
-          failureCode: null,
-        },
+      await this.deliveryService.markSent({
+        deliveryId,
+        providerMessageId,
+        attemptedAt,
       });
     } catch (error) {
       this.logFailure('Failed to save a successful email delivery.', error);
@@ -470,13 +391,10 @@ export class NotificationService {
     attemptedAt: Date,
   ): Promise<void> {
     try {
-      await this.prisma.notificationDelivery.update({
-        where: { id: deliveryId },
-        data: {
-          status: 'FAILED',
-          attemptedAt,
-          failureCode: 'EMAIL_DELIVERY_FAILED',
-        },
+      await this.deliveryService.markFailed({
+        deliveryId,
+        attemptedAt,
+        failureCode: 'EMAIL_DELIVERY_FAILED',
       });
     } catch (error) {
       this.logFailure('Failed to save a failed email delivery.', error);

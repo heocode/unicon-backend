@@ -54,6 +54,7 @@ export const ModelName = {
   User: 'User',
   PasswordResetToken: 'PasswordResetToken',
   PasswordResetRateLimit: 'PasswordResetRateLimit',
+  AccountDeletionCancellationRateLimit: 'AccountDeletionCancellationRateLimit',
   University: 'University',
   AllowedDomain: 'AllowedDomain',
   Session: 'Session',
@@ -94,7 +95,9 @@ export const UserScalarFieldEnum = {
   verificationTokenExpires: 'verificationTokenExpires',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt',
-  deletedAt: 'deletedAt'
+  deletedAt: 'deletedAt',
+  deletionRequestedAt: 'deletionRequestedAt',
+  deletionScheduledAt: 'deletionScheduledAt'
 } as const
 
 export type UserScalarFieldEnum = (typeof UserScalarFieldEnum)[keyof typeof UserScalarFieldEnum]
@@ -121,6 +124,16 @@ export const PasswordResetRateLimitScalarFieldEnum = {
 } as const
 
 export type PasswordResetRateLimitScalarFieldEnum = (typeof PasswordResetRateLimitScalarFieldEnum)[keyof typeof PasswordResetRateLimitScalarFieldEnum]
+
+
+export const AccountDeletionCancellationRateLimitScalarFieldEnum = {
+  key: 'key',
+  count: 'count',
+  windowEndAt: 'windowEndAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type AccountDeletionCancellationRateLimitScalarFieldEnum = (typeof AccountDeletionCancellationRateLimitScalarFieldEnum)[keyof typeof AccountDeletionCancellationRateLimitScalarFieldEnum]
 
 
 export const UniversityScalarFieldEnum = {

@@ -33,6 +33,11 @@ export type PasswordResetToken = Prisma.PasswordResetTokenModel
  */
 export type PasswordResetRateLimit = Prisma.PasswordResetRateLimitModel
 /**
+ * Model AccountDeletionCancellationRateLimit
+ * 
+ */
+export type AccountDeletionCancellationRateLimit = Prisma.AccountDeletionCancellationRateLimitModel
+/**
  * Model University
  * 
  */

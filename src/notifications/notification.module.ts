@@ -7,10 +7,20 @@ import { PrismaModule } from '../prisma/prisma.module';
 
 // Internal services
 import { NotificationService } from './services/notification.service';
+import { AccountDeletionNotificationService } from './services/account-deletion-notification.service';
+import { NotificationDeliveryService } from './services/notification-delivery.service';
 
 @Module({
   imports: [PrismaModule, MailModule],
-  providers: [NotificationService],
-  exports: [NotificationService],
+  providers: [
+    NotificationService,
+    AccountDeletionNotificationService,
+    NotificationDeliveryService,
+  ],
+  exports: [
+    NotificationService,
+    AccountDeletionNotificationService,
+    NotificationDeliveryService,
+  ],
 })
 export class NotificationModule {}

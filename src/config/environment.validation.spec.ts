@@ -19,6 +19,13 @@ const validEnvironment = {
   PASSWORD_RESET_REQUEST_LIMIT_PER_EMAIL: '3',
   PASSWORD_RESET_REQUEST_LIMIT_PER_IP: '10',
   PASSWORD_RESET_RATE_LIMIT_SECRET: 'recovery-rate-secret',
+  ACCOUNT_DELETION_GRACE_PERIOD_SECONDS: '2592000',
+  ACCOUNT_DELETION_FINALIZATION_BATCH_SIZE: '100',
+  ACCOUNT_DELETION_COMPLETION_RETRY_SECONDS: '300',
+  ACCOUNT_DELETION_CANCEL_WINDOW_SECONDS: '900',
+  ACCOUNT_DELETION_CANCEL_LIMIT_PER_EMAIL: '5',
+  ACCOUNT_DELETION_CANCEL_LIMIT_PER_IP: '20',
+  ACCOUNT_DELETION_CANCEL_RATE_LIMIT_SECRET: 'deletion-cancel-rate-secret',
   RESEND_API_KEY: 'resend-api-key',
   MAIL_FROM: 'noreply@unicon.local',
   CLIENT_URL: 'http://localhost:3001',
@@ -113,6 +120,22 @@ describe('validateEnvironment', () => {
     'RISK_LOGIN_FAILURE_THRESHOLD',
     'RISK_NEW_SESSION_WINDOW_SECONDS',
     'RISK_NEW_SESSION_THRESHOLD',
+  ])('rejects a non-positive %s value', (key) => {
+    expect(() =>
+      validateEnvironment({
+        ...validEnvironment,
+        [key]: '0',
+      }),
+    ).toThrow(`Environment variable ${key} must be a positive integer.`);
+  });
+
+  it.each([
+    'ACCOUNT_DELETION_GRACE_PERIOD_SECONDS',
+    'ACCOUNT_DELETION_FINALIZATION_BATCH_SIZE',
+    'ACCOUNT_DELETION_COMPLETION_RETRY_SECONDS',
+    'ACCOUNT_DELETION_CANCEL_WINDOW_SECONDS',
+    'ACCOUNT_DELETION_CANCEL_LIMIT_PER_EMAIL',
+    'ACCOUNT_DELETION_CANCEL_LIMIT_PER_IP',
   ])('rejects a non-positive %s value', (key) => {
     expect(() =>
       validateEnvironment({

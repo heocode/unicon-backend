@@ -1,4 +1,4 @@
-import { ConflictException } from '@nestjs/common';
+import { ConflictException, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
 import { Prisma } from '../../../generated/prisma/client';
@@ -21,6 +21,7 @@ describe('SessionCreationService', () => {
   const nextExpiresAt = new Date('2027-08-08T12:00:00.000Z');
   const prisma = {
     $transaction: jest.fn(),
+    $queryRaw: jest.fn(),
     session: {
       count: jest.fn(),
       create: jest.fn(),
@@ -53,6 +54,7 @@ describe('SessionCreationService', () => {
     jest.useFakeTimers();
     jest.setSystemTime(now);
     jest.clearAllMocks();
+    prisma.$queryRaw.mockResolvedValue([{ status: 'ACTIVE' }]);
     prisma.session.count.mockResolvedValue(0);
     prisma.$transaction.mockImplementation(
       (callback: (transaction: typeof prisma) => Promise<unknown>) =>
@@ -154,6 +156,38 @@ describe('SessionCreationService', () => {
       }),
       prisma,
     );
+  });
+
+  it('rejects session creation when the locked user is not active', async () => {
+    prisma.$queryRaw.mockResolvedValue([{ status: 'DELETION_SCHEDULED' }]);
+
+    await expect(
+      service.create('user-id'),
+    ).rejects.toMatchObject<UnauthorizedException>({
+      response: {
+        code: 'ACCOUNT_UNAVAILABLE',
+      },
+    });
+    expect(prisma.session.count).not.toHaveBeenCalled();
+    expect(prisma.session.create).not.toHaveBeenCalled();
+  });
+
+  it('creates a prepared session in a caller-owned transaction', async () => {
+    const preparedSession = await service.prepare('user-id', {
+      platform: 'WEB',
+    });
+
+    await expect(
+      service.createInTransaction(
+        prisma as unknown as Prisma.TransactionClient,
+        preparedSession,
+      ),
+    ).resolves.toEqual({ created: true });
+
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+    expect(prisma.session.create).toHaveBeenCalledWith({
+      data: preparedSession.data,
+    });
   });
 
   it('retries a Prisma serializable transaction conflict', async () => {

@@ -2,10 +2,17 @@ import { applyDecorators } from '@nestjs/common';
 import {
   ApiBadRequestResponse,
   ApiConflictResponse,
-  ApiOkResponse,
+  ApiCreatedResponse,
+  ApiExtraModels,
+  ApiForbiddenResponse,
   ApiOperation,
   ApiUnauthorizedResponse,
+  getSchemaPath,
 } from '@nestjs/swagger';
+import {
+  AccountDeletionGracePeriodExpiredLoginErrorResponseDto,
+  AccountDeletionScheduledLoginErrorResponseDto,
+} from '../../auth/dtos/account-deletion-login-error-response.dto';
 import { SessionLimitReachedErrorResponseDto } from '../../auth/dtos/session-error-response.dto';
 
 export function ApiLogin() {
@@ -15,7 +22,12 @@ export function ApiLogin() {
       description: 'Authenticates a user using email and password.',
     }),
 
-    ApiOkResponse({
+    ApiExtraModels(
+      AccountDeletionScheduledLoginErrorResponseDto,
+      AccountDeletionGracePeriodExpiredLoginErrorResponseDto,
+    ),
+
+    ApiCreatedResponse({
       description: 'User successfully authenticated.',
     }),
 
@@ -25,6 +37,23 @@ export function ApiLogin() {
 
     ApiUnauthorizedResponse({
       description: 'Invalid email or password.',
+    }),
+
+    ApiForbiddenResponse({
+      description:
+        'The email is unverified, the account is unavailable, or account deletion is scheduled.',
+      schema: {
+        oneOf: [
+          {
+            $ref: getSchemaPath(AccountDeletionScheduledLoginErrorResponseDto),
+          },
+          {
+            $ref: getSchemaPath(
+              AccountDeletionGracePeriodExpiredLoginErrorResponseDto,
+            ),
+          },
+        ],
+      },
     }),
 
     ApiConflictResponse({

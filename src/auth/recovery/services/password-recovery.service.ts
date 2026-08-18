@@ -8,6 +8,7 @@ import { ConfigService } from '@nestjs/config';
 
 import { NotificationService } from '../../../notifications/services/notification.service';
 import { PrismaService } from '../../../prisma/prisma.service';
+import { lockUserForUpdate } from '../../../prisma/utils/lock-user-for-update.util';
 import { SecurityEventService } from '../../../security/services/security-event.service';
 import { PasswordService } from '../../password/services/password.service';
 import { SecureTokenService } from '../../services/secure-token.service';
@@ -139,6 +140,15 @@ export class PasswordRecoveryService {
     const snapshot = this.securityEventService.snapshotFromMetadata(metadata);
 
     const result = await this.prisma.$transaction(async (transaction) => {
+      const lockedUser = await lockUserForUpdate(transaction, token.userId);
+      if (
+        !lockedUser ||
+        lockedUser.status !== 'ACTIVE' ||
+        lockedUser.passwordHash !== token.user.passwordHash
+      ) {
+        this.throwInvalidToken();
+      }
+
       const consumed = await transaction.passwordResetToken.updateMany({
         where: {
           id: token.id,

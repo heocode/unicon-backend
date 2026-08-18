@@ -18,6 +18,7 @@ enum UserStatus {
   ACTIVE
   BLOCKED
   PENDING
+  DELETION_SCHEDULED
   DELETED
 }
 
@@ -39,6 +40,9 @@ enum SecurityEventType {
   PASSWORD_CHANGED
   PASSWORD_RESET_REQUESTED
   PASSWORD_RESET_COMPLETED
+  ACCOUNT_DELETION_REQUESTED
+  ACCOUNT_DELETION_CANCELLED
+  ACCOUNT_DELETED
 }
 
 enum SecurityEventReason {
@@ -46,6 +50,7 @@ enum SecurityEventReason {
   ACTIVE_SESSION_LIMIT_REACHED
   LOGOUT
   SESSION_MANAGEMENT
+  GRACE_PERIOD_EXPIRED
 }
 
 enum SecurityRiskLevel {
@@ -68,6 +73,9 @@ enum NotificationType {
   PASSWORD_CHANGED
   PASSWORD_RESET_REQUEST
   PASSWORD_RESET_COMPLETED
+  ACCOUNT_DELETION_REQUESTED
+  ACCOUNT_DELETION_CANCELLED
+  ACCOUNT_DELETED
 }
 
 enum NotificationChannel {
@@ -104,9 +112,11 @@ model User {
   verificationTokenExpires DateTime?
 
   // timestamps
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  deletedAt DateTime?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+  deletedAt           DateTime?
+  deletionRequestedAt DateTime?
+  deletionScheduledAt DateTime?
 
   // foreign keys
   university University @relation(fields: [universityId], references: [id])
@@ -116,6 +126,8 @@ model User {
   securityEvents         SecurityEvent[]
   notificationDeliveries NotificationDelivery[]
   passwordResetTokens    PasswordResetToken[]
+
+  @@index([status, deletionScheduledAt])
 }
 
 model PasswordResetToken {
@@ -134,6 +146,15 @@ model PasswordResetToken {
 }
 
 model PasswordResetRateLimit {
+  key         String   @id
+  count       Int
+  windowEndAt DateTime
+  updatedAt   DateTime @updatedAt
+
+  @@index([windowEndAt])
+}
+
+model AccountDeletionCancellationRateLimit {
   key         String   @id
   count       Int
   windowEndAt DateTime

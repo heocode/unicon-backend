@@ -134,4 +134,108 @@ describe('MailService new-session email', () => {
       { idempotencyKey: 'delivery-id' },
     );
   });
+
+  it('sends a deletion-request notification with its deadline', async () => {
+    send.mockResolvedValue({ data: { id: 'provider-id' }, error: null });
+
+    await expect(
+      service.sendAccountDeletionRequestedEmail({
+        recipient: 'student@example.edu',
+        idempotencyKey: 'delivery-id',
+        occurredAt: new Date('2026-08-17T12:00:00.000Z'),
+        deletionScheduledAt: new Date('2026-09-16T12:00:00.000Z'),
+        revokedSessionsCount: 3,
+        deviceModel: 'iPhone 16 Pro',
+        platform: 'IOS',
+        locationCountryCode: 'CA',
+        locationCity: 'Toronto',
+      }),
+    ).resolves.toBe('provider-id');
+
+    expect(send).toHaveBeenCalledWith(
+      {
+        from: 'Unicon <test@unicon.local>',
+        to: ['student@example.edu'],
+        subject: 'Your Unicon account is scheduled for deletion',
+        text: [
+          'Deletion was requested for your Unicon account.',
+          '',
+          'Requested at: 2026-08-17T12:00:00.000Z',
+          'Scheduled deletion date: 2026-09-16T12:00:00.000Z',
+          'Platform: IOS',
+          'Device: iPhone 16 Pro',
+          'Approximate location: Toronto, CA',
+          'Sessions signed out: 3',
+          '',
+          'All existing sessions were signed out immediately.',
+          'You can cancel deletion in the Unicon app before the scheduled deletion date by confirming your email and current password.',
+          'If this was not you, cancel deletion and change your password immediately.',
+        ].join('\n'),
+      },
+      { idempotencyKey: 'delivery-id' },
+    );
+  });
+
+  it('sends a deletion-cancellation notification', async () => {
+    send.mockResolvedValue({ data: { id: 'provider-id' }, error: null });
+
+    await expect(
+      service.sendAccountDeletionCancelledEmail({
+        recipient: 'student@example.edu',
+        idempotencyKey: 'delivery-id',
+        occurredAt: new Date('2026-08-17T12:00:00.000Z'),
+        deviceModel: null,
+        platform: 'WEB',
+        locationCountryCode: null,
+        locationCity: null,
+      }),
+    ).resolves.toBe('provider-id');
+
+    expect(send).toHaveBeenCalledWith(
+      {
+        from: 'Unicon <test@unicon.local>',
+        to: ['student@example.edu'],
+        subject: 'Your Unicon account deletion was cancelled',
+        text: [
+          'Deletion of your Unicon account was cancelled.',
+          '',
+          'Cancelled at: 2026-08-17T12:00:00.000Z',
+          'Platform: WEB',
+          '',
+          'A new session was created. Previously revoked sessions and tokens remain invalid.',
+          'If this was not you, change your password immediately.',
+        ].join('\n'),
+      },
+      { idempotencyKey: 'delivery-id' },
+    );
+  });
+
+  it('sends a completed-deletion notification to the retained recipient', async () => {
+    send.mockResolvedValue({ data: { id: 'provider-id' }, error: null });
+
+    await expect(
+      service.sendAccountDeletedEmail({
+        recipient: 'student@example.edu',
+        idempotencyKey: 'delivery-id',
+        occurredAt: new Date('2026-09-16T12:00:00.000Z'),
+      }),
+    ).resolves.toBe('provider-id');
+
+    expect(send).toHaveBeenCalledWith(
+      {
+        from: 'Unicon <test@unicon.local>',
+        to: ['student@example.edu'],
+        subject: 'Your Unicon account was deleted',
+        text: [
+          'Your Unicon account was permanently deleted and its identifying information was anonymized.',
+          '',
+          'Completed at: 2026-09-16T12:00:00.000Z',
+          '',
+          'The deleted account cannot be restored.',
+          'You may register the same email address again, but it will create a new account and require email verification.',
+        ].join('\n'),
+      },
+      { idempotencyKey: 'delivery-id' },
+    );
+  });
 });

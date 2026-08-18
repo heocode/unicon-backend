@@ -387,6 +387,7 @@ export const ModelName = {
   User: 'User',
   PasswordResetToken: 'PasswordResetToken',
   PasswordResetRateLimit: 'PasswordResetRateLimit',
+  AccountDeletionCancellationRateLimit: 'AccountDeletionCancellationRateLimit',
   University: 'University',
   AllowedDomain: 'AllowedDomain',
   Session: 'Session',
@@ -407,7 +408,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "user" | "passwordResetToken" | "passwordResetRateLimit" | "university" | "allowedDomain" | "session" | "notificationDelivery" | "securityEvent"
+    modelProps: "user" | "passwordResetToken" | "passwordResetRateLimit" | "accountDeletionCancellationRateLimit" | "university" | "allowedDomain" | "session" | "notificationDelivery" | "securityEvent"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
@@ -630,6 +631,80 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         count: {
           args: Prisma.PasswordResetRateLimitCountArgs<ExtArgs>
           result: runtime.Types.Utils.Optional<Prisma.PasswordResetRateLimitCountAggregateOutputType> | number
+        }
+      }
+    }
+    AccountDeletionCancellationRateLimit: {
+      payload: Prisma.$AccountDeletionCancellationRateLimitPayload<ExtArgs>
+      fields: Prisma.AccountDeletionCancellationRateLimitFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.AccountDeletionCancellationRateLimitFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AccountDeletionCancellationRateLimitPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.AccountDeletionCancellationRateLimitFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AccountDeletionCancellationRateLimitPayload>
+        }
+        findFirst: {
+          args: Prisma.AccountDeletionCancellationRateLimitFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AccountDeletionCancellationRateLimitPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.AccountDeletionCancellationRateLimitFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AccountDeletionCancellationRateLimitPayload>
+        }
+        findMany: {
+          args: Prisma.AccountDeletionCancellationRateLimitFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AccountDeletionCancellationRateLimitPayload>[]
+        }
+        create: {
+          args: Prisma.AccountDeletionCancellationRateLimitCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AccountDeletionCancellationRateLimitPayload>
+        }
+        createMany: {
+          args: Prisma.AccountDeletionCancellationRateLimitCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.AccountDeletionCancellationRateLimitCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AccountDeletionCancellationRateLimitPayload>[]
+        }
+        delete: {
+          args: Prisma.AccountDeletionCancellationRateLimitDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AccountDeletionCancellationRateLimitPayload>
+        }
+        update: {
+          args: Prisma.AccountDeletionCancellationRateLimitUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AccountDeletionCancellationRateLimitPayload>
+        }
+        deleteMany: {
+          args: Prisma.AccountDeletionCancellationRateLimitDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.AccountDeletionCancellationRateLimitUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.AccountDeletionCancellationRateLimitUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AccountDeletionCancellationRateLimitPayload>[]
+        }
+        upsert: {
+          args: Prisma.AccountDeletionCancellationRateLimitUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AccountDeletionCancellationRateLimitPayload>
+        }
+        aggregate: {
+          args: Prisma.AccountDeletionCancellationRateLimitAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateAccountDeletionCancellationRateLimit>
+        }
+        groupBy: {
+          args: Prisma.AccountDeletionCancellationRateLimitGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AccountDeletionCancellationRateLimitGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.AccountDeletionCancellationRateLimitCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AccountDeletionCancellationRateLimitCountAggregateOutputType> | number
         }
       }
     }
@@ -1059,7 +1134,9 @@ export const UserScalarFieldEnum = {
   verificationTokenExpires: 'verificationTokenExpires',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt',
-  deletedAt: 'deletedAt'
+  deletedAt: 'deletedAt',
+  deletionRequestedAt: 'deletionRequestedAt',
+  deletionScheduledAt: 'deletionScheduledAt'
 } as const
 
 export type UserScalarFieldEnum = (typeof UserScalarFieldEnum)[keyof typeof UserScalarFieldEnum]
@@ -1086,6 +1163,16 @@ export const PasswordResetRateLimitScalarFieldEnum = {
 } as const
 
 export type PasswordResetRateLimitScalarFieldEnum = (typeof PasswordResetRateLimitScalarFieldEnum)[keyof typeof PasswordResetRateLimitScalarFieldEnum]
+
+
+export const AccountDeletionCancellationRateLimitScalarFieldEnum = {
+  key: 'key',
+  count: 'count',
+  windowEndAt: 'windowEndAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type AccountDeletionCancellationRateLimitScalarFieldEnum = (typeof AccountDeletionCancellationRateLimitScalarFieldEnum)[keyof typeof AccountDeletionCancellationRateLimitScalarFieldEnum]
 
 
 export const UniversityScalarFieldEnum = {
@@ -1526,6 +1613,7 @@ export type GlobalOmitConfig = {
   user?: Prisma.UserOmit
   passwordResetToken?: Prisma.PasswordResetTokenOmit
   passwordResetRateLimit?: Prisma.PasswordResetRateLimitOmit
+  accountDeletionCancellationRateLimit?: Prisma.AccountDeletionCancellationRateLimitOmit
   university?: Prisma.UniversityOmit
   allowedDomain?: Prisma.AllowedDomainOmit
   session?: Prisma.SessionOmit

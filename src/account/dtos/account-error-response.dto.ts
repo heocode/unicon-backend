@@ -49,3 +49,41 @@ export class SessionUnavailableErrorResponseDto {
   @ApiProperty({ example: 'The current session is unavailable.' })
   message!: string;
 }
+
+export class AccountStateChangedErrorResponseDto {
+  @ApiProperty({ example: 'ACCOUNT_STATE_CHANGED' })
+  code!: 'ACCOUNT_STATE_CHANGED';
+
+  @ApiProperty({
+    example: 'The account state changed while processing the request.',
+  })
+  message!: string;
+}
+
+export class InvalidCredentialsErrorResponseDto {
+  @ApiProperty({ example: 'INVALID_CREDENTIALS' })
+  code!: 'INVALID_CREDENTIALS';
+
+  @ApiProperty({ example: 'Invalid email or password.' })
+  message!: string;
+}
+
+export class AccountDeletionAlreadyCancelledErrorResponseDto {
+  @ApiProperty({ example: 'ACCOUNT_DELETION_ALREADY_CANCELLED' })
+  code!: 'ACCOUNT_DELETION_ALREADY_CANCELLED';
+
+  @ApiProperty({
+    example: 'Account deletion has already been cancelled. Please sign in.',
+  })
+  message!: string;
+}
+
+export class AccountDeletionGracePeriodExpiredErrorResponseDto {
+  @ApiProperty({ example: 'ACCOUNT_DELETION_GRACE_PERIOD_EXPIRED' })
+  code!: 'ACCOUNT_DELETION_GRACE_PERIOD_EXPIRED';
+
+  @ApiProperty({
+    example: 'The account deletion grace period has expired.',
+  })
+  message!: string;
+}

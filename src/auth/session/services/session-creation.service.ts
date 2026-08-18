@@ -1,5 +1,9 @@
 // NestJS
-import { ConflictException, Injectable } from '@nestjs/common';
+import {
+  ConflictException,
+  Injectable,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
 // Node.js
@@ -11,6 +15,8 @@ import { Prisma } from '../../../generated/prisma/client';
 // Internal services
 import { GeoIpService } from '../../../geo-ip/geo-ip.service';
 import { PrismaService } from '../../../prisma/prisma.service';
+import { isTransactionConflict } from '../../../prisma/utils/is-transaction-conflict.util';
+import { lockUserForUpdate } from '../../../prisma/utils/lock-user-for-update.util';
 import { RiskAnalysisService } from '../../../security/services/risk-analysis.service';
 import { SecurityEventService } from '../../../security/services/security-event.service';
 import { toSecurityEventSnapshot } from '../../../security/utils/security-event-snapshot.util';
@@ -19,7 +25,11 @@ import { SecureTokenService } from '../../services/secure-token.service';
 
 // Internal types
 import type { SessionMetadata } from '../../types/session-metadata.type';
-import type { CreatedSession } from '../types/session-tokens.type';
+import type {
+  CreatedSession,
+  PreparedSession,
+  SessionCreationResult,
+} from '../types/session-tokens.type';
 
 @Injectable()
 export class SessionCreationService {
@@ -47,6 +57,35 @@ export class SessionCreationService {
     userId: string,
     metadata: SessionMetadata = { platform: 'UNKNOWN' },
   ): Promise<CreatedSession> {
+    const preparedSession = await this.prepare(userId, metadata);
+    let result: SessionCreationResult | undefined;
+
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        result = await this.prisma.$transaction(
+          (transaction) =>
+            this.createInTransaction(transaction, preparedSession),
+          { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+        );
+        break;
+      } catch (error) {
+        if (isTransactionConflict(error) && attempt < 2) {
+          continue;
+        }
+
+        throw error;
+      }
+    }
+
+    this.assertCreated(result);
+
+    return preparedSession.result;
+  }
+
+  async prepare(
+    userId: string,
+    metadata: SessionMetadata = { platform: 'UNKNOWN' },
+  ): Promise<PreparedSession> {
     const now = new Date();
     const sessionId = randomUUID();
     const expiresAt = this.getNextExpiration(now);
@@ -60,116 +99,118 @@ export class SessionCreationService {
     const hashedRefreshToken = this.secureTokenService.hash(
       generatedTokens.refreshToken,
     );
-    const sessionData = {
-      id: sessionId,
-      userId,
-      hashedRefreshToken,
-      expiresAt,
-      ipAddress: metadata.ipAddress,
-      userAgent: metadata.userAgent,
-      deviceModelIdentifier: metadata.deviceModelIdentifier,
-      deviceModel: metadata.deviceModel,
-      platform: metadata.platform,
-      osVersion: metadata.osVersion,
-      appVersion: metadata.appVersion,
-      locationCountryCode: location?.countryCode,
-      locationCity: location?.city,
+
+    return {
+      result: {
+        accessToken: generatedTokens.accessToken,
+        refreshToken: generatedTokens.refreshToken,
+        sessionId,
+      },
+      data: {
+        id: sessionId,
+        userId,
+        hashedRefreshToken,
+        expiresAt,
+        ipAddress: metadata.ipAddress,
+        userAgent: metadata.userAgent,
+        deviceModelIdentifier: metadata.deviceModelIdentifier,
+        deviceModel: metadata.deviceModel,
+        platform: metadata.platform,
+        osVersion: metadata.osVersion,
+        appVersion: metadata.appVersion,
+        locationCountryCode: location?.countryCode,
+        locationCity: location?.city,
+      },
+      occurredAt: now,
     };
+  }
 
-    let sessionCreated = false;
+  async createInTransaction(
+    transaction: Prisma.TransactionClient,
+    preparedSession: PreparedSession,
+  ): Promise<SessionCreationResult> {
+    const { data, occurredAt } = preparedSession;
+    const user = await lockUserForUpdate(transaction, data.userId);
 
-    for (let attempt = 0; attempt < 3; attempt++) {
-      try {
-        sessionCreated = await this.prisma.$transaction(
-          async (transaction) => {
-            const activeSessionCount = await transaction.session.count({
-              where: {
-                userId,
-                revokedAt: null,
-                expiresAt: { gt: new Date() },
-              },
-            });
-
-            if (activeSessionCount >= this.activeSessionLimit) {
-              await this.securityEventService.record(
-                {
-                  type: 'SESSION_CREATION_FAILED',
-                  reason: 'ACTIVE_SESSION_LIMIT_REACHED',
-                  userId,
-                  ...toSecurityEventSnapshot(sessionData),
-                },
-                transaction,
-              );
-
-              return false;
-            }
-
-            const snapshot = toSecurityEventSnapshot(sessionData);
-            const risk = await this.riskAnalysisService.assessNewSession(
-              transaction,
-              userId,
-              snapshot,
-              now,
-            );
-
-            await transaction.session.create({ data: sessionData });
-            await this.securityEventService.record(
-              {
-                type: 'SESSION_CREATED',
-                userId,
-                actorSessionId: sessionId,
-                subjectSessionId: sessionId,
-                riskLevel: risk.level ?? undefined,
-                riskSignals: risk.signals,
-                occurredAt: now,
-                ...snapshot,
-              },
-              transaction,
-            );
-
-            if (risk.level === 'MEDIUM' || risk.level === 'HIGH') {
-              await this.securityEventService.record(
-                {
-                  type: 'SUSPICIOUS_ACTIVITY_DETECTED',
-                  userId,
-                  actorSessionId: sessionId,
-                  subjectSessionId: sessionId,
-                  riskLevel: risk.level,
-                  riskSignals: risk.signals,
-                  occurredAt: now,
-                  ...snapshot,
-                },
-                transaction,
-              );
-            }
-
-            return true;
-          },
-          { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
-        );
-        break;
-      } catch (error) {
-        if (this.isTransactionConflict(error) && attempt < 2) {
-          continue;
-        }
-
-        throw error;
-      }
+    if (!user || user.status !== 'ACTIVE') {
+      throw new UnauthorizedException({
+        code: 'ACCOUNT_UNAVAILABLE',
+        message: 'The account is unavailable.',
+      });
     }
 
-    if (!sessionCreated) {
+    const activeSessionCount = await transaction.session.count({
+      where: {
+        userId: data.userId,
+        revokedAt: null,
+        expiresAt: { gt: occurredAt },
+      },
+    });
+
+    if (activeSessionCount >= this.activeSessionLimit) {
+      await this.securityEventService.record(
+        {
+          type: 'SESSION_CREATION_FAILED',
+          reason: 'ACTIVE_SESSION_LIMIT_REACHED',
+          userId: data.userId,
+          ...toSecurityEventSnapshot(data),
+        },
+        transaction,
+      );
+
+      return { created: false };
+    }
+
+    const snapshot = toSecurityEventSnapshot(data);
+    const risk = await this.riskAnalysisService.assessNewSession(
+      transaction,
+      data.userId,
+      snapshot,
+      occurredAt,
+    );
+
+    await transaction.session.create({ data });
+    await this.securityEventService.record(
+      {
+        type: 'SESSION_CREATED',
+        userId: data.userId,
+        actorSessionId: data.id,
+        subjectSessionId: data.id,
+        riskLevel: risk.level ?? undefined,
+        riskSignals: risk.signals,
+        occurredAt,
+        ...snapshot,
+      },
+      transaction,
+    );
+
+    if (risk.level === 'MEDIUM' || risk.level === 'HIGH') {
+      await this.securityEventService.record(
+        {
+          type: 'SUSPICIOUS_ACTIVITY_DETECTED',
+          userId: data.userId,
+          actorSessionId: data.id,
+          subjectSessionId: data.id,
+          riskLevel: risk.level,
+          riskSignals: risk.signals,
+          occurredAt,
+          ...snapshot,
+        },
+        transaction,
+      );
+    }
+
+    return { created: true };
+  }
+
+  assertCreated(result: SessionCreationResult | undefined): void {
+    if (!result?.created) {
       throw new ConflictException({
         code: 'SESSION_LIMIT_REACHED',
         message: 'The active session limit has been reached.',
         activeSessionLimit: this.activeSessionLimit,
       });
     }
-
-    return {
-      accessToken: generatedTokens.accessToken,
-      refreshToken: generatedTokens.refreshToken,
-      sessionId,
-    };
   }
 
   private getNextExpiration(now: Date): Date {
@@ -177,27 +218,5 @@ export class SessionCreationService {
       Math.floor(now.getTime() / 1000) + this.inactivityTtlSeconds;
 
     return new Date(expiresAtSeconds * 1000);
-  }
-
-  private isTransactionConflict(error: unknown): boolean {
-    if (
-      error instanceof Prisma.PrismaClientKnownRequestError &&
-      error.code === 'P2034'
-    ) {
-      return true;
-    }
-
-    if (!(error instanceof Error) || error.name !== 'DriverAdapterError') {
-      return false;
-    }
-
-    const cause = error.cause;
-
-    return (
-      typeof cause === 'object' &&
-      cause !== null &&
-      'kind' in cause &&
-      cause.kind === 'TransactionWriteConflict'
-    );
   }
 }

@@ -6,6 +6,7 @@ const REQUIRED_ENVIRONMENT_VARIABLES = [
   'MAIL_FROM',
   'CLIENT_URL',
   'PASSWORD_RESET_RATE_LIMIT_SECRET',
+  'ACCOUNT_DELETION_CANCEL_RATE_LIMIT_SECRET',
 ] as const;
 
 export function validateEnvironment(
@@ -86,6 +87,36 @@ export function validateEnvironment(
     parsePositiveInteger(
       environment.PASSWORD_RESET_REQUEST_LIMIT_PER_IP,
       'PASSWORD_RESET_REQUEST_LIMIT_PER_IP',
+    );
+  validatedEnvironment.ACCOUNT_DELETION_GRACE_PERIOD_SECONDS =
+    parsePositiveInteger(
+      environment.ACCOUNT_DELETION_GRACE_PERIOD_SECONDS,
+      'ACCOUNT_DELETION_GRACE_PERIOD_SECONDS',
+    );
+  validatedEnvironment.ACCOUNT_DELETION_FINALIZATION_BATCH_SIZE =
+    parsePositiveInteger(
+      environment.ACCOUNT_DELETION_FINALIZATION_BATCH_SIZE,
+      'ACCOUNT_DELETION_FINALIZATION_BATCH_SIZE',
+    );
+  validatedEnvironment.ACCOUNT_DELETION_COMPLETION_RETRY_SECONDS =
+    parsePositiveInteger(
+      environment.ACCOUNT_DELETION_COMPLETION_RETRY_SECONDS,
+      'ACCOUNT_DELETION_COMPLETION_RETRY_SECONDS',
+    );
+  validatedEnvironment.ACCOUNT_DELETION_CANCEL_WINDOW_SECONDS =
+    parsePositiveInteger(
+      environment.ACCOUNT_DELETION_CANCEL_WINDOW_SECONDS,
+      'ACCOUNT_DELETION_CANCEL_WINDOW_SECONDS',
+    );
+  validatedEnvironment.ACCOUNT_DELETION_CANCEL_LIMIT_PER_EMAIL =
+    parsePositiveInteger(
+      environment.ACCOUNT_DELETION_CANCEL_LIMIT_PER_EMAIL,
+      'ACCOUNT_DELETION_CANCEL_LIMIT_PER_EMAIL',
+    );
+  validatedEnvironment.ACCOUNT_DELETION_CANCEL_LIMIT_PER_IP =
+    parsePositiveInteger(
+      environment.ACCOUNT_DELETION_CANCEL_LIMIT_PER_IP,
+      'ACCOUNT_DELETION_CANCEL_LIMIT_PER_IP',
     );
 
   validatedEnvironment.PORT = parsePort(environment.PORT);

@@ -13,6 +13,7 @@ describe('PasswordRecoveryService', () => {
   const metadata = { ipAddress: '192.0.2.1', platform: 'WEB' as const };
   const prisma = {
     $transaction: jest.fn(),
+    $queryRaw: jest.fn(),
     user: { findFirst: jest.fn(), updateMany: jest.fn() },
     passwordResetToken: {
       findFirst: jest.fn(),
@@ -43,6 +44,13 @@ describe('PasswordRecoveryService', () => {
       (callback: (client: typeof prisma) => Promise<unknown>) =>
         callback(prisma),
     );
+    prisma.$queryRaw.mockResolvedValue([
+      {
+        status: 'ACTIVE',
+        passwordHash: 'old-password-hash',
+        deletionScheduledAt: null,
+      },
+    ]);
     rateLimitService.consumeIp.mockResolvedValue({ allowed: true });
     rateLimitService.consumeEmail.mockResolvedValue({ allowed: true });
     securityEventService.snapshotFromMetadata.mockReturnValue({
@@ -69,6 +77,32 @@ describe('PasswordRecoveryService', () => {
         'If an eligible account exists, password reset instructions will be sent.',
     });
     expect(tokenService.generateWithSeconds).not.toHaveBeenCalled();
+  });
+
+  it('does not issue recovery credentials for a deletion-scheduled account', async () => {
+    prisma.user.findFirst.mockResolvedValue(null);
+
+    await expect(
+      service.requestReset({ email: 'scheduled@example.edu' }, metadata),
+    ).resolves.toEqual({
+      message:
+        'If an eligible account exists, password reset instructions will be sent.',
+    });
+
+    expect(prisma.user.findFirst).toHaveBeenCalledWith({
+      where: {
+        email: 'scheduled@example.edu',
+        status: 'ACTIVE',
+        emailVerified: true,
+      },
+      select: { id: true },
+    });
+    expect(tokenService.generateWithSeconds).not.toHaveBeenCalled();
+    expect(prisma.passwordResetToken.create).not.toHaveBeenCalled();
+    expect(securityEventService.record).not.toHaveBeenCalled();
+    expect(
+      notificationService.sendPasswordResetRequestNotification,
+    ).not.toHaveBeenCalled();
   });
 
   it('returns 429 when the IP request limit is exhausted', async () => {
@@ -163,5 +197,38 @@ describe('PasswordRecoveryService', () => {
     expect(
       notificationService.sendPasswordResetCompletedNotification,
     ).toHaveBeenCalledWith('user-id', 'event-id');
+  });
+
+  it('rejects reset when deletion wins the user lifecycle lock', async () => {
+    tokenService.hash.mockReturnValue('token-hash');
+    prisma.passwordResetToken.findFirst.mockResolvedValue({
+      id: 'token-id',
+      userId: 'user-id',
+      user: { passwordHash: 'old-password-hash' },
+    });
+    passwordService.hash.mockResolvedValue('next-password-hash');
+    prisma.$queryRaw.mockResolvedValue([
+      {
+        status: 'DELETION_SCHEDULED',
+        passwordHash: 'old-password-hash',
+        deletionScheduledAt: new Date(),
+      },
+    ]);
+
+    await expect(
+      service.reset(
+        {
+          token: 'a'.repeat(64),
+          newPassword: 'NewPassword2!',
+          confirmNewPassword: 'NewPassword2!',
+        },
+        metadata,
+      ),
+    ).rejects.toMatchObject<BadRequestException>({
+      response: { code: 'PASSWORD_RESET_TOKEN_INVALID' },
+    });
+
+    expect(prisma.passwordResetToken.updateMany).not.toHaveBeenCalled();
+    expect(prisma.user.updateMany).not.toHaveBeenCalled();
   });
 });

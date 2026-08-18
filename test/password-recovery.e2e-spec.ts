@@ -44,6 +44,12 @@ describe('Password recovery with PostgreSQL (e2e)', () => {
     jest
       .spyOn(mailService, 'sendPasswordResetCompletedEmail')
       .mockResolvedValue('reset-completed');
+    jest
+      .spyOn(mailService, 'sendAccountDeletionRequestedEmail')
+      .mockResolvedValue('deletion-requested');
+    jest
+      .spyOn(mailService, 'sendAccountDeletionCancelledEmail')
+      .mockResolvedValue('deletion-cancelled');
   });
 
   beforeEach(async () => {
@@ -157,6 +163,106 @@ describe('Password recovery with PostgreSQL (e2e)', () => {
       .expect(expected);
   });
 
+  it('keeps old reset tokens invalid through deletion and cancellation', async () => {
+    const session = await login(oldPassword, 'Current device');
+
+    await request(app.getHttpServer())
+      .post('/auth/forgot-password')
+      .send({ email })
+      .expect(202);
+    const oldResetToken = resetToken;
+    expect(oldResetToken).toHaveLength(64);
+
+    await request(app.getHttpServer())
+      .post('/account/deletion')
+      .set('Authorization', `Bearer ${session.accessToken}`)
+      .send({ currentPassword: oldPassword })
+      .expect(202);
+
+    await request(app.getHttpServer())
+      .post('/auth/forgot-password')
+      .send({ email })
+      .expect(202);
+    expect(resetToken).toBe(oldResetToken);
+    expect(
+      await prisma.passwordResetToken.count({
+        where: { user: { email }, invalidatedAt: null },
+      }),
+    ).toBe(0);
+
+    await expectResetTokenRejected(oldResetToken);
+
+    const cancellation = await request(app.getHttpServer())
+      .post('/account/deletion/cancel')
+      .send({ email, currentPassword: oldPassword })
+      .expect(200);
+    expect(cancellation.body).toMatchObject({
+      status: 'ACTIVE',
+      deletionCancelled: true,
+    });
+
+    await expectResetTokenRejected(oldResetToken);
+
+    await request(app.getHttpServer())
+      .post('/auth/forgot-password')
+      .send({ email })
+      .expect(202);
+    expect(resetToken).toHaveLength(64);
+    expect(resetToken).not.toBe(oldResetToken);
+
+    await request(app.getHttpServer())
+      .post('/auth/reset-password')
+      .send({
+        token: resetToken,
+        newPassword,
+        confirmNewPassword: newPassword,
+      })
+      .expect(200);
+  });
+
+  it('keeps password reset and deletion request mutually consistent under concurrency', async () => {
+    const session = await login(oldPassword, 'Current device');
+
+    await request(app.getHttpServer())
+      .post('/auth/forgot-password')
+      .send({ email })
+      .expect(202);
+
+    const [resetResponse, deletionResponse] = await Promise.all([
+      request(app.getHttpServer()).post('/auth/reset-password').send({
+        token: resetToken,
+        newPassword,
+        confirmNewPassword: newPassword,
+      }),
+      request(app.getHttpServer())
+        .post('/account/deletion')
+        .set('Authorization', `Bearer ${session.accessToken}`)
+        .send({ currentPassword: oldPassword }),
+    ]);
+
+    const user = await prisma.user.findUniqueOrThrow({
+      where: { email },
+      select: { status: true },
+    });
+
+    if (deletionResponse.status === 202) {
+      expect(resetResponse.status).toBe(400);
+      expect(resetResponse.body).toMatchObject({
+        code: 'PASSWORD_RESET_TOKEN_INVALID',
+      });
+      expect(user.status).toBe('DELETION_SCHEDULED');
+      return;
+    }
+
+    expect(resetResponse.status).toBe(200);
+    expect([401, 409]).toContain(deletionResponse.status);
+    expect(user.status).toBe('ACTIVE');
+    await request(app.getHttpServer())
+      .post('/auth/login')
+      .send({ email, password: newPassword })
+      .expect(201);
+  });
+
   it('returns a cooldown when the email request limit is exhausted', async () => {
     for (let attempt = 0; attempt < 3; attempt++) {
       await request(app.getHttpServer())
@@ -193,7 +299,22 @@ describe('Password recovery with PostgreSQL (e2e)', () => {
     return response.body as Tokens;
   }
 
+  async function expectResetTokenRejected(token: string): Promise<void> {
+    await request(app.getHttpServer())
+      .post('/auth/reset-password')
+      .send({
+        token,
+        newPassword,
+        confirmNewPassword: newPassword,
+      })
+      .expect(400)
+      .expect(({ body }) =>
+        expect(body).toMatchObject({ code: 'PASSWORD_RESET_TOKEN_INVALID' }),
+      );
+  }
+
   async function cleanDatabase() {
+    await prisma.accountDeletionCancellationRateLimit.deleteMany();
     await prisma.notificationDelivery.deleteMany();
     await prisma.securityEvent.deleteMany();
     await prisma.passwordResetToken.deleteMany();

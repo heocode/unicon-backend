@@ -47,7 +47,10 @@ the verification requirement.
 - `SecurityModule` owns the append-only security-event journal and its
   retention boundary. It does not send notifications or calculate risk.
 - `NotificationModule` owns best-effort notification orchestration and delivery
-  status. `MailModule` remains the Resend infrastructure adapter.
+  status. `NotificationDeliveryService` centralizes idempotent delivery
+  creation, retention, `SENT`/`FAILED` persistence, and retry claims while
+  domain notification services retain event lookup, payload construction, and
+  failure policy. `MailModule` remains the Resend infrastructure adapter.
 - `AccountModule` owns authenticated account-management flows. Password change
   keeps the caller's session, revokes other active sessions, and records the
   security event atomically.
@@ -540,6 +543,75 @@ active or location resolves to `null`.
 Local Postman requests normally use `127.0.0.1` or `::1`, so `location: null`
 is expected. End-to-end real-IP behavior must be tested behind the actual
 staging proxy/CDN.
+
+## Account-deletion lifecycle
+
+Stage 10 uses a configurable 30-day grace period. Only an authenticated
+`ACTIVE` account may request deletion, and the request requires verification
+of the current password. The account then enters `DELETION_SCHEDULED`, every
+session (including the caller) is revoked immediately, and outstanding
+verification and password-reset credentials are invalidated.
+
+A deletion-scheduled account cannot log in, refresh, access protected routes,
+or use password recovery. During the grace period, the user may cancel through
+a dedicated password-authenticated flow using the normalized account email and
+current password. Successful cancellation atomically restores `ACTIVE`, creates
+one completely new session, and returns its new access and refresh tokens. No
+previously revoked session or token becomes valid again. Password recovery for
+deletion cancellation is intentionally deferred to a separate future stage.
+
+Cancellation attempts are protected before account lookup and password
+comparison by independent database-backed fixed-window limits for normalized
+email and request IP. Bucket keys contain only HMAC-SHA-256 digests under a
+dedicated secret; raw email addresses and IP addresses are not stored in the
+rate-limit table. The default window is 15 minutes with limits of 5 attempts
+per email and 20 per IP. A rejected request returns the stable
+`RATE_LIMIT_EXCEEDED` code, `retryAfterSeconds`, and the matching `Retry-After`
+header. Serializable transactions and conflict retries make the limit shared
+across backend replicas.
+
+Committed deletion requests and cancellations dispatch best-effort email
+notifications through `AccountDeletionNotificationService` after the database
+transaction. Each delivery uses the corresponding security-event ID in its
+unique idempotency key, retains a recipient snapshot under the standard
+notification retention deadline, and records `SENT` or `FAILED`. Provider or
+delivery-storage failures never roll back the account transition or replace
+its successful HTTP response.
+
+After the deadline, a separately scheduled finalizer changes the account to
+the terminal `DELETED` state. Finalization keeps an anonymized `User` tombstone
+with the same ID so retained comments, likes, messages, future user-generated
+content, and security records can preserve referential integrity without
+exposing the former identity. Direct identifiers such as email and username
+are replaced with unique system values, authentication and recovery
+credentials are removed or made unusable, and the original email becomes
+available for a new registration that creates a different user ID and must
+complete college-email verification again.
+
+Finalization is implemented as the one-shot
+`npm run account-deletion:finalize` command for an external scheduler to run
+after the application has been built. It processes eligible users in
+configurable batches. Each short serializable transaction selects one user
+with `FOR UPDATE SKIP LOCKED`, rechecks the deadline, creates the
+`ACCOUNT_DELETED` event and a `PENDING` completion delivery containing the
+original recipient, deletes sessions and reset tokens, and replaces direct
+identifiers and authentication data. The tombstone email is
+`deleted+{userId}@deleted.invalid` and its username is `deleted_{userId}`.
+Multiple command instances may run safely because locked users are skipped and
+the terminal transition is conditional.
+
+The completion email is sent only after commit. A conditional update of the
+delivery attempt timestamp claims a `PENDING` or cooldown-eligible `FAILED`
+delivery, so parallel workers cannot send it simultaneously. A later command
+run retries old completion deliveries with the same provider idempotency key.
+Provider failure never reverses `DELETED`. The retry cooldown is configured by
+`ACCOUNT_DELETION_COMPLETION_RETRY_SECONDS` and defaults to five minutes.
+
+Security events and notification-delivery records remain only until their
+configured retention deadlines. No future user-owned relation may receive a
+destructive deletion cascade until its product ownership, presentation, and
+retention policy is explicitly defined. TOTP and passkey behavior remains out
+of scope while those features are deferred post-MVP.
 
 ## Current error handling
 

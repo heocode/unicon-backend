@@ -285,22 +285,47 @@ need one source of mapping data. It is not required by the backend contract.
 
 ## Stage 10: Account deletion
 
-Implement a re-authenticated deletion flow with a product-approved grace period
-and cancellation path. Current recommendation: 14–30 days.
+Implement a re-authenticated deletion flow with a configurable 30-day grace
+period and cancellation path. The agreed lifecycle is
+`ACTIVE → DELETION_SCHEDULED → ACTIVE | DELETED`.
 
-The design must define:
+The agreed product contract is:
 
-- immediate revocation of every session;
-- `deletionScheduledAt` and account status behavior;
-- cancellation rules;
-- deletion/anonymization of profile and future user-generated content;
+- requesting deletion requires an active session and the current password;
+- every session, including the caller, is revoked immediately;
+- outstanding verification and password-reset credentials are invalidated;
+- login, refresh, protected routes, and password recovery are unavailable
+  while deletion is scheduled;
+- cancellation uses a dedicated email-and-current-password flow and atomically
+  creates one new session, so the user returns directly to the account without
+  repeating login;
+- cancellation never restores old sessions or tokens;
+- cancellation attempts are limited before account lookup by independent
+  database-backed HMAC email and IP buckets; the default is 5 attempts per
+  email and 20 per IP in a 15-minute fixed window;
+- password recovery for cancellation is deferred to a separate future stage;
+- after the deadline, the account becomes an anonymized `DELETED` tombstone
+  rather than being physically removed;
+- the tombstone keeps the original user ID so comments, likes, messages, and
+  future user-generated content can remain associated with a non-identifying
+  system author;
+- email, username, and authentication data are replaced or removed, and the
+  original email may register a new, independently verified account with a new
+  user ID;
+- security events and notification deliveries remain only until their
+  configured retention deadlines;
 - removal of passkeys, TOTP secrets, and recovery codes if those post-MVP
   features have been implemented, plus removal of applicable tokens;
-- retention requirements for security events;
-- confirmation and completion notifications.
+- idempotent best-effort request and cancellation notifications are
+  implemented after commit;
+- finalization is implemented by a scheduler-operated one-shot CLI using
+  `FOR UPDATE SKIP LOCKED`, conditional terminal transitions, anonymized
+  tombstones, retained audit data, and retryable transactional completion
+  deliveries.
 
-Do not implement a cascade until ownership and retention rules for all future
-content models are known.
+Do not add a destructive cascade to any future user-owned model until its
+ownership, retained presentation, anonymized-author behavior, and retention
+rules are explicitly defined.
 
 ## Stage 11: Stable public contracts
 

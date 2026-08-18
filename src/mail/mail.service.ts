@@ -12,6 +12,11 @@ import { MailDeliveryError } from '../common/errors/mail-delivery.error';
 import type { NewSessionEmail } from './types/new-session-email.type';
 import type { PasswordChangedEmail } from './types/password-changed-email.type';
 import type {
+  AccountDeletionCancelledEmail,
+  AccountDeletedEmail,
+  AccountDeletionRequestedEmail,
+} from './types/account-deletion-email.type';
+import type {
   PasswordResetCompletedEmail,
   PasswordResetRequestEmail,
 } from './types/password-reset-email.type';
@@ -217,6 +222,114 @@ export class MailService {
         throw error;
       }
 
+      throw new MailDeliveryError();
+    }
+  }
+
+  async sendAccountDeletionRequestedEmail(
+    notification: AccountDeletionRequestedEmail,
+  ): Promise<string> {
+    const details = [
+      `Requested at: ${notification.occurredAt.toISOString()}`,
+      `Scheduled deletion date: ${notification.deletionScheduledAt.toISOString()}`,
+      notification.platform ? `Platform: ${notification.platform}` : undefined,
+      notification.deviceModel
+        ? `Device: ${notification.deviceModel}`
+        : undefined,
+      this.formatLocation(notification),
+      `Sessions signed out: ${notification.revokedSessionsCount}`,
+    ].filter((line): line is string => Boolean(line));
+
+    try {
+      const { data, error } = await this.resend.emails.send(
+        {
+          from: this.mailFrom,
+          to: [notification.recipient],
+          subject: 'Your Unicon account is scheduled for deletion',
+          text: [
+            'Deletion was requested for your Unicon account.',
+            '',
+            ...details,
+            '',
+            'All existing sessions were signed out immediately.',
+            'You can cancel deletion in the Unicon app before the scheduled deletion date by confirming your email and current password.',
+            'If this was not you, cancel deletion and change your password immediately.',
+          ].join('\n'),
+        },
+        { idempotencyKey: notification.idempotencyKey },
+      );
+
+      if (error || !data) throw new MailDeliveryError(error?.message);
+      return data.id;
+    } catch (error) {
+      if (error instanceof MailDeliveryError) throw error;
+      throw new MailDeliveryError();
+    }
+  }
+
+  async sendAccountDeletionCancelledEmail(
+    notification: AccountDeletionCancelledEmail,
+  ): Promise<string> {
+    const details = [
+      `Cancelled at: ${notification.occurredAt.toISOString()}`,
+      notification.platform ? `Platform: ${notification.platform}` : undefined,
+      notification.deviceModel
+        ? `Device: ${notification.deviceModel}`
+        : undefined,
+      this.formatLocation(notification),
+    ].filter((line): line is string => Boolean(line));
+
+    try {
+      const { data, error } = await this.resend.emails.send(
+        {
+          from: this.mailFrom,
+          to: [notification.recipient],
+          subject: 'Your Unicon account deletion was cancelled',
+          text: [
+            'Deletion of your Unicon account was cancelled.',
+            '',
+            ...details,
+            '',
+            'A new session was created. Previously revoked sessions and tokens remain invalid.',
+            'If this was not you, change your password immediately.',
+          ].join('\n'),
+        },
+        { idempotencyKey: notification.idempotencyKey },
+      );
+
+      if (error || !data) throw new MailDeliveryError(error?.message);
+      return data.id;
+    } catch (error) {
+      if (error instanceof MailDeliveryError) throw error;
+      throw new MailDeliveryError();
+    }
+  }
+
+  async sendAccountDeletedEmail(
+    notification: AccountDeletedEmail,
+  ): Promise<string> {
+    try {
+      const { data, error } = await this.resend.emails.send(
+        {
+          from: this.mailFrom,
+          to: [notification.recipient],
+          subject: 'Your Unicon account was deleted',
+          text: [
+            'Your Unicon account was permanently deleted and its identifying information was anonymized.',
+            '',
+            `Completed at: ${notification.occurredAt.toISOString()}`,
+            '',
+            'The deleted account cannot be restored.',
+            'You may register the same email address again, but it will create a new account and require email verification.',
+          ].join('\n'),
+        },
+        { idempotencyKey: notification.idempotencyKey },
+      );
+
+      if (error || !data) throw new MailDeliveryError(error?.message);
+      return data.id;
+    } catch (error) {
+      if (error instanceof MailDeliveryError) throw error;
       throw new MailDeliveryError();
     }
   }

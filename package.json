@@ -10,6 +10,7 @@
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
     "geoip:lookup": "node scripts/lookup-geoip.mjs",
     "geoip:update": "docker compose run --rm geoipupdate",
+    "account-deletion:finalize": "node dist/src/account/commands/finalize-account-deletions.js",
     "start": "nest start",
     "start:dev": "nest start --watch",
     "start:debug": "nest start --debug --watch",

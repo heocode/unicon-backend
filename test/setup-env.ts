@@ -18,6 +18,14 @@ process.env.PASSWORD_RESET_REQUEST_WINDOW_SECONDS ??= '900';
 process.env.PASSWORD_RESET_REQUEST_LIMIT_PER_EMAIL ??= '3';
 process.env.PASSWORD_RESET_REQUEST_LIMIT_PER_IP ??= '10';
 process.env.PASSWORD_RESET_RATE_LIMIT_SECRET ??= 'test-recovery-rate-secret';
+process.env.ACCOUNT_DELETION_GRACE_PERIOD_SECONDS ??= '2592000';
+process.env.ACCOUNT_DELETION_FINALIZATION_BATCH_SIZE ??= '100';
+process.env.ACCOUNT_DELETION_COMPLETION_RETRY_SECONDS ??= '300';
+process.env.ACCOUNT_DELETION_CANCEL_WINDOW_SECONDS ??= '900';
+process.env.ACCOUNT_DELETION_CANCEL_LIMIT_PER_EMAIL ??= '5';
+process.env.ACCOUNT_DELETION_CANCEL_LIMIT_PER_IP ??= '20';
+process.env.ACCOUNT_DELETION_CANCEL_RATE_LIMIT_SECRET ??=
+  'test-account-deletion-cancel-rate-secret';
 process.env.RESEND_API_KEY ??= 'test-resend-api-key';
 process.env.MAIL_FROM ??= 'test@unicon.local';
 process.env.CLIENT_URL ??= 'http://localhost:3001';

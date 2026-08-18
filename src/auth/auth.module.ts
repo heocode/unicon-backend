@@ -56,6 +56,6 @@ import { RecoveryRateLimitService } from './recovery/services/recovery-rate-limi
     RecoveryRateLimitService,
     RefreshTokenGuard,
   ],
-  exports: [AuthService],
+  exports: [AuthService, SessionCreationService],
 })
 export class AuthModule {}

@@ -131,6 +131,7 @@ export class AuthService {
         passwordHash: true,
         status: true,
         verificationEmailSentAt: true,
+        deletionScheduledAt: true,
       },
     });
 
@@ -159,6 +160,24 @@ export class AuthService {
         message: 'Please verify your student email before continuing.',
         email: existingUser.email,
         resendAvailableInSeconds,
+      });
+    }
+
+    if (
+      existingUser.status === 'DELETION_SCHEDULED' &&
+      existingUser.deletionScheduledAt
+    ) {
+      const canCancel = existingUser.deletionScheduledAt > new Date();
+
+      throw new ForbiddenException({
+        code: canCancel
+          ? 'ACCOUNT_DELETION_SCHEDULED'
+          : 'ACCOUNT_DELETION_GRACE_PERIOD_EXPIRED',
+        message: canCancel
+          ? 'Account deletion is scheduled.'
+          : 'The account deletion grace period has expired.',
+        deletionScheduledAt: existingUser.deletionScheduledAt,
+        canCancel,
       });
     }
 
