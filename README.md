@@ -1,143 +1,321 @@
-Unicon Backend
+# Unicon Backend
 
-Backend service for Unicon — a campus networking application for students.
+Backend API for Unicon, a campus community application for verified college
+students.
 
-This repository contains the server-side API built with NestJS, TypeScript, Prisma, PostgreSQL, and Docker.
+The service is built with NestJS, TypeScript, Prisma, and PostgreSQL. Its
+current MVP surface covers email-based registration and verification,
+credential authentication, rotating sessions, password recovery, profile
+access, security events, and the account-deletion lifecycle.
 
-⸻
+TOTP, passkeys, OAuth, and email-OTP login are intentionally deferred until
+their post-MVP stages are activated.
 
-Tech Stack
+## Technology
 
-- NestJS
-- TypeScript
-- Prisma ORM
-- PostgreSQL
-- Docker & Docker Compose
-- Jest
+- NestJS 11 and TypeScript
+- Prisma 7 with PostgreSQL 17
+- JWT access and rotating refresh tokens
+- Resend for transactional email
+- MaxMind GeoLite2 City for optional, approximate session location
+- Swagger/OpenAPI
+- Jest, Supertest, and database-backed end-to-end tests
+- Docker Compose for local PostgreSQL and GeoIP database updates
 
-⸻
+## Documentation
 
-Project Structure
+- [`AGENTS.md`](AGENTS.md) — repository development and security rules
+- [`docs/auth-architecture.md`](docs/auth-architecture.md) — implemented auth,
+  session, notification, and account-deletion architecture
+- [`docs/auth-roadmap.md`](docs/auth-roadmap.md) — completed and future auth
+  stages
+- [`docs/public-api-contract.md`](docs/public-api-contract.md) — stable MVP
+  endpoints, response DTOs, error codes, and mobile-client requirements
 
-src/
-├── app.controller.ts # HTTP routes
-├── app.service.ts # Business logic
-├── app.module.ts # Main application module
-└── main.ts # Application entry point
-prisma/
-├── schema.prisma # Database schema
-└── migrations/ # Database migration history
-test/
-└── app.e2e-spec.ts # End-to-end tests
+Read `AGENTS.md` before changing the repository. Auth work must also follow the
+three documents above.
 
-⸻
+## Local setup
 
-Getting Started
+### Prerequisites
 
-Install dependencies
+- Node.js and npm
+- Docker with Docker Compose
+- A Resend API key and an approved sender for real email flows
+- MaxMind credentials only when local GeoIP lookup is required
 
+### 1. Install dependencies
+
+```bash
 npm install
+```
 
-Start PostgreSQL
+### 2. Configure the environment
 
-docker compose up -d
+```bash
+cp .env.example .env
+```
 
-Run database migrations
+Replace every placeholder required by
+[`src/config/environment.validation.ts`](src/config/environment.validation.ts).
+Generate independent secrets rather than reusing one value:
 
+```bash
+openssl rand -hex 32
+```
+
+At minimum, configure:
+
+- `DATABASE_URL`
+- `JWT_ACCESS_SECRET`
+- `JWT_REFRESH_SECRET`
+- `RESEND_API_KEY`
+- `MAIL_FROM`
+- `CLIENT_URL`
+- `PASSWORD_RESET_RATE_LIMIT_SECRET`
+- `ACCOUNT_DELETION_CANCEL_RATE_LIMIT_SECRET`
+
+Durations use positive integer seconds. Never commit `.env`, API keys, JWT
+secrets, rate-limit secrets, credentials, or raw authentication tokens.
+
+### 3. Start PostgreSQL
+
+```bash
+docker compose up -d postgres
+```
+
+The default Compose service exposes PostgreSQL at `localhost:5432` with the
+development database `unicon`.
+
+### 4. Apply migrations and seed development data
+
+```bash
 npx prisma migrate dev
+npx prisma db seed
+```
 
-Start the development server
+The seed is idempotent and creates the current development university and
+allowed-domain records. Review [`prisma/seed.ts`](prisma/seed.ts) before using
+its data outside local development.
 
+### 5. Start the API
+
+```bash
 npm run start:dev
+```
 
-The API will be available at:
+With the default configuration:
 
-http://localhost:3000
+- API base URL: `http://localhost:3000`
+- Swagger UI: `http://localhost:3000/api/docs`
 
-⸻
+The application validates its environment during startup and exits when a
+required setting is absent or malformed.
 
-Environment Variables
+## Public API contract
 
-Create a .env file in the project root.
+Public auth, account, and profile endpoints have explicit success DTOs and
+Swagger responses. Every non-2xx JSON response uses the stable envelope:
 
-Example:
+```json
+{
+  "code": "INVALID_CREDENTIALS",
+  "message": "Invalid email or password."
+}
+```
 
-DATABASE_URL="postgresql://postgres:postgres@localhost:5432/unicon?schema=public"
-PORT=3000
+Structured context is exposed only when documented:
 
-⸻
+```json
+{
+  "code": "RATE_LIMIT_EXCEEDED",
+  "message": "Too many requests. Please try again later.",
+  "details": {
+    "retryAfterSeconds": 60
+  }
+}
+```
 
-Useful Commands
+Clients must branch on `code`, never on the English `message`. Validation
+failures use `VALIDATION_FAILED` with `details.violations`. Rate-limited
+responses also include an authoritative `Retry-After` header.
 
-Start development server
+Access and refresh tokens belong to one server-side session. Refresh rotation
+is atomic, and a refresh token can be successfully used only once. Raw tokens
+and internal Prisma records must never be logged or returned outside their
+documented public DTOs.
 
-npm run start:dev
+See [`docs/public-api-contract.md`](docs/public-api-contract.md) for the full
+endpoint inventory and stable error-code catalog.
 
-Build the project
+## Project structure
 
+```text
+src/
+├── account/       Password change and account-deletion lifecycle
+├── auth/          Registration, verification, login, recovery, and sessions
+├── common/        Shared public HTTP contracts, filters, errors, and utilities
+├── config/        Environment validation
+├── geo-ip/        Optional local MaxMind lookup and hot reload
+├── mail/          Transactional email provider integration
+├── notifications/ Security and account notification coordination
+├── prisma/        Database service and transaction utilities
+├── profile/       Public profile queries and mapping
+├── security/      Risk evaluation and security-event behavior
+├── swagger/       Focused reusable OpenAPI configuration and decorators
+└── generated/     Generated Prisma client; never edit manually
+
+prisma/
+├── migrations/    Ordered database migration history
+├── schema.prisma  Database schema
+└── seed.ts        Idempotent local development seed
+
+test/              HTTP/OpenAPI and real PostgreSQL end-to-end suites
+```
+
+Controllers stay thin. Domain behavior belongs in focused services, external
+input is validated with DTOs at the HTTP boundary, and public responses are
+mapped rather than exposing persistence records directly.
+
+## Testing
+
+### Unit tests
+
+```bash
+npm test -- --runInBand
+```
+
+### End-to-end tests
+
+```bash
+npm run test:e2e -- --runInBand
+```
+
+The e2e command prepares a dedicated PostgreSQL database, applies migrations,
+and runs real HTTP flows through guards, services, and Prisma. It uses
+`TEST_DATABASE_URL` when provided, otherwise it defaults to:
+
+```text
+postgresql://postgres:postgres@localhost:5432/unicon_test
+```
+
+For safety, preparation and destructive cleanup refuse to operate unless the
+database name ends with `_test`. Do not point e2e tests at development,
+staging, or production data.
+
+The suite covers validation and public errors, registration contracts,
+sessions, refresh rotation and reuse, password recovery, profile safety,
+account deletion, rate limits, concurrency, and generated OpenAPI structure.
+
+### Full handoff checks
+
+```bash
 npm run build
+npm run lint -- --no-fix
+npm test -- --runInBand
+npm run test:e2e -- --runInBand
+npx prisma validate
+npx prisma migrate status
+```
 
-Run tests
+## Database workflow
 
-npm test
+After changing [`prisma/schema.prisma`](prisma/schema.prisma):
 
-Run E2E tests
+```bash
+npx prisma migrate dev --name describe_the_change
+npx prisma generate
+npx prisma validate
+```
 
-npm run test:e2e
+Every schema change requires a migration and regenerated client. Never edit
+`src/generated/prisma` manually, and never introduce silent data loss in a
+migration.
 
-Run linter
+Useful inspection commands:
 
-npm run lint
-
-Open Prisma Studio
-
+```bash
+npx prisma migrate status
 npx prisma studio
+```
 
-Update the local GeoLite2 City database
+## Account-deletion finalization
 
-npm run geoip:update
+An account-deletion request immediately revokes active sessions and starts the
+configured grace period. Cancellation creates a completely new session and
+token pair. Expired requests are finalized by a one-shot command intended for
+an external scheduler:
 
-Test the local database without changing proxy trust settings
+```bash
+npm run build
+npm run account-deletion:finalize
+```
 
+The command processes configured batches with database locking, anonymizes
+direct identifiers, removes authentication material, and retries completion
+notifications without reversing a completed deletion. Operational details are
+documented in [`docs/auth-architecture.md`](docs/auth-architecture.md).
+
+## GeoIP
+
+GeoIP is optional and best-effort. Authentication continues when the database
+is missing, stale, or cannot be reloaded.
+
+To enable local lookup:
+
+1. Set `MAXMIND_ACCOUNT_ID` and `MAXMIND_LICENSE_KEY` in `.env`.
+2. Download the database with the official MaxMind updater:
+
+   ```bash
+   npm run geoip:update
+   ```
+
+3. Set `GEOIP_ENABLED=true` and keep `GEOIP_DATABASE_PATH` pointed at the
+   downloaded database.
+
+The file is stored at `data/geoip/GeoLite2-City.mmdb` and is excluded from Git
+and the Docker build context. A new database is validated before the active
+reader is swapped; on failure, the previous reader remains active.
+
+Test a local lookup without changing proxy trust:
+
+```bash
 npm run geoip:lookup -- 8.8.8.8
+```
 
-Stop Docker containers
+Client IP and device metadata are informational snapshots and must not be
+treated as proof of identity or physical presence.
 
-docker compose down
+## Useful commands
 
-⸻
+| Command                             | Purpose                                          |
+| ----------------------------------- | ------------------------------------------------ |
+| `npm run start:dev`                 | Start NestJS in watch mode                       |
+| `npm run build`                     | Compile the application                          |
+| `npm run start:prod`                | Run the compiled application                     |
+| `npm run lint -- --no-fix`          | Check lint without modifying files               |
+| `npm run format`                    | Format source and tests                          |
+| `npm test -- --runInBand`           | Run unit tests serially                          |
+| `npm run test:e2e -- --runInBand`   | Prepare the test DB and run all e2e tests        |
+| `npm run geoip:update`              | Download GeoLite2 City with the official updater |
+| `npm run geoip:lookup -- <ip>`      | Inspect a local GeoIP result                     |
+| `npm run account-deletion:finalize` | Finalize eligible deletion requests              |
+| `docker compose down`               | Stop local Compose services                      |
 
-GeoIP
+## Security notes
 
-Session locations are resolved locally with the MaxMind GeoLite2 City database.
-Add MAXMIND_ACCOUNT_ID and MAXMIND_LICENSE_KEY to .env, then run the official
-MaxMind geoipupdate container:
+- Store refresh tokens only as cryptographic hashes.
+- Never log raw access, refresh, verification, reset, recovery, or challenge
+  tokens.
+- Access authorization checks both the JWT and the referenced session/account
+  state.
+- Session and device metadata may be missing or spoofed and is not a security
+  signal by itself.
+- GeoIP failure must never prevent authentication.
+- Suspicious activity currently creates events and notifications rather than
+  automatically blocking accounts.
+- Production proxy trust must match the deployed topology; do not enable
+  arbitrary proxy trust for local convenience.
 
-npm run geoip:update
-
-The database is stored at data/geoip/GeoLite2-City.mmdb and is intentionally
-excluded from Git and the Docker build context. Set GEOIP_ENABLED=false when
-the database is not available. Docker is required to update the database, but
-the NestJS development server can continue to run directly on the host. GeoIP
-lookup is best-effort and never prevents authentication.
-
-The backend checks GEOIP_DATABASE_PATH at the interval configured by
-GEOIP_RELOAD_INTERVAL_SECONDS. A new database is validated before the active
-reader is replaced; if reload fails, the previous reader remains available.
-
-⸻
-
-Git Workflow
-
-Development is done using feature branches.
-
-Example:
-
-git checkout -b feature/auth
-
-After a feature is completed:
-
-1. Commit your changes.
-2. Push the branch.
-3. Open a Pull Request into main.
-4. Merge after review.
+Report security-sensitive findings privately rather than opening an issue that
+contains credentials, tokens, personal data, or exploit details.
