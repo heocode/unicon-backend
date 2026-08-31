@@ -2,6 +2,8 @@
 
 Read this file before changing the repository. For auth work, also read
 `docs/auth-architecture.md` and `docs/auth-roadmap.md`.
+For Profile or media work, read `docs/profile-architecture.md`. For moderation
+work, also read `docs/moderation-architecture.md`.
 
 ## Project conventions
 
@@ -129,4 +131,3 @@ npx prisma migrate status
 
 - Preserve unrelated user changes in a dirty worktree. Do not edit generated
   files manually, reset the worktree, or use destructive Git commands.
-

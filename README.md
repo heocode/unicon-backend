@@ -31,9 +31,15 @@ their post-MVP stages are activated.
   stages
 - [`docs/public-api-contract.md`](docs/public-api-contract.md) — stable MVP
   endpoints, response DTOs, error codes, and mobile-client requirements
+- [`docs/profile-architecture.md`](docs/profile-architecture.md) — accepted
+  Onboarding, Profile, Profile Photo, media, storage, and delivery architecture
+- [`docs/moderation-architecture.md`](docs/moderation-architecture.md) —
+  provider-neutral moderation, `profile-photo-v1` policy, recovery, audit,
+  reuse, visibility, and human-review architecture
 
 Read `AGENTS.md` before changing the repository. Auth work must also follow the
-three documents above.
+three auth documents above. Profile, media, and moderation work must follow
+their respective architecture documents.
 
 ## Local setup
 
