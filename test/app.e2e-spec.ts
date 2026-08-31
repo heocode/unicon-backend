@@ -57,7 +57,6 @@ describe('Application validation (e2e)', () => {
       .send({
         email: 'student@my.centennialcollege.ca',
         password: 'password',
-        confirmedPassword: 'password',
       })
       .expect(400)
       .expect(({ body }) => {
@@ -85,7 +84,6 @@ describe('Application validation (e2e)', () => {
       .send({
         email: 'student@my.centennialcollege.ca',
         password: 'Password1!',
-        confirmedPassword: 'Password1!',
       })
       .expect(201)
       .expect({
@@ -101,7 +99,6 @@ describe('Application validation (e2e)', () => {
       .send({
         email: 'student@my.centennialcollege.ca',
         password: 'Password1!',
-        confirmedPassword: 'Password1!',
         role: 'ADMIN',
       })
       .expect(400)
@@ -123,13 +120,39 @@ describe('Application validation (e2e)', () => {
     expect(authService.register).not.toHaveBeenCalled();
   });
 
+  it('rejects the removed confirmedPassword field', async () => {
+    await request(app.getHttpServer())
+      .post('/auth/register')
+      .send({
+        email: 'student@my.centennialcollege.ca',
+        password: 'Password1!',
+        confirmedPassword: 'Password1!',
+      })
+      .expect(400)
+      .expect(({ body }) => {
+        expect(body).toMatchObject({
+          code: 'VALIDATION_FAILED',
+          details: {
+            violations: [
+              {
+                field: 'confirmedPassword',
+                code: 'UNKNOWN_FIELD',
+                message: 'This field is not allowed.',
+              },
+            ],
+          },
+        });
+      });
+
+    expect(authService.register).not.toHaveBeenCalled();
+  });
+
   it('returns every validation violation in one stable public envelope', async () => {
     await request(app.getHttpServer())
       .post('/auth/register')
       .send({
         email: 'not-an-email',
         password: 'weak',
-        confirmedPassword: 42,
         unexpected: true,
       })
       .expect(400)
@@ -140,7 +163,6 @@ describe('Application validation (e2e)', () => {
           expect.arrayContaining([
             expect.objectContaining({ field: 'email' }),
             expect.objectContaining({ field: 'password' }),
-            expect.objectContaining({ field: 'confirmedPassword' }),
             expect.objectContaining({
               field: 'unexpected',
               code: 'UNKNOWN_FIELD',

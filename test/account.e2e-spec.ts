@@ -622,7 +622,6 @@ describe('Account password change with PostgreSQL (e2e)', () => {
       .send({
         email,
         password: 'RegisteredAgain1!',
-        confirmedPassword: 'RegisteredAgain1!',
       })
       .expect(201);
     const replacement = await prisma.user.findUniqueOrThrow({

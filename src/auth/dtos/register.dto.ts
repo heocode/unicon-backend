@@ -34,12 +34,4 @@ export class RegisterDto {
     message: PASSWORD_VALIDATION_MESSAGE,
   })
   password!: string;
-
-  @ApiProperty({
-    example: 'Password123!',
-    description: 'Password confirmation.',
-  })
-  @IsString()
-  @IsNotEmpty()
-  confirmedPassword!: string;
 }

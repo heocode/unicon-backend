@@ -115,6 +115,17 @@ describe('Public OpenAPI contract (e2e)', () => {
     );
   });
 
+  it('documents registration with one password field', () => {
+    const document = SwaggerModule.createDocument(app, createSwaggerConfig());
+    const schema = document.components?.schemas?.RegisterDto;
+
+    expect(schema).toBeDefined();
+    expect(schema).toHaveProperty('required', ['email', 'password']);
+    expect(schema).toHaveProperty('properties.email');
+    expect(schema).toHaveProperty('properties.password');
+    expect(schema).not.toHaveProperty('properties.confirmedPassword');
+  });
+
   it('documents accepted informational session metadata headers', () => {
     const document = SwaggerModule.createDocument(app, createSwaggerConfig());
 

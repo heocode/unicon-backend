@@ -21,7 +21,6 @@ export function ApiRegister() {
       codes: [
         'VALIDATION_FAILED',
         'MALFORMED_JSON',
-        'PASSWORDS_DO_NOT_MATCH',
         'EMAIL_DOMAIN_NOT_ALLOWED',
       ],
       description: 'The registration request is invalid or ineligible.',

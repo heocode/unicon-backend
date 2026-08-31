@@ -182,11 +182,23 @@ does not reject an otherwise valid authentication flow.
 
 ## Registration and email verification
 
+`POST /auth/register` accepts the normalized institutional email and one
+password field:
+
+```json
+{
+  "email": "student@university.ca",
+  "password": "Password123!"
+}
+```
+
+Passwords require at least eight characters, including at least one lowercase
+letter, one uppercase letter, one number, and one special character.
+
 Registration flow:
 
 ```text
 RegisterDto validation
-→ confirm passwords match
 → reject an existing email
 → verify active AllowedDomain
 → hash password
