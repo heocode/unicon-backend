@@ -16,8 +16,9 @@ image-processing, CDN, upload, or moderation infrastructure.
 Onboarding is a post-authentication flow:
 
 ```text
-register
-→ verify email
+institutional email
+→ AuthenticationChallenge
+→ verify OTP or magic link
 → receive access and refresh tokens
 → onboarding
 → profile
@@ -99,9 +100,11 @@ valid local token pair
 
 The first Main App destination is initially Profile and may later become Feed.
 
-A pending user does not have a token pair. The Verification flow is restored
-from local pending-registration state or from `EMAIL_NOT_VERIFIED` after a
-login attempt; it is not discovered through authenticated `/profile/me`.
+An unconsumed authentication challenge does not have a token pair or a User.
+The mobile client restores the verification screen from its local active
+`challengeId`; pending authentication is not discovered through authenticated
+`/profile/me`. A new `ACTIVE` User is created only after successful proof of an
+allowed institutional email.
 
 ## Profile Photo product model
 

@@ -3,13 +3,17 @@
 Backend API for Unicon, a campus community application for verified college
 students.
 
-The service is built with NestJS, TypeScript, Prisma, and PostgreSQL. Its
-current MVP surface covers email-based registration and verification,
-credential authentication, rotating sessions, password recovery, profile
-access, security events, and the account-deletion lifecycle.
+The service is built with NestJS, TypeScript, Prisma, and PostgreSQL. The
+approved mobile v1 authentication contract is passwordless: one institutional
+email challenge carries a six-digit OTP and a magic link, then converges on
+rotating server-side sessions. Profile access, security events, and the
+account-deletion lifecycle remain attached to the stable `User.id`.
 
-TOTP, passkeys, OAuth, and email-OTP login are intentionally deferred until
-their post-MVP stages are activated.
+This branch is migrating from the previous password implementation. The target
+contract is defined in the auth documentation and is not complete until its
+roadmap stages, migrations, runtime code, and database-backed tests are
+delivered. Passwords, passkeys, OAuth, personal recovery email, and in-app
+delivery are outside v1.
 
 ## Technology
 
@@ -25,12 +29,12 @@ their post-MVP stages are activated.
 ## Documentation
 
 - [`AGENTS.md`](AGENTS.md) — repository development and security rules
-- [`docs/auth-architecture.md`](docs/auth-architecture.md) — implemented auth,
-  session, notification, and account-deletion architecture
-- [`docs/auth-roadmap.md`](docs/auth-roadmap.md) — completed and future auth
-  stages
-- [`docs/public-api-contract.md`](docs/public-api-contract.md) — stable MVP
-  endpoints, response DTOs, error codes, and mobile-client requirements
+- [`docs/auth-architecture.md`](docs/auth-architecture.md) — approved
+  passwordless challenge, delivery, proof, session, and account architecture
+- [`docs/auth-roadmap.md`](docs/auth-roadmap.md) — ordered passwordless
+  implementation and verification stages
+- [`docs/public-api-contract.md`](docs/public-api-contract.md) — target mobile
+  endpoints, response DTOs, error codes, and client requirements
 - [`docs/profile-architecture.md`](docs/profile-architecture.md) — accepted
   Onboarding, Profile, Profile Photo, media, storage, and delivery architecture
 - [`docs/moderation-architecture.md`](docs/moderation-architecture.md) —
@@ -78,8 +82,14 @@ At minimum, configure:
 - `RESEND_API_KEY`
 - `MAIL_FROM`
 - `CLIENT_URL`
-- `PASSWORD_RESET_RATE_LIMIT_SECRET`
-- `ACCOUNT_DELETION_CANCEL_RATE_LIMIT_SECRET`
+- the authentication challenge HMAC and rate-limit secrets required by the
+  completed passwordless configuration
+
+During the documentation-first migration, the checked-in
+`src/config/environment.validation.ts` and `.env.example` remain authoritative
+for the still-transitional runtime. Their password-specific settings are
+removed when the corresponding roadmap implementation stage lands; do not
+invent target environment names before that stage defines and validates them.
 
 Durations use positive integer seconds. Never commit `.env`, API keys, JWT
 secrets, rate-limit secrets, credentials, or raw authentication tokens.
@@ -125,8 +135,8 @@ Swagger responses. Every non-2xx JSON response uses the stable envelope:
 
 ```json
 {
-  "code": "INVALID_CREDENTIALS",
-  "message": "Invalid email or password."
+  "code": "AUTH_CHALLENGE_INVALID",
+  "message": "The authentication challenge cannot be used."
 }
 ```
 
@@ -158,8 +168,8 @@ endpoint inventory and stable error-code catalog.
 
 ```text
 src/
-├── account/       Password change and account-deletion lifecycle
-├── auth/          Registration, verification, login, recovery, and sessions
+├── account/       Recent-authenticated account-deletion lifecycle
+├── auth/          Challenges, deliveries, proof verification, and sessions
 ├── common/        Shared public HTTP contracts, filters, errors, and utilities
 ├── config/        Environment validation
 ├── geo-ip/        Optional local MaxMind lookup and hot reload
@@ -209,9 +219,9 @@ For safety, preparation and destructive cleanup refuse to operate unless the
 database name ends with `_test`. Do not point e2e tests at development,
 staging, or production data.
 
-The suite covers validation and public errors, registration contracts,
-sessions, refresh rotation and reuse, password recovery, profile safety,
-account deletion, rate limits, concurrency, and generated OpenAPI structure.
+The target suite covers validation and public errors, stable challenge proof
+and resend behavior, sessions, refresh rotation and reuse, profile safety,
+account deletion, abuse limits, concurrency, and generated OpenAPI structure.
 
 ### Full handoff checks
 
@@ -310,9 +320,14 @@ treated as proof of identity or physical presence.
 
 ## Security notes
 
-- Store refresh tokens only as cryptographic hashes.
-- Never log raw access, refresh, verification, reset, recovery, or challenge
-  tokens.
+- Store refresh tokens as hashes. Verify authentication proof through keyed
+  hashes; recover stable resend proof only from the challenge's approved
+  authenticated-encryption envelope.
+- Never log raw access, refresh, OTP, magic-link, continuation, recovery, or
+  challenge tokens.
+- One challenge owns one stable OTP and magic-link token. Resend creates a new
+  Delivery without rotating proof, extending expiry, or resetting attempts.
+- OTP and magic link share one atomic single-use state.
 - Access authorization checks both the JWT and the referenced session/account
   state.
 - Session and device metadata may be missing or spoofed and is not a security

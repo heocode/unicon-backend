@@ -10,8 +10,8 @@ work, also read `docs/moderation-architecture.md`.
 - Keep NestJS controllers thin. Controllers translate HTTP input into service
   calls and must not contain business logic or direct Prisma queries.
 - Use focused services for domain behavior. `AuthService` coordinates auth
-  flows; token, password, session, email verification, and GeoIP behavior stay
-  in their dedicated services.
+  flows; challenge, delivery, proof verification, token, session, and GeoIP
+  behavior stay in their dedicated services.
 - Infrastructure integrations belong in their own modules outside
   `AuthModule` when they are not auth-specific.
 - Use constructor injection. Application code must use `ConfigService` rather
@@ -70,11 +70,34 @@ work, also read `docs/moderation-architecture.md`.
 
 ## Auth security invariants
 
+- V1 authentication uses an allowed institutional email, a six-digit OTP, and
+  a magic link. Passwords and passkeys are not part of v1.
+- One `AuthenticationChallenge` owns one stable OTP and one stable magic-link
+  token for its fixed lifetime. A resend creates a new Delivery and must not
+  rotate proof, extend expiration, reset failed attempts, or clear lock state.
+- Delivery method and proof method are independent concepts. EMAIL delivery
+  carries OTP and magic-link proofs in v1; future IN_APP or PUSH delivery must
+  not become identity proof by itself.
+- Verify OTPs and magic-link tokens only through versioned keyed hashes. Stable
+  resend may recover proof only from a separate versioned authenticated-
+  encryption envelope owned by the challenge. Never persist or log plaintext
+  proof, never copy proof into Delivery rows, and never use a plain digest for
+  the six-digit OTP.
+- OTP and magic link share one atomic consumption state. Successful use of one
+  must make both unusable, and concurrent verification may create at most one
+  session.
+- A new user is created only after successful institutional-email proof.
+  Pending authentication belongs to the challenge rather than a `PENDING`
+  user.
+- Challenge request, resend, attempt, and verification limits are
+  database-backed and applied before account lookup where enumeration
+  protection requires it.
 - Access and refresh JWTs contain both `sub` (user ID) and `sessionId`.
 - Access-token authorization verifies the JWT and checks that the referenced
   session and user are still active.
 - Store refresh tokens only as cryptographic hashes. Never persist or log raw
-  access, refresh, verification, reset, recovery, or challenge tokens.
+  access, refresh, OTP, magic-link, continuation, recovery, or challenge
+  tokens.
 - Refresh rotation must remain atomic. A refresh token can be successfully used
   only once.
 - Session expiration is a sliding inactivity deadline. Refresh extends the
@@ -84,6 +107,10 @@ work, also read `docs/moderation-architecture.md`.
   routes nor refresh tokens.
 - A user may operate multiple independent sessions. Revoking one session must
   not revoke unrelated sessions unless the endpoint explicitly requests it.
+- The v1 active-session limit is a strict hard limit. Successful proof at the
+  limit remains consumed but creates no session, exposes no session list, and
+  grants no revocation authority to the new client. Only an already authorized
+  device may free a slot before a completely new sign-in attempt.
 - `sessionName` is an optional user-assigned label. It is not an operating
   system device name and is never used for security decisions.
 - Device model, platform, OS version, app version, user agent, IP, and GeoIP
@@ -93,10 +120,12 @@ work, also read `docs/moderation-architecture.md`.
 - Suspicious-activity detection should initially create events and
   notifications, not automatic account blocking, until false positives are
   understood.
-- OAuth is intentionally out of scope. Account creation requires verification
-  of an email from an allowed college domain.
-- Passkeys, when added, authenticate an existing verified account and must not
-  bypass college-email registration.
+- OAuth is intentionally out of scope. Account creation requires successful
+  proof of an email from an active allowed college domain.
+- Future password and passkey authenticators must resolve the existing stable
+  `User.id` and converge on the credential-neutral session layer. Password, if
+  added, is an optional specialized credential rather than a required field on
+  `User`.
 
 ## GeoIP operational rules
 

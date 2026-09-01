@@ -1,29 +1,26 @@
-# Public Auth, Account, and Profile API Contract
+# Passwordless Public API Contract
 
-This document defines the implemented MVP public contract for Stage 11. The
-runtime error envelope, explicit success DTOs, HTTP statuses, authentication
-schemes, and mobile metadata headers are reflected in the generated OpenAPI
-document and protected by focused contract tests.
-
-TOTP, passkeys, email-OTP login, OAuth, multiple affiliations, and other
-post-MVP identity work are intentionally excluded. Future authenticators must
-resolve the stable `User.id` and converge on the credential-neutral session
-layer without changing the meaning of the current MVP contract prematurely.
+This document defines the approved target public contract for Unicon mobile
+authentication, account, and profile integration. Passwordless endpoints are
+not considered implemented until runtime behavior, generated OpenAPI, and
+database-backed tests match this document.
 
 ## Compatibility rules
 
-- Clients branch on stable `code` values, never on `message` text.
-- `message` is a safe English fallback and may change without versioning.
+- Clients branch on stable `code` values, never on English messages.
+- `message` is a safe fallback and may change without versioning.
 - Error-specific machine-readable context is nested under `details`.
 - Adding an optional response field is backward-compatible.
-- Adding an error code requires an explicit contract review. Generated clients
-  may model codes as closed enums, so clients must retain an unknown-code
-  fallback and the server must not assume a new code is automatically safe.
-- Removing or renaming fields or codes, changing field nullability, moving
-  existing fields, or changing a success status is potentially breaking.
-- The current singular `email` and `university` profile fields describe the
-  MVP representation. They are not permanent identity or ownership keys;
-  `User.id` is the stable application identity.
+- Removing or renaming a field or code, changing nullability, or changing a
+  success status is potentially breaking.
+- Mobile clients keep an unknown-code fallback even when generated types use a
+  closed enum.
+- `User.id` is the stable application identity. Email is not an ownership or
+  account-linking key.
+
+No released mobile client or production user depends on the password contract,
+so legacy register, password login, verification, recovery, and password-change
+endpoints are removed rather than versioned.
 
 ## Public error envelope
 
@@ -31,33 +28,26 @@ Every non-2xx JSON response uses:
 
 ```json
 {
-  "code": "INVALID_CREDENTIALS",
-  "message": "Invalid email or password."
+  "code": "AUTH_CHALLENGE_INVALID",
+  "message": "The authentication challenge cannot be used."
 }
 ```
 
-`code` and `message` are required. `details` is optional and is present only
-when the endpoint documents useful structured context:
+Structured details are included only where documented:
 
 ```json
 {
-  "code": "SESSION_TOO_FRESH",
-  "message": "This session is too new to manage sessions.",
+  "code": "RATE_LIMIT_EXCEEDED",
+  "message": "Too many requests. Please try again later.",
   "details": {
-    "managementAvailableAt": "2026-08-18T12:00:00.000Z",
-    "retryAfterSeconds": 3600
+    "retryAfterSeconds": 60
   }
 }
 ```
 
-The MVP envelope does not include `timestamp`, `path`, or `requestId`. A future
-correlation ID may be added as an optional field together with consistent
-request-context logging and an `X-Request-Id` response header.
-
-Unhandled errors return `INTERNAL_ERROR` without stack traces, Prisma errors,
-provider responses, configuration values, or other internal details. Optional
-infrastructure failures such as GeoIP and best-effort notifications must not
-replace an otherwise successful response.
+Every 429 response also includes an integer `Retry-After` header. Unhandled
+errors return `INTERNAL_ERROR` without stack traces, Prisma errors, provider
+responses, configuration, identity data, or proof material.
 
 ## Validation errors
 
@@ -79,12 +69,6 @@ Body, path, and query validation failures return HTTP 400:
 }
 ```
 
-One and multiple violations use the same array form. Violations are returned
-in deterministic field-and-code order. Nested fields use dotted paths and
-array indexes, for example `items[0].id`. Malformed JSON uses
-`MALFORMED_JSON` at the envelope level because no validated field set can be
-reliably produced.
-
 Stable validation violation codes are:
 
 ```text
@@ -94,176 +78,415 @@ INVALID_EMAIL
 INVALID_UUID
 INVALID_LENGTH
 VALUE_TOO_LONG
-WEAK_PASSWORD
 UNKNOWN_FIELD
 ```
 
-The public codes are deliberately independent of class-validator constraint
-names. Violation messages are safe fallbacks and are not localization or
-branching keys.
+`WEAK_PASSWORD` is not part of the v1 contract.
 
-## Error-code catalog
+## Authentication challenge contract
 
-### Authentication and credentials
+### Request or deliver a sign-in challenge
 
-| Code                           | HTTP | Meaning                                                                      |
-| ------------------------------ | ---: | ---------------------------------------------------------------------------- |
-| `INVALID_CREDENTIALS`          |  401 | Email/password credentials are invalid without revealing which value failed. |
-| `CURRENT_PASSWORD_INVALID`     |  401 | Re-authentication with the current MVP password failed.                      |
-| `PASSWORDS_DO_NOT_MATCH`       |  400 | Password confirmation differs.                                               |
-| `NEW_PASSWORD_SAME_AS_CURRENT` |  400 | The requested new password is unchanged.                                     |
-
-### Registration and email verification
-
-| Code                               | HTTP | Meaning                                                        |
-| ---------------------------------- | ---: | -------------------------------------------------------------- |
-| `EMAIL_ALREADY_REGISTERED`         |  409 | The normalized login email is already registered.              |
-| `EMAIL_DOMAIN_NOT_ALLOWED`         |  400 | The institutional domain is not currently eligible.            |
-| `EMAIL_NOT_VERIFIED`               |  403 | Login requires institutional-email verification.               |
-| `EMAIL_VERIFICATION_TOKEN_INVALID` |  400 | The token is invalid, used, superseded, or otherwise unusable. |
-| `EMAIL_VERIFICATION_TOKEN_EXPIRED` |  400 | The token expired and the client may offer resend.             |
-| `EMAIL_ALREADY_VERIFIED`           |  409 | Verification was already completed.                            |
-| `VERIFICATION_EMAIL_COOLDOWN`      |  429 | A resend is temporarily rate-limited.                          |
-| `VERIFICATION_EMAIL_UNAVAILABLE`   |  503 | Required verification-email delivery failed.                   |
-
-`EMAIL_NOT_VERIFIED` details contain `email` and
-`resendAvailableInSeconds`. `VERIFICATION_EMAIL_COOLDOWN` details contain
-`retryAfterSeconds`, and the response also includes `Retry-After`.
-
-### Account and profile state
-
-| Code                    | HTTP | Meaning                                                       |
-| ----------------------- | ---: | ------------------------------------------------------------- |
-| `ACCOUNT_UNAVAILABLE`   |  403 | The account cannot perform the requested authenticated flow.  |
-| `ACCOUNT_STATE_CHANGED` |  409 | A concurrent state transition invalidated the operation.      |
-| `PROFILE_UNAVAILABLE`   |  409 | The authorized profile became unavailable during the request. |
-| `RESOURCE_NOT_FOUND`    |  404 | No public route or resource matches the request.              |
-
-### Access and refresh tokens
-
-| Code                     | HTTP | Meaning                                                                                        |
-| ------------------------ | ---: | ---------------------------------------------------------------------------------------------- |
-| `ACCESS_TOKEN_REQUIRED`  |  401 | An access bearer token was not supplied.                                                       |
-| `ACCESS_TOKEN_INVALID`   |  401 | The supplied access token is malformed, has an invalid signature, or has the wrong token type. |
-| `ACCESS_TOKEN_EXPIRED`   |  401 | The access JWT expired; a client with a refresh token may refresh once.                        |
-| `REFRESH_TOKEN_REQUIRED` |  401 | A refresh bearer token was not supplied.                                                       |
-| `REFRESH_TOKEN_INVALID`  |  401 | The supplied refresh token is invalid or its session cannot refresh.                           |
-| `REFRESH_TOKEN_EXPIRED`  |  401 | The refresh JWT or its session expired.                                                        |
-| `REFRESH_TOKEN_REUSED`   |  401 | A previously rotated refresh token was presented again.                                        |
-
-Token errors do not reveal whether a referenced user or session record exists.
-Except for `ACCESS_TOKEN_EXPIRED`, clients clear the affected local auth state
-and require a new authentication flow. Refresh requests for one local session
-must be serialized, and a successful rotation atomically replaces both local
-tokens.
-
-### Sessions
-
-| Code                    | HTTP | Meaning                                                              |
-| ----------------------- | ---: | -------------------------------------------------------------------- |
-| `SESSION_UNAVAILABLE`   |  401 | The authenticated session is missing, revoked, expired, or inactive. |
-| `SESSION_NOT_FOUND`     |  404 | An owned active target session was not found.                        |
-| `SESSION_TOO_FRESH`     |  403 | The current session cannot yet manage other sessions.                |
-| `SESSION_LIMIT_REACHED` |  409 | Creating another active session would exceed the limit.              |
-
-`SESSION_TOO_FRESH` details contain `managementAvailableAt` and
-`retryAfterSeconds`. `SESSION_LIMIT_REACHED` details contain
-`activeSessionLimit`.
-
-### Password recovery and change
-
-| Code                            | HTTP | Meaning                                                                     |
-| ------------------------------- | ---: | --------------------------------------------------------------------------- |
-| `PASSWORD_RESET_TOKEN_INVALID`  |  400 | A reset token is invalid, expired, used, superseded, or account-ineligible. |
-| `PASSWORD_CHANGED_CONCURRENTLY` |  409 | Another request changed the credential first.                               |
-
-Password mismatch and current-password failures reuse the authentication and
-credential codes above. Reset-token variants intentionally remain
-indistinguishable.
-
-### Rate limits
-
-| Code                  | HTTP | Meaning                                                 |
-| --------------------- | ---: | ------------------------------------------------------- |
-| `RATE_LIMIT_EXCEEDED` |  429 | A database-backed request or attempt limit was reached. |
-
-All 429 responses contain `details.retryAfterSeconds` and an integer
-`Retry-After` header. Clients use the header as authoritative and never parse
-the message.
-
-### Account deletion
-
-| Code                                    |                        HTTP | Meaning                                                     |
-| --------------------------------------- | --------------------------: | ----------------------------------------------------------- |
-| `ACCOUNT_DELETION_SCHEDULED`            |                         403 | Login is unavailable during the cancellable grace period.   |
-| `ACCOUNT_DELETION_GRACE_PERIOD_EXPIRED` | 403 login, 409 cancellation | The account passed its cancellation deadline.               |
-| `ACCOUNT_DELETION_ALREADY_CANCELLED`    |                         409 | A concurrent or prior request already restored the account. |
-
-Scheduled and expired login details contain `deletionScheduledAt` and
-`canCancel`. After requesting deletion, clients immediately discard all local
-tokens. Cancellation returns one new token pair and never restores old tokens
-or sessions.
-
-### Internal and required infrastructure
-
-| Code                       | HTTP | Meaning                                                                |
-| -------------------------- | ---: | ---------------------------------------------------------------------- |
-| `REGISTRATION_UNAVAILABLE` |  503 | Registration could not complete safely after bounded internal retries. |
-| `SERVICE_UNAVAILABLE`      |  503 | A required infrastructure dependency is temporarily unavailable.       |
-| `INTERNAL_ERROR`           |  500 | An unexpected internal failure occurred.                               |
-
-## Endpoint inventory and target statuses
-
-Registration accepts one password field; password confirmation is a client
-presentation concern and is not part of `RegisterDto`:
+```http
+POST /auth/challenges
+```
 
 ```json
 {
-  "email": "student@university.ca",
-  "password": "Password123!"
+  "email": "student@my.centennialcollege.ca"
 }
 ```
 
-The password requires at least eight characters, including at least one
-lowercase letter, one uppercase letter, one number, and one special character.
+`email` is trimmed and lowercased. The domain must match an active
+`AllowedDomain`.
 
-| Endpoint                           | Request DTO                            | Success DTO                           | Status | Authentication and headers                  | Documented error codes                                                                                                                    |
-| ---------------------------------- | -------------------------------------- | ------------------------------------- | -----: | ------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| `POST /auth/register`              | `RegisterDto`                          | `RegistrationResponseDto`             |    201 | Public                                      | `VALIDATION_FAILED`, `EMAIL_DOMAIN_NOT_ALLOWED`, `EMAIL_ALREADY_REGISTERED`, `REGISTRATION_UNAVAILABLE`, `VERIFICATION_EMAIL_UNAVAILABLE` |
-| `POST /auth/login`                 | `LoginDto`                             | `AuthTokensResponseDto`               |    201 | Session metadata headers                    | `VALIDATION_FAILED`, `INVALID_CREDENTIALS`, `EMAIL_NOT_VERIFIED`, `ACCOUNT_UNAVAILABLE`, deletion-state codes, `SESSION_LIMIT_REACHED`    |
-| `POST /auth/verify-email`          | `VerifyEmailDto`                       | `EmailVerificationResponseDto`        |    201 | Session metadata headers                    | validation and verification-token codes, `EMAIL_ALREADY_VERIFIED`, `SESSION_LIMIT_REACHED`                                                |
-| `POST /auth/resend-verification`   | `ResendVerificationDto`                | `ResendVerificationResponseDto`       |    201 | Public                                      | `VALIDATION_FAILED`, `VERIFICATION_EMAIL_COOLDOWN`, `VERIFICATION_EMAIL_UNAVAILABLE`                                                      |
-| `POST /auth/forgot-password`       | `ForgotPasswordDto`                    | `ForgotPasswordResponseDto`           |    202 | Request IP; informational metadata accepted | `VALIDATION_FAILED`, `RATE_LIMIT_EXCEEDED`                                                                                                |
-| `POST /auth/reset-password`        | `ResetPasswordDto`                     | `ResetPasswordResponseDto`            |    200 | Request IP; informational metadata accepted | `VALIDATION_FAILED`, `PASSWORDS_DO_NOT_MATCH`, `PASSWORD_RESET_TOKEN_INVALID`, `PASSWORD_CHANGED_CONCURRENTLY`                            |
-| `POST /auth/refresh`               | none                                   | `AuthTokensResponseDto`               |    201 | Refresh bearer token                        | refresh-token codes                                                                                                                       |
-| `POST /auth/logout`                | none                                   | none                                  |    204 | Access bearer token                         | access-token and `SESSION_UNAVAILABLE` codes                                                                                              |
-| `GET /auth/sessions`               | none                                   | `SessionsResponseDto`                 |    200 | Access bearer token                         | access-token and `SESSION_UNAVAILABLE` codes                                                                                              |
-| `PATCH /auth/sessions/:sessionId`  | `SessionParamsDto`, `UpdateSessionDto` | `UpdateSessionResponseDto`            |    200 | Access bearer token                         | validation, access/session codes, `SESSION_TOO_FRESH`, `SESSION_NOT_FOUND`                                                                |
-| `DELETE /auth/sessions/others`     | none                                   | `RevokeOtherSessionsResponseDto`      |    200 | Access bearer token                         | access/session codes, `SESSION_TOO_FRESH`                                                                                                 |
-| `DELETE /auth/sessions/:sessionId` | `SessionParamsDto`                     | none                                  |    204 | Access bearer token                         | validation, access/session codes, `SESSION_TOO_FRESH`, `SESSION_NOT_FOUND`                                                                |
-| `PATCH /account/password`          | `ChangePasswordDto`                    | `PasswordChangeResponseDto`           |    200 | Access bearer token                         | validation, access/session/account codes, credential codes, `PASSWORD_CHANGED_CONCURRENTLY`                                               |
-| `POST /account/deletion`           | `RequestAccountDeletionDto`            | `AccountDeletionResponseDto`          |    202 | Access bearer token                         | validation, access/session/account codes, `CURRENT_PASSWORD_INVALID`                                                                      |
-| `POST /account/deletion/cancel`    | `CancelAccountDeletionDto`             | `AccountDeletionCancelledResponseDto` |    200 | Session metadata headers                    | validation, credentials, rate-limit and deletion-state codes, `SESSION_LIMIT_REACHED`                                                     |
-| `GET /profile/me`                  | none                                   | `ProfileResponseDto`                  |    200 | Access bearer token                         | access/session/account codes, `PROFILE_UNAVAILABLE`                                                                                       |
+For an allowed email, the response does not reveal whether the identity is new,
+active, blocked, or deletion-scheduled. An existing usable `SIGN_IN` challenge
+is reused; the request may create a new EMAIL Delivery for its stable proof when
+cooldown and rate limits permit.
 
-There is no public security-event endpoint in the MVP.
+Success is HTTP 202:
 
-## Swagger and mobile-client requirements
+```json
+{
+  "challengeId": "550e8400-e29b-41d4-a716-446655440000",
+  "expiresInSeconds": 600,
+  "resendAvailableInSeconds": 60
+}
+```
 
-- Every public endpoint declares an explicit success response DTO or an empty
-  204 response.
-- Protected endpoints use named access- or refresh-bearer OpenAPI schemes.
-- Informational device headers are documented where they are accepted and are
-  never described as security signals.
-- Each documented error response references the shared envelope and a typed
-  details schema where applicable.
-- Examples demonstrate branching codes but do not make message text stable.
-- The generated OpenAPI document must not contain anonymous successful auth,
-  account, or profile responses.
-- Runtime contract tests must verify representative responses against the
-  documented DTOs and ensure Prisma, token-hash, deletion-internal, and
-  security-service fields are absent.
+`expiresInSeconds` is the remaining challenge lifetime. It is not reset by
+repeated requests or deliveries.
 
-Changing logout from its current implicit `201` response to `204 No Content`
-is an intentional pre-frontend-freeze correction and must be delivered and
-tested with the later endpoint implementation work.
+### Resend the existing proof
+
+```http
+POST /auth/challenges/:challengeId/resend
+```
+
+Resend has no body. It creates a new EMAIL Delivery containing the same OTP and
+magic link. It does not create a new challenge or change proof, expiration,
+failed attempts, consumption, or lock state.
+
+`SIGN_IN` resend is public and protected by identity/IP/challenge limits.
+`STEP_UP` resend additionally requires the same active access session to which
+the challenge is bound.
+
+Success is HTTP 202:
+
+```json
+{
+  "challengeId": "550e8400-e29b-41d4-a716-446655440000",
+  "expiresInSeconds": 421,
+  "resendAvailableInSeconds": 60
+}
+```
+
+### Verify the six-digit OTP
+
+```http
+POST /auth/challenges/:challengeId/verify-otp
+```
+
+```json
+{
+  "code": "123456"
+}
+```
+
+The code must be exactly six decimal digits. Session metadata headers are
+accepted. Successful proof atomically consumes the shared challenge, resolves
+or creates the user, creates a session, and returns HTTP 201:
+
+```json
+{
+  "accessToken": "...",
+  "refreshToken": "..."
+}
+```
+
+The response deliberately omits `accountCreated`; mobile bootstraps through
+`GET /profile/me` and `onboardingCompleted` rather than branching on auth
+history.
+
+If proof succeeds but the active-session limit prevents creation, the
+challenge remains consumed and the endpoint returns `SESSION_LIMIT_REACHED`
+with the recovery details defined below.
+
+### Verify the magic link
+
+```http
+POST /auth/challenges/:challengeId/verify-link
+```
+
+```json
+{
+  "token": "<opaque 256-bit token>"
+}
+```
+
+Session metadata headers are accepted. Success and session semantics are
+identical to OTP verification. OTP and magic link share one consumption state;
+using either makes both unusable.
+
+An HTTPS `GET` from an email opens the native app or fallback page but never
+consumes the challenge or creates a session.
+
+### Deletion-scheduled result
+
+A successful `SIGN_IN` proof for a deletion-scheduled account creates no
+session and returns HTTP 409:
+
+```json
+{
+  "code": "ACCOUNT_DELETION_SCHEDULED",
+  "message": "Account deletion is scheduled.",
+  "details": {
+    "deletionScheduledAt": "2026-10-01T12:00:00.000Z",
+    "canCancel": true,
+    "continuationToken": "...",
+    "continuationExpiresInSeconds": 600
+  }
+}
+```
+
+The continuation is single-use and purpose-bound to explicit deletion
+cancellation. It is not an access or refresh token.
+
+## Challenge DTOs
+
+```text
+RequestAuthenticationChallengeDto
+└── email: normalized valid email
+
+ChallengeParamsDto
+└── challengeId: UUID
+
+VerifyOtpDto
+└── code: exactly six decimal digits
+
+VerifyMagicLinkDto
+└── token: bounded opaque string with exact generated representation
+
+AuthenticationChallengeResponseDto
+├── challengeId: UUID
+├── expiresInSeconds: positive integer
+└── resendAvailableInSeconds: non-negative integer
+
+AuthTokensResponseDto
+├── accessToken: string
+└── refreshToken: string
+
+RecentAuthenticationResponseDto
+├── authenticatedAt: date-time
+└── recentAuthenticationExpiresAt: date-time
+
+CancelAccountDeletionDto
+└── continuationToken: bounded opaque string
+```
+
+## Authentication error codes
+
+| Code                         | HTTP | Meaning |
+| ---------------------------- | ---: | ------- |
+| `EMAIL_DOMAIN_NOT_ALLOWED`   |  400 | The normalized domain is not currently eligible. |
+| `AUTH_CHALLENGE_INVALID`     |  400 | The challenge is missing, consumed, superseded, wrong-purpose, or otherwise unusable. |
+| `AUTH_CHALLENGE_EXPIRED`     |  400 | The fixed challenge lifetime elapsed; request a new challenge. |
+| `AUTH_CODE_INVALID`          |  400 | The OTP is incorrect and attempts remain. |
+| `AUTH_CHALLENGE_LOCKED`      |  400 | The challenge reached its failed-attempt limit and cannot be reused. |
+| `AUTH_DELIVERY_COOLDOWN`     |  429 | Another delivery is not yet allowed. |
+| `AUTH_EMAIL_UNAVAILABLE`     |  503 | Required email delivery could not be accepted. |
+| `RECENT_AUTHENTICATION_REQUIRED` | 403 | A sensitive operation requires a fresh proof. |
+| `AUTH_CONTINUATION_INVALID`  |  400 | A purpose-bound continuation is invalid, expired, consumed, or wrong-purpose. |
+
+`AUTH_CODE_INVALID` never returns attempts remaining. Exposing that counter is
+not necessary for the client and helps attackers optimize guesses.
+
+Unknown, blocked, and deletion-scheduled identities receive the same successful
+challenge request shape. Account-state errors appear only after successful
+proof.
+
+## Rate limiting
+
+| Code                  | HTTP | Meaning |
+| --------------------- | ---: | ------- |
+| `RATE_LIMIT_EXCEEDED` |  429 | An identity, IP, device, verification, or provider pressure limit was reached. |
+
+All 429 responses contain `details.retryAfterSeconds` and `Retry-After`.
+`AUTH_DELIVERY_COOLDOWN` describes the challenge-local 60-second resend rule;
+`RATE_LIMIT_EXCEEDED` describes broader abuse buckets.
+
+## Access and refresh tokens
+
+| Code                     | HTTP | Meaning |
+| ------------------------ | ---: | ------- |
+| `ACCESS_TOKEN_REQUIRED`  |  401 | An access bearer token was not supplied. |
+| `ACCESS_TOKEN_INVALID`   |  401 | The access token is malformed, invalid, or has the wrong type. |
+| `ACCESS_TOKEN_EXPIRED`   |  401 | The access JWT expired and may be refreshed. |
+| `REFRESH_TOKEN_REQUIRED` |  401 | A refresh bearer token was not supplied. |
+| `REFRESH_TOKEN_INVALID`  |  401 | The refresh credential or session cannot refresh. |
+| `REFRESH_TOKEN_EXPIRED`  |  401 | The refresh JWT or server-side session expired. |
+| `REFRESH_TOKEN_REUSED`   |  401 | A previously rotated refresh token was presented. |
+
+Except for `ACCESS_TOKEN_EXPIRED`, clients clear affected local authentication
+state and start a new email challenge. Refresh requests for one session are
+serialized client-side; successful rotation atomically replaces both tokens.
+
+## Session errors
+
+| Code                    | HTTP | Meaning |
+| ----------------------- | ---: | ------- |
+| `SESSION_UNAVAILABLE`   |  401 | The authenticated session is missing, revoked, expired, or inactive. |
+| `SESSION_NOT_FOUND`     |  404 | An owned active target session was not found. |
+| `SESSION_TOO_FRESH`     |  403 | The current session cannot yet manage other sessions. |
+| `SESSION_LIMIT_REACHED` |  409 | A new active session would exceed the configured limit. |
+
+`SESSION_TOO_FRESH` retains `managementAvailableAt` and
+`retryAfterSeconds`.
+
+After successful proof, `SESSION_LIMIT_REACHED` contains the active-session
+limit only. The challenge remains consumed, no session is created, and the new
+client receives neither session data nor session-management authority.
+
+```json
+{
+  "code": "SESSION_LIMIT_REACHED",
+  "message": "The active session limit has been reached.",
+  "details": {
+    "activeSessionLimit": 10
+  }
+}
+```
+
+The user must open an already authorized device, revoke one active session
+through the normal session-management API, and then start sign-in again with a
+new challenge. V1 has no overflow session, automatic eviction, or unauthenticated
+session-recovery endpoint.
+
+## Account and profile state errors
+
+| Code                                    | HTTP | Meaning |
+| --------------------------------------- | ---: | ------- |
+| `ACCOUNT_UNAVAILABLE`                   |  403 | A proven account cannot perform the requested flow. |
+| `ACCOUNT_STATE_CHANGED`                 |  409 | A concurrent account transition invalidated the operation. |
+| `ACCOUNT_DELETION_SCHEDULED`            |  409 | Proven account deletion is scheduled and may require explicit cancellation. |
+| `ACCOUNT_DELETION_GRACE_PERIOD_EXPIRED` |  409 | The cancellation deadline passed. |
+| `ACCOUNT_DELETION_ALREADY_CANCELLED`    |  409 | A concurrent or prior request already restored the account. |
+| `PROFILE_UNAVAILABLE`                   |  409 | The authorized profile became unavailable. |
+| `RESOURCE_NOT_FOUND`                    |  404 | No public route or resource matches the request. |
+
+## Account deletion contract
+
+### Refresh recent authentication
+
+An authenticated session older than the recent-auth window requests a
+session-bound step-up challenge:
+
+```http
+POST /auth/step-up/challenges
+Authorization: Bearer <access token>
+```
+
+There is no body. Success is HTTP 202 with
+`AuthenticationChallengeResponseDto`. Delivery goes to the active
+institutional email already bound to the authenticated `User.id`; the client
+cannot choose an address.
+
+The client verifies the stable proof through one of:
+
+```text
+POST /auth/step-up/challenges/:challengeId/verify-otp
+POST /auth/step-up/challenges/:challengeId/verify-link
+```
+
+Both require the same active access session to which the challenge is bound.
+OTP and link request bodies match the sign-in DTOs. Success consumes the shared
+challenge, updates that session's `authenticatedAt` and
+`authenticationMethod`, and returns HTTP 200:
+
+```json
+{
+  "authenticatedAt": "2026-09-01T12:00:00.000Z",
+  "recentAuthenticationExpiresAt": "2026-09-01T12:10:00.000Z"
+}
+```
+
+It does not create a new session or rotate access/refresh tokens. Resend uses
+`POST /auth/challenges/:challengeId/resend`; for `STEP_UP`, the same bound
+access session is required.
+
+### Request deletion
+
+```http
+POST /account/deletion
+Authorization: Bearer <access token>
+```
+
+There is no request body. The server reads the authenticated session and
+requires `authenticatedAt` within the configured 600-second recent-auth window.
+
+Success remains HTTP 202:
+
+```json
+{
+  "status": "DELETION_SCHEDULED",
+  "deletionScheduledAt": "2026-10-01T12:00:00.000Z",
+  "gracePeriodSeconds": 2592000
+}
+```
+
+All sessions are immediately revoked and the client discards local tokens.
+
+### Explicitly cancel deletion
+
+```http
+POST /account/deletion/cancel
+```
+
+```json
+{
+  "continuationToken": "..."
+}
+```
+
+The continuation comes only from a successful `SIGN_IN` proof for the
+deletion-scheduled account. Success atomically restores `ACTIVE`, consumes the
+purpose-bound continuation, creates one new session, and returns HTTP 200:
+
+```json
+{
+  "status": "ACTIVE",
+  "deletionCancelled": true,
+  "accessToken": "...",
+  "refreshToken": "..."
+}
+```
+
+No old session or token becomes valid again.
+
+## Endpoint inventory
+
+| Endpoint | Request DTO | Success DTO | Status | Authentication / headers |
+| -------- | ----------- | ----------- | -----: | ------------------------ |
+| `POST /auth/challenges` | `RequestAuthenticationChallengeDto` | `AuthenticationChallengeResponseDto` | 202 | Public request IP and informational metadata |
+| `POST /auth/challenges/:challengeId/resend` | `ChallengeParamsDto` | `AuthenticationChallengeResponseDto` | 202 | Public request IP and informational metadata |
+| `POST /auth/challenges/:challengeId/verify-otp` | params + `VerifyOtpDto` | `AuthTokensResponseDto` | 201 | Session metadata headers |
+| `POST /auth/challenges/:challengeId/verify-link` | params + `VerifyMagicLinkDto` | `AuthTokensResponseDto` | 201 | Session metadata headers |
+| `POST /auth/step-up/challenges` | none | `AuthenticationChallengeResponseDto` | 202 | Access bearer token |
+| `POST /auth/step-up/challenges/:challengeId/verify-otp` | params + `VerifyOtpDto` | `RecentAuthenticationResponseDto` | 200 | Bound access bearer token |
+| `POST /auth/step-up/challenges/:challengeId/verify-link` | params + `VerifyMagicLinkDto` | `RecentAuthenticationResponseDto` | 200 | Bound access bearer token |
+| `POST /auth/refresh` | none | `AuthTokensResponseDto` | 201 | Refresh bearer token |
+| `POST /auth/logout` | none | none | 204 | Access bearer token |
+| `GET /auth/sessions` | none | `SessionsResponseDto` | 200 | Access bearer token |
+| `PATCH /auth/sessions/:sessionId` | params + `UpdateSessionDto` | `UpdateSessionResponseDto` | 200 | Access bearer token |
+| `DELETE /auth/sessions/others` | none | `RevokeOtherSessionsResponseDto` | 200 | Access bearer token |
+| `DELETE /auth/sessions/:sessionId` | params | none | 204 | Access bearer token |
+| `POST /account/deletion` | none | `AccountDeletionResponseDto` | 202 | Access bearer plus recent authentication |
+| `POST /account/deletion/cancel` | `CancelAccountDeletionDto` | `AccountDeletionCancelledResponseDto` | 200 | Purpose-bound continuation; session metadata headers |
+| `GET /profile/me` | none | `ProfileResponseDto` | 200 | Access bearer token |
+
+The following endpoints do not exist in the target v1 contract:
+
+```text
+POST  /auth/register
+POST  /auth/login
+POST  /auth/verify-email
+POST  /auth/resend-verification
+POST  /auth/forgot-password
+POST  /auth/reset-password
+PATCH /account/password
+```
+
+## Session metadata headers
+
+Challenge verification and deletion cancellation accept the existing bounded,
+informational headers:
+
+```text
+User-Agent
+X-Device-Model-Identifier
+X-Device-Model
+X-Platform
+X-OS-Version
+X-App-Version
+```
+
+Supported platforms remain `IOS`, `ANDROID`, `WEB`, and `UNKNOWN`. Metadata is
+optional, may be spoofed, and is never proof or a trusted-device credential.
+
+## Swagger and mobile requirements
+
+- Every endpoint declares an explicit success DTO or empty 204 response.
+- Access and refresh bearer schemes remain distinct.
+- Challenge IDs, OTPs, link tokens, and continuations are documented as
+  different values with different security properties.
+- Examples never contain real secrets and never imply that `GET` consumes a
+  magic link.
+- Every documented error references the shared envelope and typed details.
+- OpenAPI contract tests verify response schemas, security requirements,
+  endpoint removal, and absence of persistence/security fields.
+- iOS configures the OTP input as a one-time-code field.
+- Android supports normal autofill, notification copy, clipboard paste, and
+  App Links without requesting mailbox access.
+- The mobile client stores `challengeId` only for the active flow and clears it
+  after consumption, terminal failure, or expiry.
