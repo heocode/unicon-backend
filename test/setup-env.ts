@@ -1,6 +1,8 @@
+import 'dotenv/config';
+
 process.env.DATABASE_URL =
   process.env.TEST_DATABASE_URL ??
-  'postgresql://postgres:postgres@localhost:5432/unicon_test';
+  'postgresql://unicon_e2e:unicon_e2e_local@localhost:5433/unicon_test';
 process.env.JWT_ACCESS_SECRET ??= 'test-access-secret';
 process.env.JWT_ACCESS_TTL_SECONDS ??= '900';
 process.env.JWT_REFRESH_SECRET ??= 'test-refresh-secret';

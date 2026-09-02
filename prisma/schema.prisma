@@ -29,6 +29,30 @@ enum SessionPlatform {
   UNKNOWN
 }
 
+enum AuthenticationIdentityType {
+  INSTITUTIONAL_EMAIL
+}
+
+enum AuthenticationChallengePurpose {
+  SIGN_IN
+  STEP_UP
+}
+
+enum AuthenticationMethod {
+  EMAIL_OTP
+  EMAIL_MAGIC_LINK
+}
+
+enum AuthenticationDeliveryMethod {
+  EMAIL
+}
+
+enum AuthenticationDeliveryStatus {
+  PENDING
+  SENT
+  FAILED
+}
+
 enum SecurityEventType {
   LOGIN_SUCCEEDED
   LOGIN_FAILED
@@ -122,10 +146,11 @@ model User {
   university University @relation(fields: [universityId], references: [id])
 
   // relations
-  sessions               Session[]
-  securityEvents         SecurityEvent[]
-  notificationDeliveries NotificationDelivery[]
-  passwordResetTokens    PasswordResetToken[]
+  sessions                 Session[]
+  securityEvents           SecurityEvent[]
+  notificationDeliveries   NotificationDelivery[]
+  passwordResetTokens      PasswordResetToken[]
+  authenticationChallenges AuthenticationChallenge[]
 
   @@index([status, deletionScheduledAt])
 }
@@ -155,6 +180,83 @@ model PasswordResetRateLimit {
 }
 
 model AccountDeletionCancellationRateLimit {
+  key         String   @id
+  count       Int
+  windowEndAt DateTime
+  updatedAt   DateTime @updatedAt
+
+  @@index([windowEndAt])
+}
+
+model AuthenticationChallengeSubject {
+  key       String   @id
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  challenges AuthenticationChallenge[]
+}
+
+model AuthenticationChallenge {
+  id                 String                         @id @default(uuid())
+  subjectKey         String
+  identityType       AuthenticationIdentityType
+  normalizedIdentity String
+  purpose            AuthenticationChallengePurpose
+  userId             String?
+  boundSessionId     String?
+
+  otpHash              String
+  linkTokenHash        String
+  hashKeyVersion       Int
+  encryptedProof       Bytes?
+  proofEncryptionIv    Bytes?
+  proofEncryptionTag   Bytes?
+  encryptionKeyVersion Int
+
+  expiresAt          DateTime
+  failedAttemptCount Int       @default(0)
+  maxAttempts        Int
+  consumedAt         DateTime?
+  lockedAt           DateTime?
+  retentionExpiresAt DateTime
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  subject      AuthenticationChallengeSubject    @relation(fields: [subjectKey], references: [key], onDelete: Cascade)
+  user         User?                             @relation(fields: [userId], references: [id], onDelete: SetNull)
+  boundSession Session?                          @relation(fields: [boundSessionId], references: [id], onDelete: SetNull)
+  deliveries   AuthenticationChallengeDelivery[]
+
+  @@index([subjectKey, createdAt])
+  @@index([userId, createdAt])
+  @@index([boundSessionId])
+  @@index([expiresAt])
+  @@index([retentionExpiresAt])
+}
+
+model AuthenticationChallengeDelivery {
+  id                 String                       @id @default(uuid())
+  challengeId        String
+  method             AuthenticationDeliveryMethod
+  status             AuthenticationDeliveryStatus @default(PENDING)
+  recipientSnapshot  String
+  idempotencyKey     String                       @unique
+  providerMessageId  String?
+  failureCode        String?
+  attemptedAt        DateTime?
+  sentAt             DateTime?
+  retentionExpiresAt DateTime
+  createdAt          DateTime                     @default(now())
+  updatedAt          DateTime                     @updatedAt
+
+  challenge AuthenticationChallenge @relation(fields: [challengeId], references: [id], onDelete: Cascade)
+
+  @@index([challengeId, createdAt])
+  @@index([status, createdAt])
+  @@index([retentionExpiresAt])
+}
+
+model AuthenticationRateLimit {
   key         String   @id
   count       Int
   windowEndAt DateTime
@@ -202,6 +304,10 @@ model Session {
   locationCountryCode   String?
   locationCity          String?
 
+  // authentication
+  authenticationMethod AuthenticationMethod?
+  authenticatedAt      DateTime?
+
   // timestamps
   expiresAt    DateTime
   revokedAt    DateTime?
@@ -211,9 +317,10 @@ model Session {
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  actorSecurityEvents    SecurityEvent[]        @relation("SecurityEventActorSession")
-  subjectSecurityEvents  SecurityEvent[]        @relation("SecurityEventSubjectSession")
-  notificationDeliveries NotificationDelivery[]
+  actorSecurityEvents           SecurityEvent[]           @relation("SecurityEventActorSession")
+  subjectSecurityEvents         SecurityEvent[]           @relation("SecurityEventSubjectSession")
+  notificationDeliveries        NotificationDelivery[]
+  boundAuthenticationChallenges AuthenticationChallenge[]
 
   @@index([userId, revokedAt])
   @@index([userId, lastActiveAt])

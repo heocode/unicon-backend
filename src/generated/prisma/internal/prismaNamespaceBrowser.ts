@@ -55,6 +55,10 @@ export const ModelName = {
   PasswordResetToken: 'PasswordResetToken',
   PasswordResetRateLimit: 'PasswordResetRateLimit',
   AccountDeletionCancellationRateLimit: 'AccountDeletionCancellationRateLimit',
+  AuthenticationChallengeSubject: 'AuthenticationChallengeSubject',
+  AuthenticationChallenge: 'AuthenticationChallenge',
+  AuthenticationChallengeDelivery: 'AuthenticationChallengeDelivery',
+  AuthenticationRateLimit: 'AuthenticationRateLimit',
   University: 'University',
   AllowedDomain: 'AllowedDomain',
   Session: 'Session',
@@ -136,6 +140,72 @@ export const AccountDeletionCancellationRateLimitScalarFieldEnum = {
 export type AccountDeletionCancellationRateLimitScalarFieldEnum = (typeof AccountDeletionCancellationRateLimitScalarFieldEnum)[keyof typeof AccountDeletionCancellationRateLimitScalarFieldEnum]
 
 
+export const AuthenticationChallengeSubjectScalarFieldEnum = {
+  key: 'key',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type AuthenticationChallengeSubjectScalarFieldEnum = (typeof AuthenticationChallengeSubjectScalarFieldEnum)[keyof typeof AuthenticationChallengeSubjectScalarFieldEnum]
+
+
+export const AuthenticationChallengeScalarFieldEnum = {
+  id: 'id',
+  subjectKey: 'subjectKey',
+  identityType: 'identityType',
+  normalizedIdentity: 'normalizedIdentity',
+  purpose: 'purpose',
+  userId: 'userId',
+  boundSessionId: 'boundSessionId',
+  otpHash: 'otpHash',
+  linkTokenHash: 'linkTokenHash',
+  hashKeyVersion: 'hashKeyVersion',
+  encryptedProof: 'encryptedProof',
+  proofEncryptionIv: 'proofEncryptionIv',
+  proofEncryptionTag: 'proofEncryptionTag',
+  encryptionKeyVersion: 'encryptionKeyVersion',
+  expiresAt: 'expiresAt',
+  failedAttemptCount: 'failedAttemptCount',
+  maxAttempts: 'maxAttempts',
+  consumedAt: 'consumedAt',
+  lockedAt: 'lockedAt',
+  retentionExpiresAt: 'retentionExpiresAt',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type AuthenticationChallengeScalarFieldEnum = (typeof AuthenticationChallengeScalarFieldEnum)[keyof typeof AuthenticationChallengeScalarFieldEnum]
+
+
+export const AuthenticationChallengeDeliveryScalarFieldEnum = {
+  id: 'id',
+  challengeId: 'challengeId',
+  method: 'method',
+  status: 'status',
+  recipientSnapshot: 'recipientSnapshot',
+  idempotencyKey: 'idempotencyKey',
+  providerMessageId: 'providerMessageId',
+  failureCode: 'failureCode',
+  attemptedAt: 'attemptedAt',
+  sentAt: 'sentAt',
+  retentionExpiresAt: 'retentionExpiresAt',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type AuthenticationChallengeDeliveryScalarFieldEnum = (typeof AuthenticationChallengeDeliveryScalarFieldEnum)[keyof typeof AuthenticationChallengeDeliveryScalarFieldEnum]
+
+
+export const AuthenticationRateLimitScalarFieldEnum = {
+  key: 'key',
+  count: 'count',
+  windowEndAt: 'windowEndAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type AuthenticationRateLimitScalarFieldEnum = (typeof AuthenticationRateLimitScalarFieldEnum)[keyof typeof AuthenticationRateLimitScalarFieldEnum]
+
+
 export const UniversityScalarFieldEnum = {
   id: 'id',
   name: 'name',
@@ -172,6 +242,8 @@ export const SessionScalarFieldEnum = {
   appVersion: 'appVersion',
   locationCountryCode: 'locationCountryCode',
   locationCity: 'locationCity',
+  authenticationMethod: 'authenticationMethod',
+  authenticatedAt: 'authenticatedAt',
   expiresAt: 'expiresAt',
   revokedAt: 'revokedAt',
   lastActiveAt: 'lastActiveAt',

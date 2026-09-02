@@ -103,6 +103,17 @@ docker compose up -d postgres
 The default Compose service exposes PostgreSQL at `localhost:5432` with the
 development database `unicon`.
 
+The e2e suite uses a physically separate PostgreSQL 17 container and volume.
+Start it only when database-backed tests are needed:
+
+```bash
+docker compose --profile test up -d postgres-test
+```
+
+It exposes only the disposable `unicon_test` database at `localhost:5433`.
+`TEST_DATABASE_URL` in `.env` selects it; never point that setting at the
+development database.
+
 ### 4. Apply migrations and seed development data
 
 ```bash
@@ -207,12 +218,13 @@ npm test -- --runInBand
 npm run test:e2e -- --runInBand
 ```
 
-The e2e command prepares a dedicated PostgreSQL database, applies migrations,
-and runs real HTTP flows through guards, services, and Prisma. It uses
-`TEST_DATABASE_URL` when provided, otherwise it defaults to:
+The e2e command loads `.env`, prepares the dedicated test PostgreSQL database,
+applies migrations, and runs real HTTP flows through guards, services, and
+Prisma. It uses `TEST_DATABASE_URL` when provided, otherwise it defaults to the
+separate Compose test service:
 
 ```text
-postgresql://postgres:postgres@localhost:5432/unicon_test
+postgresql://unicon_e2e:unicon_e2e_local@localhost:5433/unicon_test
 ```
 
 For safety, preparation and destructive cleanup refuse to operate unless the
@@ -313,6 +325,7 @@ treated as proof of identity or physical presence.
 | `npm run format`                    | Format source and tests                          |
 | `npm test -- --runInBand`           | Run unit tests serially                          |
 | `npm run test:e2e -- --runInBand`   | Prepare the test DB and run all e2e tests        |
+| `docker compose --profile test up -d postgres-test` | Start isolated e2e PostgreSQL       |
 | `npm run geoip:update`              | Download GeoLite2 City with the official updater |
 | `npm run geoip:lookup -- <ip>`      | Inspect a local GeoIP result                     |
 | `npm run account-deletion:finalize` | Finalize eligible deletion requests              |

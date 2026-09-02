@@ -99,7 +99,8 @@ attempt counter, terminal timestamps, and a versioned authenticated-encryption
 envelope required to reproduce stable proof for delivery. Delivery stores only
 provider-neutral attempt state and idempotency, never proof.
 
-Remove target-obsolete storage:
+Keep target-obsolete storage temporarily during the expanding migration so the
+existing runtime remains buildable:
 
 ```text
 User.passwordHash
@@ -112,7 +113,9 @@ PasswordResetRateLimit
 
 Review whether unused `lastLoginAt`, `loginAttempts`, and `lockoutUntil` remain
 useful under the new event/rate-limit model. Remove them if no explicit owner
-and behavior remains.
+and behavior remains. Password and legacy verification/recovery columns are
+removed in the contract migration together with the runtime code in Stage 10,
+not in this additive stage.
 
 `PENDING` is no longer created in the target flow. Because PostgreSQL enum
 contraction requires care, removal of the enum value may be performed in this

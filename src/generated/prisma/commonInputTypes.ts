@@ -209,11 +209,103 @@ export type DateTimeWithAggregatesFilter<$PrismaModel = never> = {
   _max?: Prisma.NestedDateTimeFilter<$PrismaModel>
 }
 
+export type EnumAuthenticationIdentityTypeFilter<$PrismaModel = never> = {
+  equals?: $Enums.AuthenticationIdentityType | Prisma.EnumAuthenticationIdentityTypeFieldRefInput<$PrismaModel>
+  in?: $Enums.AuthenticationIdentityType[] | Prisma.ListEnumAuthenticationIdentityTypeFieldRefInput<$PrismaModel>
+  notIn?: $Enums.AuthenticationIdentityType[] | Prisma.ListEnumAuthenticationIdentityTypeFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumAuthenticationIdentityTypeFilter<$PrismaModel> | $Enums.AuthenticationIdentityType
+}
+
+export type EnumAuthenticationChallengePurposeFilter<$PrismaModel = never> = {
+  equals?: $Enums.AuthenticationChallengePurpose | Prisma.EnumAuthenticationChallengePurposeFieldRefInput<$PrismaModel>
+  in?: $Enums.AuthenticationChallengePurpose[] | Prisma.ListEnumAuthenticationChallengePurposeFieldRefInput<$PrismaModel>
+  notIn?: $Enums.AuthenticationChallengePurpose[] | Prisma.ListEnumAuthenticationChallengePurposeFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumAuthenticationChallengePurposeFilter<$PrismaModel> | $Enums.AuthenticationChallengePurpose
+}
+
+export type BytesNullableFilter<$PrismaModel = never> = {
+  equals?: runtime.Bytes | Prisma.BytesFieldRefInput<$PrismaModel> | null
+  in?: runtime.Bytes[] | Prisma.ListBytesFieldRefInput<$PrismaModel> | null
+  notIn?: runtime.Bytes[] | Prisma.ListBytesFieldRefInput<$PrismaModel> | null
+  not?: Prisma.NestedBytesNullableFilter<$PrismaModel> | runtime.Bytes | null
+}
+
+export type EnumAuthenticationIdentityTypeWithAggregatesFilter<$PrismaModel = never> = {
+  equals?: $Enums.AuthenticationIdentityType | Prisma.EnumAuthenticationIdentityTypeFieldRefInput<$PrismaModel>
+  in?: $Enums.AuthenticationIdentityType[] | Prisma.ListEnumAuthenticationIdentityTypeFieldRefInput<$PrismaModel>
+  notIn?: $Enums.AuthenticationIdentityType[] | Prisma.ListEnumAuthenticationIdentityTypeFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumAuthenticationIdentityTypeWithAggregatesFilter<$PrismaModel> | $Enums.AuthenticationIdentityType
+  _count?: Prisma.NestedIntFilter<$PrismaModel>
+  _min?: Prisma.NestedEnumAuthenticationIdentityTypeFilter<$PrismaModel>
+  _max?: Prisma.NestedEnumAuthenticationIdentityTypeFilter<$PrismaModel>
+}
+
+export type EnumAuthenticationChallengePurposeWithAggregatesFilter<$PrismaModel = never> = {
+  equals?: $Enums.AuthenticationChallengePurpose | Prisma.EnumAuthenticationChallengePurposeFieldRefInput<$PrismaModel>
+  in?: $Enums.AuthenticationChallengePurpose[] | Prisma.ListEnumAuthenticationChallengePurposeFieldRefInput<$PrismaModel>
+  notIn?: $Enums.AuthenticationChallengePurpose[] | Prisma.ListEnumAuthenticationChallengePurposeFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumAuthenticationChallengePurposeWithAggregatesFilter<$PrismaModel> | $Enums.AuthenticationChallengePurpose
+  _count?: Prisma.NestedIntFilter<$PrismaModel>
+  _min?: Prisma.NestedEnumAuthenticationChallengePurposeFilter<$PrismaModel>
+  _max?: Prisma.NestedEnumAuthenticationChallengePurposeFilter<$PrismaModel>
+}
+
+export type BytesNullableWithAggregatesFilter<$PrismaModel = never> = {
+  equals?: runtime.Bytes | Prisma.BytesFieldRefInput<$PrismaModel> | null
+  in?: runtime.Bytes[] | Prisma.ListBytesFieldRefInput<$PrismaModel> | null
+  notIn?: runtime.Bytes[] | Prisma.ListBytesFieldRefInput<$PrismaModel> | null
+  not?: Prisma.NestedBytesNullableWithAggregatesFilter<$PrismaModel> | runtime.Bytes | null
+  _count?: Prisma.NestedIntNullableFilter<$PrismaModel>
+  _min?: Prisma.NestedBytesNullableFilter<$PrismaModel>
+  _max?: Prisma.NestedBytesNullableFilter<$PrismaModel>
+}
+
+export type EnumAuthenticationDeliveryMethodFilter<$PrismaModel = never> = {
+  equals?: $Enums.AuthenticationDeliveryMethod | Prisma.EnumAuthenticationDeliveryMethodFieldRefInput<$PrismaModel>
+  in?: $Enums.AuthenticationDeliveryMethod[] | Prisma.ListEnumAuthenticationDeliveryMethodFieldRefInput<$PrismaModel>
+  notIn?: $Enums.AuthenticationDeliveryMethod[] | Prisma.ListEnumAuthenticationDeliveryMethodFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumAuthenticationDeliveryMethodFilter<$PrismaModel> | $Enums.AuthenticationDeliveryMethod
+}
+
+export type EnumAuthenticationDeliveryStatusFilter<$PrismaModel = never> = {
+  equals?: $Enums.AuthenticationDeliveryStatus | Prisma.EnumAuthenticationDeliveryStatusFieldRefInput<$PrismaModel>
+  in?: $Enums.AuthenticationDeliveryStatus[] | Prisma.ListEnumAuthenticationDeliveryStatusFieldRefInput<$PrismaModel>
+  notIn?: $Enums.AuthenticationDeliveryStatus[] | Prisma.ListEnumAuthenticationDeliveryStatusFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumAuthenticationDeliveryStatusFilter<$PrismaModel> | $Enums.AuthenticationDeliveryStatus
+}
+
+export type EnumAuthenticationDeliveryMethodWithAggregatesFilter<$PrismaModel = never> = {
+  equals?: $Enums.AuthenticationDeliveryMethod | Prisma.EnumAuthenticationDeliveryMethodFieldRefInput<$PrismaModel>
+  in?: $Enums.AuthenticationDeliveryMethod[] | Prisma.ListEnumAuthenticationDeliveryMethodFieldRefInput<$PrismaModel>
+  notIn?: $Enums.AuthenticationDeliveryMethod[] | Prisma.ListEnumAuthenticationDeliveryMethodFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumAuthenticationDeliveryMethodWithAggregatesFilter<$PrismaModel> | $Enums.AuthenticationDeliveryMethod
+  _count?: Prisma.NestedIntFilter<$PrismaModel>
+  _min?: Prisma.NestedEnumAuthenticationDeliveryMethodFilter<$PrismaModel>
+  _max?: Prisma.NestedEnumAuthenticationDeliveryMethodFilter<$PrismaModel>
+}
+
+export type EnumAuthenticationDeliveryStatusWithAggregatesFilter<$PrismaModel = never> = {
+  equals?: $Enums.AuthenticationDeliveryStatus | Prisma.EnumAuthenticationDeliveryStatusFieldRefInput<$PrismaModel>
+  in?: $Enums.AuthenticationDeliveryStatus[] | Prisma.ListEnumAuthenticationDeliveryStatusFieldRefInput<$PrismaModel>
+  notIn?: $Enums.AuthenticationDeliveryStatus[] | Prisma.ListEnumAuthenticationDeliveryStatusFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumAuthenticationDeliveryStatusWithAggregatesFilter<$PrismaModel> | $Enums.AuthenticationDeliveryStatus
+  _count?: Prisma.NestedIntFilter<$PrismaModel>
+  _min?: Prisma.NestedEnumAuthenticationDeliveryStatusFilter<$PrismaModel>
+  _max?: Prisma.NestedEnumAuthenticationDeliveryStatusFilter<$PrismaModel>
+}
+
 export type EnumSessionPlatformFilter<$PrismaModel = never> = {
   equals?: $Enums.SessionPlatform | Prisma.EnumSessionPlatformFieldRefInput<$PrismaModel>
   in?: $Enums.SessionPlatform[] | Prisma.ListEnumSessionPlatformFieldRefInput<$PrismaModel>
   notIn?: $Enums.SessionPlatform[] | Prisma.ListEnumSessionPlatformFieldRefInput<$PrismaModel>
   not?: Prisma.NestedEnumSessionPlatformFilter<$PrismaModel> | $Enums.SessionPlatform
+}
+
+export type EnumAuthenticationMethodNullableFilter<$PrismaModel = never> = {
+  equals?: $Enums.AuthenticationMethod | Prisma.EnumAuthenticationMethodFieldRefInput<$PrismaModel> | null
+  in?: $Enums.AuthenticationMethod[] | Prisma.ListEnumAuthenticationMethodFieldRefInput<$PrismaModel> | null
+  notIn?: $Enums.AuthenticationMethod[] | Prisma.ListEnumAuthenticationMethodFieldRefInput<$PrismaModel> | null
+  not?: Prisma.NestedEnumAuthenticationMethodNullableFilter<$PrismaModel> | $Enums.AuthenticationMethod | null
 }
 
 export type EnumSessionPlatformWithAggregatesFilter<$PrismaModel = never> = {
@@ -224,6 +316,16 @@ export type EnumSessionPlatformWithAggregatesFilter<$PrismaModel = never> = {
   _count?: Prisma.NestedIntFilter<$PrismaModel>
   _min?: Prisma.NestedEnumSessionPlatformFilter<$PrismaModel>
   _max?: Prisma.NestedEnumSessionPlatformFilter<$PrismaModel>
+}
+
+export type EnumAuthenticationMethodNullableWithAggregatesFilter<$PrismaModel = never> = {
+  equals?: $Enums.AuthenticationMethod | Prisma.EnumAuthenticationMethodFieldRefInput<$PrismaModel> | null
+  in?: $Enums.AuthenticationMethod[] | Prisma.ListEnumAuthenticationMethodFieldRefInput<$PrismaModel> | null
+  notIn?: $Enums.AuthenticationMethod[] | Prisma.ListEnumAuthenticationMethodFieldRefInput<$PrismaModel> | null
+  not?: Prisma.NestedEnumAuthenticationMethodNullableWithAggregatesFilter<$PrismaModel> | $Enums.AuthenticationMethod | null
+  _count?: Prisma.NestedIntNullableFilter<$PrismaModel>
+  _min?: Prisma.NestedEnumAuthenticationMethodNullableFilter<$PrismaModel>
+  _max?: Prisma.NestedEnumAuthenticationMethodNullableFilter<$PrismaModel>
 }
 
 export type EnumNotificationTypeFilter<$PrismaModel = never> = {
@@ -580,11 +682,103 @@ export type NestedDateTimeWithAggregatesFilter<$PrismaModel = never> = {
   _max?: Prisma.NestedDateTimeFilter<$PrismaModel>
 }
 
+export type NestedEnumAuthenticationIdentityTypeFilter<$PrismaModel = never> = {
+  equals?: $Enums.AuthenticationIdentityType | Prisma.EnumAuthenticationIdentityTypeFieldRefInput<$PrismaModel>
+  in?: $Enums.AuthenticationIdentityType[] | Prisma.ListEnumAuthenticationIdentityTypeFieldRefInput<$PrismaModel>
+  notIn?: $Enums.AuthenticationIdentityType[] | Prisma.ListEnumAuthenticationIdentityTypeFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumAuthenticationIdentityTypeFilter<$PrismaModel> | $Enums.AuthenticationIdentityType
+}
+
+export type NestedEnumAuthenticationChallengePurposeFilter<$PrismaModel = never> = {
+  equals?: $Enums.AuthenticationChallengePurpose | Prisma.EnumAuthenticationChallengePurposeFieldRefInput<$PrismaModel>
+  in?: $Enums.AuthenticationChallengePurpose[] | Prisma.ListEnumAuthenticationChallengePurposeFieldRefInput<$PrismaModel>
+  notIn?: $Enums.AuthenticationChallengePurpose[] | Prisma.ListEnumAuthenticationChallengePurposeFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumAuthenticationChallengePurposeFilter<$PrismaModel> | $Enums.AuthenticationChallengePurpose
+}
+
+export type NestedBytesNullableFilter<$PrismaModel = never> = {
+  equals?: runtime.Bytes | Prisma.BytesFieldRefInput<$PrismaModel> | null
+  in?: runtime.Bytes[] | Prisma.ListBytesFieldRefInput<$PrismaModel> | null
+  notIn?: runtime.Bytes[] | Prisma.ListBytesFieldRefInput<$PrismaModel> | null
+  not?: Prisma.NestedBytesNullableFilter<$PrismaModel> | runtime.Bytes | null
+}
+
+export type NestedEnumAuthenticationIdentityTypeWithAggregatesFilter<$PrismaModel = never> = {
+  equals?: $Enums.AuthenticationIdentityType | Prisma.EnumAuthenticationIdentityTypeFieldRefInput<$PrismaModel>
+  in?: $Enums.AuthenticationIdentityType[] | Prisma.ListEnumAuthenticationIdentityTypeFieldRefInput<$PrismaModel>
+  notIn?: $Enums.AuthenticationIdentityType[] | Prisma.ListEnumAuthenticationIdentityTypeFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumAuthenticationIdentityTypeWithAggregatesFilter<$PrismaModel> | $Enums.AuthenticationIdentityType
+  _count?: Prisma.NestedIntFilter<$PrismaModel>
+  _min?: Prisma.NestedEnumAuthenticationIdentityTypeFilter<$PrismaModel>
+  _max?: Prisma.NestedEnumAuthenticationIdentityTypeFilter<$PrismaModel>
+}
+
+export type NestedEnumAuthenticationChallengePurposeWithAggregatesFilter<$PrismaModel = never> = {
+  equals?: $Enums.AuthenticationChallengePurpose | Prisma.EnumAuthenticationChallengePurposeFieldRefInput<$PrismaModel>
+  in?: $Enums.AuthenticationChallengePurpose[] | Prisma.ListEnumAuthenticationChallengePurposeFieldRefInput<$PrismaModel>
+  notIn?: $Enums.AuthenticationChallengePurpose[] | Prisma.ListEnumAuthenticationChallengePurposeFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumAuthenticationChallengePurposeWithAggregatesFilter<$PrismaModel> | $Enums.AuthenticationChallengePurpose
+  _count?: Prisma.NestedIntFilter<$PrismaModel>
+  _min?: Prisma.NestedEnumAuthenticationChallengePurposeFilter<$PrismaModel>
+  _max?: Prisma.NestedEnumAuthenticationChallengePurposeFilter<$PrismaModel>
+}
+
+export type NestedBytesNullableWithAggregatesFilter<$PrismaModel = never> = {
+  equals?: runtime.Bytes | Prisma.BytesFieldRefInput<$PrismaModel> | null
+  in?: runtime.Bytes[] | Prisma.ListBytesFieldRefInput<$PrismaModel> | null
+  notIn?: runtime.Bytes[] | Prisma.ListBytesFieldRefInput<$PrismaModel> | null
+  not?: Prisma.NestedBytesNullableWithAggregatesFilter<$PrismaModel> | runtime.Bytes | null
+  _count?: Prisma.NestedIntNullableFilter<$PrismaModel>
+  _min?: Prisma.NestedBytesNullableFilter<$PrismaModel>
+  _max?: Prisma.NestedBytesNullableFilter<$PrismaModel>
+}
+
+export type NestedEnumAuthenticationDeliveryMethodFilter<$PrismaModel = never> = {
+  equals?: $Enums.AuthenticationDeliveryMethod | Prisma.EnumAuthenticationDeliveryMethodFieldRefInput<$PrismaModel>
+  in?: $Enums.AuthenticationDeliveryMethod[] | Prisma.ListEnumAuthenticationDeliveryMethodFieldRefInput<$PrismaModel>
+  notIn?: $Enums.AuthenticationDeliveryMethod[] | Prisma.ListEnumAuthenticationDeliveryMethodFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumAuthenticationDeliveryMethodFilter<$PrismaModel> | $Enums.AuthenticationDeliveryMethod
+}
+
+export type NestedEnumAuthenticationDeliveryStatusFilter<$PrismaModel = never> = {
+  equals?: $Enums.AuthenticationDeliveryStatus | Prisma.EnumAuthenticationDeliveryStatusFieldRefInput<$PrismaModel>
+  in?: $Enums.AuthenticationDeliveryStatus[] | Prisma.ListEnumAuthenticationDeliveryStatusFieldRefInput<$PrismaModel>
+  notIn?: $Enums.AuthenticationDeliveryStatus[] | Prisma.ListEnumAuthenticationDeliveryStatusFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumAuthenticationDeliveryStatusFilter<$PrismaModel> | $Enums.AuthenticationDeliveryStatus
+}
+
+export type NestedEnumAuthenticationDeliveryMethodWithAggregatesFilter<$PrismaModel = never> = {
+  equals?: $Enums.AuthenticationDeliveryMethod | Prisma.EnumAuthenticationDeliveryMethodFieldRefInput<$PrismaModel>
+  in?: $Enums.AuthenticationDeliveryMethod[] | Prisma.ListEnumAuthenticationDeliveryMethodFieldRefInput<$PrismaModel>
+  notIn?: $Enums.AuthenticationDeliveryMethod[] | Prisma.ListEnumAuthenticationDeliveryMethodFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumAuthenticationDeliveryMethodWithAggregatesFilter<$PrismaModel> | $Enums.AuthenticationDeliveryMethod
+  _count?: Prisma.NestedIntFilter<$PrismaModel>
+  _min?: Prisma.NestedEnumAuthenticationDeliveryMethodFilter<$PrismaModel>
+  _max?: Prisma.NestedEnumAuthenticationDeliveryMethodFilter<$PrismaModel>
+}
+
+export type NestedEnumAuthenticationDeliveryStatusWithAggregatesFilter<$PrismaModel = never> = {
+  equals?: $Enums.AuthenticationDeliveryStatus | Prisma.EnumAuthenticationDeliveryStatusFieldRefInput<$PrismaModel>
+  in?: $Enums.AuthenticationDeliveryStatus[] | Prisma.ListEnumAuthenticationDeliveryStatusFieldRefInput<$PrismaModel>
+  notIn?: $Enums.AuthenticationDeliveryStatus[] | Prisma.ListEnumAuthenticationDeliveryStatusFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumAuthenticationDeliveryStatusWithAggregatesFilter<$PrismaModel> | $Enums.AuthenticationDeliveryStatus
+  _count?: Prisma.NestedIntFilter<$PrismaModel>
+  _min?: Prisma.NestedEnumAuthenticationDeliveryStatusFilter<$PrismaModel>
+  _max?: Prisma.NestedEnumAuthenticationDeliveryStatusFilter<$PrismaModel>
+}
+
 export type NestedEnumSessionPlatformFilter<$PrismaModel = never> = {
   equals?: $Enums.SessionPlatform | Prisma.EnumSessionPlatformFieldRefInput<$PrismaModel>
   in?: $Enums.SessionPlatform[] | Prisma.ListEnumSessionPlatformFieldRefInput<$PrismaModel>
   notIn?: $Enums.SessionPlatform[] | Prisma.ListEnumSessionPlatformFieldRefInput<$PrismaModel>
   not?: Prisma.NestedEnumSessionPlatformFilter<$PrismaModel> | $Enums.SessionPlatform
+}
+
+export type NestedEnumAuthenticationMethodNullableFilter<$PrismaModel = never> = {
+  equals?: $Enums.AuthenticationMethod | Prisma.EnumAuthenticationMethodFieldRefInput<$PrismaModel> | null
+  in?: $Enums.AuthenticationMethod[] | Prisma.ListEnumAuthenticationMethodFieldRefInput<$PrismaModel> | null
+  notIn?: $Enums.AuthenticationMethod[] | Prisma.ListEnumAuthenticationMethodFieldRefInput<$PrismaModel> | null
+  not?: Prisma.NestedEnumAuthenticationMethodNullableFilter<$PrismaModel> | $Enums.AuthenticationMethod | null
 }
 
 export type NestedEnumSessionPlatformWithAggregatesFilter<$PrismaModel = never> = {
@@ -595,6 +789,16 @@ export type NestedEnumSessionPlatformWithAggregatesFilter<$PrismaModel = never> 
   _count?: Prisma.NestedIntFilter<$PrismaModel>
   _min?: Prisma.NestedEnumSessionPlatformFilter<$PrismaModel>
   _max?: Prisma.NestedEnumSessionPlatformFilter<$PrismaModel>
+}
+
+export type NestedEnumAuthenticationMethodNullableWithAggregatesFilter<$PrismaModel = never> = {
+  equals?: $Enums.AuthenticationMethod | Prisma.EnumAuthenticationMethodFieldRefInput<$PrismaModel> | null
+  in?: $Enums.AuthenticationMethod[] | Prisma.ListEnumAuthenticationMethodFieldRefInput<$PrismaModel> | null
+  notIn?: $Enums.AuthenticationMethod[] | Prisma.ListEnumAuthenticationMethodFieldRefInput<$PrismaModel> | null
+  not?: Prisma.NestedEnumAuthenticationMethodNullableWithAggregatesFilter<$PrismaModel> | $Enums.AuthenticationMethod | null
+  _count?: Prisma.NestedIntNullableFilter<$PrismaModel>
+  _min?: Prisma.NestedEnumAuthenticationMethodNullableFilter<$PrismaModel>
+  _max?: Prisma.NestedEnumAuthenticationMethodNullableFilter<$PrismaModel>
 }
 
 export type NestedEnumNotificationTypeFilter<$PrismaModel = never> = {

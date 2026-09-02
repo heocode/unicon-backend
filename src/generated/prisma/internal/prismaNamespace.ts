@@ -388,6 +388,10 @@ export const ModelName = {
   PasswordResetToken: 'PasswordResetToken',
   PasswordResetRateLimit: 'PasswordResetRateLimit',
   AccountDeletionCancellationRateLimit: 'AccountDeletionCancellationRateLimit',
+  AuthenticationChallengeSubject: 'AuthenticationChallengeSubject',
+  AuthenticationChallenge: 'AuthenticationChallenge',
+  AuthenticationChallengeDelivery: 'AuthenticationChallengeDelivery',
+  AuthenticationRateLimit: 'AuthenticationRateLimit',
   University: 'University',
   AllowedDomain: 'AllowedDomain',
   Session: 'Session',
@@ -408,7 +412,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "user" | "passwordResetToken" | "passwordResetRateLimit" | "accountDeletionCancellationRateLimit" | "university" | "allowedDomain" | "session" | "notificationDelivery" | "securityEvent"
+    modelProps: "user" | "passwordResetToken" | "passwordResetRateLimit" | "accountDeletionCancellationRateLimit" | "authenticationChallengeSubject" | "authenticationChallenge" | "authenticationChallengeDelivery" | "authenticationRateLimit" | "university" | "allowedDomain" | "session" | "notificationDelivery" | "securityEvent"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
@@ -705,6 +709,302 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         count: {
           args: Prisma.AccountDeletionCancellationRateLimitCountArgs<ExtArgs>
           result: runtime.Types.Utils.Optional<Prisma.AccountDeletionCancellationRateLimitCountAggregateOutputType> | number
+        }
+      }
+    }
+    AuthenticationChallengeSubject: {
+      payload: Prisma.$AuthenticationChallengeSubjectPayload<ExtArgs>
+      fields: Prisma.AuthenticationChallengeSubjectFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.AuthenticationChallengeSubjectFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AuthenticationChallengeSubjectPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.AuthenticationChallengeSubjectFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AuthenticationChallengeSubjectPayload>
+        }
+        findFirst: {
+          args: Prisma.AuthenticationChallengeSubjectFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AuthenticationChallengeSubjectPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.AuthenticationChallengeSubjectFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AuthenticationChallengeSubjectPayload>
+        }
+        findMany: {
+          args: Prisma.AuthenticationChallengeSubjectFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AuthenticationChallengeSubjectPayload>[]
+        }
+        create: {
+          args: Prisma.AuthenticationChallengeSubjectCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AuthenticationChallengeSubjectPayload>
+        }
+        createMany: {
+          args: Prisma.AuthenticationChallengeSubjectCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.AuthenticationChallengeSubjectCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AuthenticationChallengeSubjectPayload>[]
+        }
+        delete: {
+          args: Prisma.AuthenticationChallengeSubjectDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AuthenticationChallengeSubjectPayload>
+        }
+        update: {
+          args: Prisma.AuthenticationChallengeSubjectUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AuthenticationChallengeSubjectPayload>
+        }
+        deleteMany: {
+          args: Prisma.AuthenticationChallengeSubjectDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.AuthenticationChallengeSubjectUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.AuthenticationChallengeSubjectUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AuthenticationChallengeSubjectPayload>[]
+        }
+        upsert: {
+          args: Prisma.AuthenticationChallengeSubjectUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AuthenticationChallengeSubjectPayload>
+        }
+        aggregate: {
+          args: Prisma.AuthenticationChallengeSubjectAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateAuthenticationChallengeSubject>
+        }
+        groupBy: {
+          args: Prisma.AuthenticationChallengeSubjectGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AuthenticationChallengeSubjectGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.AuthenticationChallengeSubjectCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AuthenticationChallengeSubjectCountAggregateOutputType> | number
+        }
+      }
+    }
+    AuthenticationChallenge: {
+      payload: Prisma.$AuthenticationChallengePayload<ExtArgs>
+      fields: Prisma.AuthenticationChallengeFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.AuthenticationChallengeFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AuthenticationChallengePayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.AuthenticationChallengeFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AuthenticationChallengePayload>
+        }
+        findFirst: {
+          args: Prisma.AuthenticationChallengeFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AuthenticationChallengePayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.AuthenticationChallengeFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AuthenticationChallengePayload>
+        }
+        findMany: {
+          args: Prisma.AuthenticationChallengeFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AuthenticationChallengePayload>[]
+        }
+        create: {
+          args: Prisma.AuthenticationChallengeCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AuthenticationChallengePayload>
+        }
+        createMany: {
+          args: Prisma.AuthenticationChallengeCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.AuthenticationChallengeCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AuthenticationChallengePayload>[]
+        }
+        delete: {
+          args: Prisma.AuthenticationChallengeDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AuthenticationChallengePayload>
+        }
+        update: {
+          args: Prisma.AuthenticationChallengeUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AuthenticationChallengePayload>
+        }
+        deleteMany: {
+          args: Prisma.AuthenticationChallengeDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.AuthenticationChallengeUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.AuthenticationChallengeUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AuthenticationChallengePayload>[]
+        }
+        upsert: {
+          args: Prisma.AuthenticationChallengeUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AuthenticationChallengePayload>
+        }
+        aggregate: {
+          args: Prisma.AuthenticationChallengeAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateAuthenticationChallenge>
+        }
+        groupBy: {
+          args: Prisma.AuthenticationChallengeGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AuthenticationChallengeGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.AuthenticationChallengeCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AuthenticationChallengeCountAggregateOutputType> | number
+        }
+      }
+    }
+    AuthenticationChallengeDelivery: {
+      payload: Prisma.$AuthenticationChallengeDeliveryPayload<ExtArgs>
+      fields: Prisma.AuthenticationChallengeDeliveryFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.AuthenticationChallengeDeliveryFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AuthenticationChallengeDeliveryPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.AuthenticationChallengeDeliveryFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AuthenticationChallengeDeliveryPayload>
+        }
+        findFirst: {
+          args: Prisma.AuthenticationChallengeDeliveryFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AuthenticationChallengeDeliveryPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.AuthenticationChallengeDeliveryFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AuthenticationChallengeDeliveryPayload>
+        }
+        findMany: {
+          args: Prisma.AuthenticationChallengeDeliveryFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AuthenticationChallengeDeliveryPayload>[]
+        }
+        create: {
+          args: Prisma.AuthenticationChallengeDeliveryCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AuthenticationChallengeDeliveryPayload>
+        }
+        createMany: {
+          args: Prisma.AuthenticationChallengeDeliveryCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.AuthenticationChallengeDeliveryCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AuthenticationChallengeDeliveryPayload>[]
+        }
+        delete: {
+          args: Prisma.AuthenticationChallengeDeliveryDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AuthenticationChallengeDeliveryPayload>
+        }
+        update: {
+          args: Prisma.AuthenticationChallengeDeliveryUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AuthenticationChallengeDeliveryPayload>
+        }
+        deleteMany: {
+          args: Prisma.AuthenticationChallengeDeliveryDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.AuthenticationChallengeDeliveryUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.AuthenticationChallengeDeliveryUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AuthenticationChallengeDeliveryPayload>[]
+        }
+        upsert: {
+          args: Prisma.AuthenticationChallengeDeliveryUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AuthenticationChallengeDeliveryPayload>
+        }
+        aggregate: {
+          args: Prisma.AuthenticationChallengeDeliveryAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateAuthenticationChallengeDelivery>
+        }
+        groupBy: {
+          args: Prisma.AuthenticationChallengeDeliveryGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AuthenticationChallengeDeliveryGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.AuthenticationChallengeDeliveryCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AuthenticationChallengeDeliveryCountAggregateOutputType> | number
+        }
+      }
+    }
+    AuthenticationRateLimit: {
+      payload: Prisma.$AuthenticationRateLimitPayload<ExtArgs>
+      fields: Prisma.AuthenticationRateLimitFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.AuthenticationRateLimitFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AuthenticationRateLimitPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.AuthenticationRateLimitFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AuthenticationRateLimitPayload>
+        }
+        findFirst: {
+          args: Prisma.AuthenticationRateLimitFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AuthenticationRateLimitPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.AuthenticationRateLimitFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AuthenticationRateLimitPayload>
+        }
+        findMany: {
+          args: Prisma.AuthenticationRateLimitFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AuthenticationRateLimitPayload>[]
+        }
+        create: {
+          args: Prisma.AuthenticationRateLimitCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AuthenticationRateLimitPayload>
+        }
+        createMany: {
+          args: Prisma.AuthenticationRateLimitCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.AuthenticationRateLimitCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AuthenticationRateLimitPayload>[]
+        }
+        delete: {
+          args: Prisma.AuthenticationRateLimitDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AuthenticationRateLimitPayload>
+        }
+        update: {
+          args: Prisma.AuthenticationRateLimitUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AuthenticationRateLimitPayload>
+        }
+        deleteMany: {
+          args: Prisma.AuthenticationRateLimitDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.AuthenticationRateLimitUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.AuthenticationRateLimitUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AuthenticationRateLimitPayload>[]
+        }
+        upsert: {
+          args: Prisma.AuthenticationRateLimitUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AuthenticationRateLimitPayload>
+        }
+        aggregate: {
+          args: Prisma.AuthenticationRateLimitAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateAuthenticationRateLimit>
+        }
+        groupBy: {
+          args: Prisma.AuthenticationRateLimitGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AuthenticationRateLimitGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.AuthenticationRateLimitCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AuthenticationRateLimitCountAggregateOutputType> | number
         }
       }
     }
@@ -1175,6 +1475,72 @@ export const AccountDeletionCancellationRateLimitScalarFieldEnum = {
 export type AccountDeletionCancellationRateLimitScalarFieldEnum = (typeof AccountDeletionCancellationRateLimitScalarFieldEnum)[keyof typeof AccountDeletionCancellationRateLimitScalarFieldEnum]
 
 
+export const AuthenticationChallengeSubjectScalarFieldEnum = {
+  key: 'key',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type AuthenticationChallengeSubjectScalarFieldEnum = (typeof AuthenticationChallengeSubjectScalarFieldEnum)[keyof typeof AuthenticationChallengeSubjectScalarFieldEnum]
+
+
+export const AuthenticationChallengeScalarFieldEnum = {
+  id: 'id',
+  subjectKey: 'subjectKey',
+  identityType: 'identityType',
+  normalizedIdentity: 'normalizedIdentity',
+  purpose: 'purpose',
+  userId: 'userId',
+  boundSessionId: 'boundSessionId',
+  otpHash: 'otpHash',
+  linkTokenHash: 'linkTokenHash',
+  hashKeyVersion: 'hashKeyVersion',
+  encryptedProof: 'encryptedProof',
+  proofEncryptionIv: 'proofEncryptionIv',
+  proofEncryptionTag: 'proofEncryptionTag',
+  encryptionKeyVersion: 'encryptionKeyVersion',
+  expiresAt: 'expiresAt',
+  failedAttemptCount: 'failedAttemptCount',
+  maxAttempts: 'maxAttempts',
+  consumedAt: 'consumedAt',
+  lockedAt: 'lockedAt',
+  retentionExpiresAt: 'retentionExpiresAt',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type AuthenticationChallengeScalarFieldEnum = (typeof AuthenticationChallengeScalarFieldEnum)[keyof typeof AuthenticationChallengeScalarFieldEnum]
+
+
+export const AuthenticationChallengeDeliveryScalarFieldEnum = {
+  id: 'id',
+  challengeId: 'challengeId',
+  method: 'method',
+  status: 'status',
+  recipientSnapshot: 'recipientSnapshot',
+  idempotencyKey: 'idempotencyKey',
+  providerMessageId: 'providerMessageId',
+  failureCode: 'failureCode',
+  attemptedAt: 'attemptedAt',
+  sentAt: 'sentAt',
+  retentionExpiresAt: 'retentionExpiresAt',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type AuthenticationChallengeDeliveryScalarFieldEnum = (typeof AuthenticationChallengeDeliveryScalarFieldEnum)[keyof typeof AuthenticationChallengeDeliveryScalarFieldEnum]
+
+
+export const AuthenticationRateLimitScalarFieldEnum = {
+  key: 'key',
+  count: 'count',
+  windowEndAt: 'windowEndAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type AuthenticationRateLimitScalarFieldEnum = (typeof AuthenticationRateLimitScalarFieldEnum)[keyof typeof AuthenticationRateLimitScalarFieldEnum]
+
+
 export const UniversityScalarFieldEnum = {
   id: 'id',
   name: 'name',
@@ -1211,6 +1577,8 @@ export const SessionScalarFieldEnum = {
   appVersion: 'appVersion',
   locationCountryCode: 'locationCountryCode',
   locationCity: 'locationCity',
+  authenticationMethod: 'authenticationMethod',
+  authenticatedAt: 'authenticatedAt',
   expiresAt: 'expiresAt',
   revokedAt: 'revokedAt',
   lastActiveAt: 'lastActiveAt',
@@ -1376,6 +1744,76 @@ export type ListIntFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel,
 
 
 /**
+ * Reference to a field of type 'AuthenticationIdentityType'
+ */
+export type EnumAuthenticationIdentityTypeFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'AuthenticationIdentityType'>
+    
+
+
+/**
+ * Reference to a field of type 'AuthenticationIdentityType[]'
+ */
+export type ListEnumAuthenticationIdentityTypeFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'AuthenticationIdentityType[]'>
+    
+
+
+/**
+ * Reference to a field of type 'AuthenticationChallengePurpose'
+ */
+export type EnumAuthenticationChallengePurposeFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'AuthenticationChallengePurpose'>
+    
+
+
+/**
+ * Reference to a field of type 'AuthenticationChallengePurpose[]'
+ */
+export type ListEnumAuthenticationChallengePurposeFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'AuthenticationChallengePurpose[]'>
+    
+
+
+/**
+ * Reference to a field of type 'Bytes'
+ */
+export type BytesFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Bytes'>
+    
+
+
+/**
+ * Reference to a field of type 'Bytes[]'
+ */
+export type ListBytesFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Bytes[]'>
+    
+
+
+/**
+ * Reference to a field of type 'AuthenticationDeliveryMethod'
+ */
+export type EnumAuthenticationDeliveryMethodFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'AuthenticationDeliveryMethod'>
+    
+
+
+/**
+ * Reference to a field of type 'AuthenticationDeliveryMethod[]'
+ */
+export type ListEnumAuthenticationDeliveryMethodFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'AuthenticationDeliveryMethod[]'>
+    
+
+
+/**
+ * Reference to a field of type 'AuthenticationDeliveryStatus'
+ */
+export type EnumAuthenticationDeliveryStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'AuthenticationDeliveryStatus'>
+    
+
+
+/**
+ * Reference to a field of type 'AuthenticationDeliveryStatus[]'
+ */
+export type ListEnumAuthenticationDeliveryStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'AuthenticationDeliveryStatus[]'>
+    
+
+
+/**
  * Reference to a field of type 'SessionPlatform'
  */
 export type EnumSessionPlatformFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'SessionPlatform'>
@@ -1386,6 +1824,20 @@ export type EnumSessionPlatformFieldRefInput<$PrismaModel> = FieldRefInputType<$
  * Reference to a field of type 'SessionPlatform[]'
  */
 export type ListEnumSessionPlatformFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'SessionPlatform[]'>
+    
+
+
+/**
+ * Reference to a field of type 'AuthenticationMethod'
+ */
+export type EnumAuthenticationMethodFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'AuthenticationMethod'>
+    
+
+
+/**
+ * Reference to a field of type 'AuthenticationMethod[]'
+ */
+export type ListEnumAuthenticationMethodFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'AuthenticationMethod[]'>
     
 
 
@@ -1614,6 +2066,10 @@ export type GlobalOmitConfig = {
   passwordResetToken?: Prisma.PasswordResetTokenOmit
   passwordResetRateLimit?: Prisma.PasswordResetRateLimitOmit
   accountDeletionCancellationRateLimit?: Prisma.AccountDeletionCancellationRateLimitOmit
+  authenticationChallengeSubject?: Prisma.AuthenticationChallengeSubjectOmit
+  authenticationChallenge?: Prisma.AuthenticationChallengeOmit
+  authenticationChallengeDelivery?: Prisma.AuthenticationChallengeDeliveryOmit
+  authenticationRateLimit?: Prisma.AuthenticationRateLimitOmit
   university?: Prisma.UniversityOmit
   allowedDomain?: Prisma.AllowedDomainOmit
   session?: Prisma.SessionOmit

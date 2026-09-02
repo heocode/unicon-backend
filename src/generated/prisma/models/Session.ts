@@ -38,6 +38,8 @@ export type SessionMinAggregateOutputType = {
   appVersion: string | null
   locationCountryCode: string | null
   locationCity: string | null
+  authenticationMethod: $Enums.AuthenticationMethod | null
+  authenticatedAt: Date | null
   expiresAt: Date | null
   revokedAt: Date | null
   lastActiveAt: Date | null
@@ -59,6 +61,8 @@ export type SessionMaxAggregateOutputType = {
   appVersion: string | null
   locationCountryCode: string | null
   locationCity: string | null
+  authenticationMethod: $Enums.AuthenticationMethod | null
+  authenticatedAt: Date | null
   expiresAt: Date | null
   revokedAt: Date | null
   lastActiveAt: Date | null
@@ -80,6 +84,8 @@ export type SessionCountAggregateOutputType = {
   appVersion: number
   locationCountryCode: number
   locationCity: number
+  authenticationMethod: number
+  authenticatedAt: number
   expiresAt: number
   revokedAt: number
   lastActiveAt: number
@@ -103,6 +109,8 @@ export type SessionMinAggregateInputType = {
   appVersion?: true
   locationCountryCode?: true
   locationCity?: true
+  authenticationMethod?: true
+  authenticatedAt?: true
   expiresAt?: true
   revokedAt?: true
   lastActiveAt?: true
@@ -124,6 +132,8 @@ export type SessionMaxAggregateInputType = {
   appVersion?: true
   locationCountryCode?: true
   locationCity?: true
+  authenticationMethod?: true
+  authenticatedAt?: true
   expiresAt?: true
   revokedAt?: true
   lastActiveAt?: true
@@ -145,6 +155,8 @@ export type SessionCountAggregateInputType = {
   appVersion?: true
   locationCountryCode?: true
   locationCity?: true
+  authenticationMethod?: true
+  authenticatedAt?: true
   expiresAt?: true
   revokedAt?: true
   lastActiveAt?: true
@@ -239,6 +251,8 @@ export type SessionGroupByOutputType = {
   appVersion: string | null
   locationCountryCode: string | null
   locationCity: string | null
+  authenticationMethod: $Enums.AuthenticationMethod | null
+  authenticatedAt: Date | null
   expiresAt: Date
   revokedAt: Date | null
   lastActiveAt: Date
@@ -281,6 +295,8 @@ export type SessionWhereInput = {
   appVersion?: Prisma.StringNullableFilter<"Session"> | string | null
   locationCountryCode?: Prisma.StringNullableFilter<"Session"> | string | null
   locationCity?: Prisma.StringNullableFilter<"Session"> | string | null
+  authenticationMethod?: Prisma.EnumAuthenticationMethodNullableFilter<"Session"> | $Enums.AuthenticationMethod | null
+  authenticatedAt?: Prisma.DateTimeNullableFilter<"Session"> | Date | string | null
   expiresAt?: Prisma.DateTimeFilter<"Session"> | Date | string
   revokedAt?: Prisma.DateTimeNullableFilter<"Session"> | Date | string | null
   lastActiveAt?: Prisma.DateTimeFilter<"Session"> | Date | string
@@ -290,6 +306,7 @@ export type SessionWhereInput = {
   actorSecurityEvents?: Prisma.SecurityEventListRelationFilter
   subjectSecurityEvents?: Prisma.SecurityEventListRelationFilter
   notificationDeliveries?: Prisma.NotificationDeliveryListRelationFilter
+  boundAuthenticationChallenges?: Prisma.AuthenticationChallengeListRelationFilter
 }
 
 export type SessionOrderByWithRelationInput = {
@@ -306,6 +323,8 @@ export type SessionOrderByWithRelationInput = {
   appVersion?: Prisma.SortOrderInput | Prisma.SortOrder
   locationCountryCode?: Prisma.SortOrderInput | Prisma.SortOrder
   locationCity?: Prisma.SortOrderInput | Prisma.SortOrder
+  authenticationMethod?: Prisma.SortOrderInput | Prisma.SortOrder
+  authenticatedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   expiresAt?: Prisma.SortOrder
   revokedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   lastActiveAt?: Prisma.SortOrder
@@ -315,6 +334,7 @@ export type SessionOrderByWithRelationInput = {
   actorSecurityEvents?: Prisma.SecurityEventOrderByRelationAggregateInput
   subjectSecurityEvents?: Prisma.SecurityEventOrderByRelationAggregateInput
   notificationDeliveries?: Prisma.NotificationDeliveryOrderByRelationAggregateInput
+  boundAuthenticationChallenges?: Prisma.AuthenticationChallengeOrderByRelationAggregateInput
 }
 
 export type SessionWhereUniqueInput = Prisma.AtLeast<{
@@ -334,6 +354,8 @@ export type SessionWhereUniqueInput = Prisma.AtLeast<{
   appVersion?: Prisma.StringNullableFilter<"Session"> | string | null
   locationCountryCode?: Prisma.StringNullableFilter<"Session"> | string | null
   locationCity?: Prisma.StringNullableFilter<"Session"> | string | null
+  authenticationMethod?: Prisma.EnumAuthenticationMethodNullableFilter<"Session"> | $Enums.AuthenticationMethod | null
+  authenticatedAt?: Prisma.DateTimeNullableFilter<"Session"> | Date | string | null
   expiresAt?: Prisma.DateTimeFilter<"Session"> | Date | string
   revokedAt?: Prisma.DateTimeNullableFilter<"Session"> | Date | string | null
   lastActiveAt?: Prisma.DateTimeFilter<"Session"> | Date | string
@@ -343,6 +365,7 @@ export type SessionWhereUniqueInput = Prisma.AtLeast<{
   actorSecurityEvents?: Prisma.SecurityEventListRelationFilter
   subjectSecurityEvents?: Prisma.SecurityEventListRelationFilter
   notificationDeliveries?: Prisma.NotificationDeliveryListRelationFilter
+  boundAuthenticationChallenges?: Prisma.AuthenticationChallengeListRelationFilter
 }, "id">
 
 export type SessionOrderByWithAggregationInput = {
@@ -359,6 +382,8 @@ export type SessionOrderByWithAggregationInput = {
   appVersion?: Prisma.SortOrderInput | Prisma.SortOrder
   locationCountryCode?: Prisma.SortOrderInput | Prisma.SortOrder
   locationCity?: Prisma.SortOrderInput | Prisma.SortOrder
+  authenticationMethod?: Prisma.SortOrderInput | Prisma.SortOrder
+  authenticatedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   expiresAt?: Prisma.SortOrder
   revokedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   lastActiveAt?: Prisma.SortOrder
@@ -386,6 +411,8 @@ export type SessionScalarWhereWithAggregatesInput = {
   appVersion?: Prisma.StringNullableWithAggregatesFilter<"Session"> | string | null
   locationCountryCode?: Prisma.StringNullableWithAggregatesFilter<"Session"> | string | null
   locationCity?: Prisma.StringNullableWithAggregatesFilter<"Session"> | string | null
+  authenticationMethod?: Prisma.EnumAuthenticationMethodNullableWithAggregatesFilter<"Session"> | $Enums.AuthenticationMethod | null
+  authenticatedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"Session"> | Date | string | null
   expiresAt?: Prisma.DateTimeWithAggregatesFilter<"Session"> | Date | string
   revokedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"Session"> | Date | string | null
   lastActiveAt?: Prisma.DateTimeWithAggregatesFilter<"Session"> | Date | string
@@ -406,6 +433,8 @@ export type SessionCreateInput = {
   appVersion?: string | null
   locationCountryCode?: string | null
   locationCity?: string | null
+  authenticationMethod?: $Enums.AuthenticationMethod | null
+  authenticatedAt?: Date | string | null
   expiresAt: Date | string
   revokedAt?: Date | string | null
   lastActiveAt?: Date | string
@@ -415,6 +444,7 @@ export type SessionCreateInput = {
   actorSecurityEvents?: Prisma.SecurityEventCreateNestedManyWithoutActorSessionInput
   subjectSecurityEvents?: Prisma.SecurityEventCreateNestedManyWithoutSubjectSessionInput
   notificationDeliveries?: Prisma.NotificationDeliveryCreateNestedManyWithoutSessionInput
+  boundAuthenticationChallenges?: Prisma.AuthenticationChallengeCreateNestedManyWithoutBoundSessionInput
 }
 
 export type SessionUncheckedCreateInput = {
@@ -431,6 +461,8 @@ export type SessionUncheckedCreateInput = {
   appVersion?: string | null
   locationCountryCode?: string | null
   locationCity?: string | null
+  authenticationMethod?: $Enums.AuthenticationMethod | null
+  authenticatedAt?: Date | string | null
   expiresAt: Date | string
   revokedAt?: Date | string | null
   lastActiveAt?: Date | string
@@ -439,6 +471,7 @@ export type SessionUncheckedCreateInput = {
   actorSecurityEvents?: Prisma.SecurityEventUncheckedCreateNestedManyWithoutActorSessionInput
   subjectSecurityEvents?: Prisma.SecurityEventUncheckedCreateNestedManyWithoutSubjectSessionInput
   notificationDeliveries?: Prisma.NotificationDeliveryUncheckedCreateNestedManyWithoutSessionInput
+  boundAuthenticationChallenges?: Prisma.AuthenticationChallengeUncheckedCreateNestedManyWithoutBoundSessionInput
 }
 
 export type SessionUpdateInput = {
@@ -454,6 +487,8 @@ export type SessionUpdateInput = {
   appVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   locationCountryCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   locationCity?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  authenticationMethod?: Prisma.NullableEnumAuthenticationMethodFieldUpdateOperationsInput | $Enums.AuthenticationMethod | null
+  authenticatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   expiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   revokedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   lastActiveAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -463,6 +498,7 @@ export type SessionUpdateInput = {
   actorSecurityEvents?: Prisma.SecurityEventUpdateManyWithoutActorSessionNestedInput
   subjectSecurityEvents?: Prisma.SecurityEventUpdateManyWithoutSubjectSessionNestedInput
   notificationDeliveries?: Prisma.NotificationDeliveryUpdateManyWithoutSessionNestedInput
+  boundAuthenticationChallenges?: Prisma.AuthenticationChallengeUpdateManyWithoutBoundSessionNestedInput
 }
 
 export type SessionUncheckedUpdateInput = {
@@ -479,6 +515,8 @@ export type SessionUncheckedUpdateInput = {
   appVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   locationCountryCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   locationCity?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  authenticationMethod?: Prisma.NullableEnumAuthenticationMethodFieldUpdateOperationsInput | $Enums.AuthenticationMethod | null
+  authenticatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   expiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   revokedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   lastActiveAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -487,6 +525,7 @@ export type SessionUncheckedUpdateInput = {
   actorSecurityEvents?: Prisma.SecurityEventUncheckedUpdateManyWithoutActorSessionNestedInput
   subjectSecurityEvents?: Prisma.SecurityEventUncheckedUpdateManyWithoutSubjectSessionNestedInput
   notificationDeliveries?: Prisma.NotificationDeliveryUncheckedUpdateManyWithoutSessionNestedInput
+  boundAuthenticationChallenges?: Prisma.AuthenticationChallengeUncheckedUpdateManyWithoutBoundSessionNestedInput
 }
 
 export type SessionCreateManyInput = {
@@ -503,6 +542,8 @@ export type SessionCreateManyInput = {
   appVersion?: string | null
   locationCountryCode?: string | null
   locationCity?: string | null
+  authenticationMethod?: $Enums.AuthenticationMethod | null
+  authenticatedAt?: Date | string | null
   expiresAt: Date | string
   revokedAt?: Date | string | null
   lastActiveAt?: Date | string
@@ -523,6 +564,8 @@ export type SessionUpdateManyMutationInput = {
   appVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   locationCountryCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   locationCity?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  authenticationMethod?: Prisma.NullableEnumAuthenticationMethodFieldUpdateOperationsInput | $Enums.AuthenticationMethod | null
+  authenticatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   expiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   revokedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   lastActiveAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -544,6 +587,8 @@ export type SessionUncheckedUpdateManyInput = {
   appVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   locationCountryCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   locationCity?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  authenticationMethod?: Prisma.NullableEnumAuthenticationMethodFieldUpdateOperationsInput | $Enums.AuthenticationMethod | null
+  authenticatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   expiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   revokedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   lastActiveAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -561,6 +606,11 @@ export type SessionOrderByRelationAggregateInput = {
   _count?: Prisma.SortOrder
 }
 
+export type SessionNullableScalarRelationFilter = {
+  is?: Prisma.SessionWhereInput | null
+  isNot?: Prisma.SessionWhereInput | null
+}
+
 export type SessionCountOrderByAggregateInput = {
   id?: Prisma.SortOrder
   userId?: Prisma.SortOrder
@@ -575,6 +625,8 @@ export type SessionCountOrderByAggregateInput = {
   appVersion?: Prisma.SortOrder
   locationCountryCode?: Prisma.SortOrder
   locationCity?: Prisma.SortOrder
+  authenticationMethod?: Prisma.SortOrder
+  authenticatedAt?: Prisma.SortOrder
   expiresAt?: Prisma.SortOrder
   revokedAt?: Prisma.SortOrder
   lastActiveAt?: Prisma.SortOrder
@@ -596,6 +648,8 @@ export type SessionMaxOrderByAggregateInput = {
   appVersion?: Prisma.SortOrder
   locationCountryCode?: Prisma.SortOrder
   locationCity?: Prisma.SortOrder
+  authenticationMethod?: Prisma.SortOrder
+  authenticatedAt?: Prisma.SortOrder
   expiresAt?: Prisma.SortOrder
   revokedAt?: Prisma.SortOrder
   lastActiveAt?: Prisma.SortOrder
@@ -617,16 +671,13 @@ export type SessionMinOrderByAggregateInput = {
   appVersion?: Prisma.SortOrder
   locationCountryCode?: Prisma.SortOrder
   locationCity?: Prisma.SortOrder
+  authenticationMethod?: Prisma.SortOrder
+  authenticatedAt?: Prisma.SortOrder
   expiresAt?: Prisma.SortOrder
   revokedAt?: Prisma.SortOrder
   lastActiveAt?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
-}
-
-export type SessionNullableScalarRelationFilter = {
-  is?: Prisma.SessionWhereInput | null
-  isNot?: Prisma.SessionWhereInput | null
 }
 
 export type SessionCreateNestedManyWithoutUserInput = {
@@ -671,8 +722,28 @@ export type SessionUncheckedUpdateManyWithoutUserNestedInput = {
   deleteMany?: Prisma.SessionScalarWhereInput | Prisma.SessionScalarWhereInput[]
 }
 
+export type SessionCreateNestedOneWithoutBoundAuthenticationChallengesInput = {
+  create?: Prisma.XOR<Prisma.SessionCreateWithoutBoundAuthenticationChallengesInput, Prisma.SessionUncheckedCreateWithoutBoundAuthenticationChallengesInput>
+  connectOrCreate?: Prisma.SessionCreateOrConnectWithoutBoundAuthenticationChallengesInput
+  connect?: Prisma.SessionWhereUniqueInput
+}
+
+export type SessionUpdateOneWithoutBoundAuthenticationChallengesNestedInput = {
+  create?: Prisma.XOR<Prisma.SessionCreateWithoutBoundAuthenticationChallengesInput, Prisma.SessionUncheckedCreateWithoutBoundAuthenticationChallengesInput>
+  connectOrCreate?: Prisma.SessionCreateOrConnectWithoutBoundAuthenticationChallengesInput
+  upsert?: Prisma.SessionUpsertWithoutBoundAuthenticationChallengesInput
+  disconnect?: Prisma.SessionWhereInput | boolean
+  delete?: Prisma.SessionWhereInput | boolean
+  connect?: Prisma.SessionWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.SessionUpdateToOneWithWhereWithoutBoundAuthenticationChallengesInput, Prisma.SessionUpdateWithoutBoundAuthenticationChallengesInput>, Prisma.SessionUncheckedUpdateWithoutBoundAuthenticationChallengesInput>
+}
+
 export type EnumSessionPlatformFieldUpdateOperationsInput = {
   set?: $Enums.SessionPlatform
+}
+
+export type NullableEnumAuthenticationMethodFieldUpdateOperationsInput = {
+  set?: $Enums.AuthenticationMethod | null
 }
 
 export type SessionCreateNestedOneWithoutNotificationDeliveriesInput = {
@@ -736,6 +807,8 @@ export type SessionCreateWithoutUserInput = {
   appVersion?: string | null
   locationCountryCode?: string | null
   locationCity?: string | null
+  authenticationMethod?: $Enums.AuthenticationMethod | null
+  authenticatedAt?: Date | string | null
   expiresAt: Date | string
   revokedAt?: Date | string | null
   lastActiveAt?: Date | string
@@ -744,6 +817,7 @@ export type SessionCreateWithoutUserInput = {
   actorSecurityEvents?: Prisma.SecurityEventCreateNestedManyWithoutActorSessionInput
   subjectSecurityEvents?: Prisma.SecurityEventCreateNestedManyWithoutSubjectSessionInput
   notificationDeliveries?: Prisma.NotificationDeliveryCreateNestedManyWithoutSessionInput
+  boundAuthenticationChallenges?: Prisma.AuthenticationChallengeCreateNestedManyWithoutBoundSessionInput
 }
 
 export type SessionUncheckedCreateWithoutUserInput = {
@@ -759,6 +833,8 @@ export type SessionUncheckedCreateWithoutUserInput = {
   appVersion?: string | null
   locationCountryCode?: string | null
   locationCity?: string | null
+  authenticationMethod?: $Enums.AuthenticationMethod | null
+  authenticatedAt?: Date | string | null
   expiresAt: Date | string
   revokedAt?: Date | string | null
   lastActiveAt?: Date | string
@@ -767,6 +843,7 @@ export type SessionUncheckedCreateWithoutUserInput = {
   actorSecurityEvents?: Prisma.SecurityEventUncheckedCreateNestedManyWithoutActorSessionInput
   subjectSecurityEvents?: Prisma.SecurityEventUncheckedCreateNestedManyWithoutSubjectSessionInput
   notificationDeliveries?: Prisma.NotificationDeliveryUncheckedCreateNestedManyWithoutSessionInput
+  boundAuthenticationChallenges?: Prisma.AuthenticationChallengeUncheckedCreateNestedManyWithoutBoundSessionInput
 }
 
 export type SessionCreateOrConnectWithoutUserInput = {
@@ -812,11 +889,133 @@ export type SessionScalarWhereInput = {
   appVersion?: Prisma.StringNullableFilter<"Session"> | string | null
   locationCountryCode?: Prisma.StringNullableFilter<"Session"> | string | null
   locationCity?: Prisma.StringNullableFilter<"Session"> | string | null
+  authenticationMethod?: Prisma.EnumAuthenticationMethodNullableFilter<"Session"> | $Enums.AuthenticationMethod | null
+  authenticatedAt?: Prisma.DateTimeNullableFilter<"Session"> | Date | string | null
   expiresAt?: Prisma.DateTimeFilter<"Session"> | Date | string
   revokedAt?: Prisma.DateTimeNullableFilter<"Session"> | Date | string | null
   lastActiveAt?: Prisma.DateTimeFilter<"Session"> | Date | string
   createdAt?: Prisma.DateTimeFilter<"Session"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"Session"> | Date | string
+}
+
+export type SessionCreateWithoutBoundAuthenticationChallengesInput = {
+  id?: string
+  hashedRefreshToken: string
+  ipAddress?: string | null
+  userAgent?: string | null
+  sessionName?: string | null
+  deviceModelIdentifier?: string | null
+  deviceModel?: string | null
+  platform?: $Enums.SessionPlatform
+  osVersion?: string | null
+  appVersion?: string | null
+  locationCountryCode?: string | null
+  locationCity?: string | null
+  authenticationMethod?: $Enums.AuthenticationMethod | null
+  authenticatedAt?: Date | string | null
+  expiresAt: Date | string
+  revokedAt?: Date | string | null
+  lastActiveAt?: Date | string
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  user: Prisma.UserCreateNestedOneWithoutSessionsInput
+  actorSecurityEvents?: Prisma.SecurityEventCreateNestedManyWithoutActorSessionInput
+  subjectSecurityEvents?: Prisma.SecurityEventCreateNestedManyWithoutSubjectSessionInput
+  notificationDeliveries?: Prisma.NotificationDeliveryCreateNestedManyWithoutSessionInput
+}
+
+export type SessionUncheckedCreateWithoutBoundAuthenticationChallengesInput = {
+  id?: string
+  userId: string
+  hashedRefreshToken: string
+  ipAddress?: string | null
+  userAgent?: string | null
+  sessionName?: string | null
+  deviceModelIdentifier?: string | null
+  deviceModel?: string | null
+  platform?: $Enums.SessionPlatform
+  osVersion?: string | null
+  appVersion?: string | null
+  locationCountryCode?: string | null
+  locationCity?: string | null
+  authenticationMethod?: $Enums.AuthenticationMethod | null
+  authenticatedAt?: Date | string | null
+  expiresAt: Date | string
+  revokedAt?: Date | string | null
+  lastActiveAt?: Date | string
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  actorSecurityEvents?: Prisma.SecurityEventUncheckedCreateNestedManyWithoutActorSessionInput
+  subjectSecurityEvents?: Prisma.SecurityEventUncheckedCreateNestedManyWithoutSubjectSessionInput
+  notificationDeliveries?: Prisma.NotificationDeliveryUncheckedCreateNestedManyWithoutSessionInput
+}
+
+export type SessionCreateOrConnectWithoutBoundAuthenticationChallengesInput = {
+  where: Prisma.SessionWhereUniqueInput
+  create: Prisma.XOR<Prisma.SessionCreateWithoutBoundAuthenticationChallengesInput, Prisma.SessionUncheckedCreateWithoutBoundAuthenticationChallengesInput>
+}
+
+export type SessionUpsertWithoutBoundAuthenticationChallengesInput = {
+  update: Prisma.XOR<Prisma.SessionUpdateWithoutBoundAuthenticationChallengesInput, Prisma.SessionUncheckedUpdateWithoutBoundAuthenticationChallengesInput>
+  create: Prisma.XOR<Prisma.SessionCreateWithoutBoundAuthenticationChallengesInput, Prisma.SessionUncheckedCreateWithoutBoundAuthenticationChallengesInput>
+  where?: Prisma.SessionWhereInput
+}
+
+export type SessionUpdateToOneWithWhereWithoutBoundAuthenticationChallengesInput = {
+  where?: Prisma.SessionWhereInput
+  data: Prisma.XOR<Prisma.SessionUpdateWithoutBoundAuthenticationChallengesInput, Prisma.SessionUncheckedUpdateWithoutBoundAuthenticationChallengesInput>
+}
+
+export type SessionUpdateWithoutBoundAuthenticationChallengesInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  hashedRefreshToken?: Prisma.StringFieldUpdateOperationsInput | string
+  ipAddress?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  userAgent?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  sessionName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  deviceModelIdentifier?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  deviceModel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  platform?: Prisma.EnumSessionPlatformFieldUpdateOperationsInput | $Enums.SessionPlatform
+  osVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  appVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  locationCountryCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  locationCity?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  authenticationMethod?: Prisma.NullableEnumAuthenticationMethodFieldUpdateOperationsInput | $Enums.AuthenticationMethod | null
+  authenticatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  expiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  revokedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  lastActiveAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  user?: Prisma.UserUpdateOneRequiredWithoutSessionsNestedInput
+  actorSecurityEvents?: Prisma.SecurityEventUpdateManyWithoutActorSessionNestedInput
+  subjectSecurityEvents?: Prisma.SecurityEventUpdateManyWithoutSubjectSessionNestedInput
+  notificationDeliveries?: Prisma.NotificationDeliveryUpdateManyWithoutSessionNestedInput
+}
+
+export type SessionUncheckedUpdateWithoutBoundAuthenticationChallengesInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  userId?: Prisma.StringFieldUpdateOperationsInput | string
+  hashedRefreshToken?: Prisma.StringFieldUpdateOperationsInput | string
+  ipAddress?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  userAgent?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  sessionName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  deviceModelIdentifier?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  deviceModel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  platform?: Prisma.EnumSessionPlatformFieldUpdateOperationsInput | $Enums.SessionPlatform
+  osVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  appVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  locationCountryCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  locationCity?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  authenticationMethod?: Prisma.NullableEnumAuthenticationMethodFieldUpdateOperationsInput | $Enums.AuthenticationMethod | null
+  authenticatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  expiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  revokedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  lastActiveAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  actorSecurityEvents?: Prisma.SecurityEventUncheckedUpdateManyWithoutActorSessionNestedInput
+  subjectSecurityEvents?: Prisma.SecurityEventUncheckedUpdateManyWithoutSubjectSessionNestedInput
+  notificationDeliveries?: Prisma.NotificationDeliveryUncheckedUpdateManyWithoutSessionNestedInput
 }
 
 export type SessionCreateWithoutNotificationDeliveriesInput = {
@@ -832,6 +1031,8 @@ export type SessionCreateWithoutNotificationDeliveriesInput = {
   appVersion?: string | null
   locationCountryCode?: string | null
   locationCity?: string | null
+  authenticationMethod?: $Enums.AuthenticationMethod | null
+  authenticatedAt?: Date | string | null
   expiresAt: Date | string
   revokedAt?: Date | string | null
   lastActiveAt?: Date | string
@@ -840,6 +1041,7 @@ export type SessionCreateWithoutNotificationDeliveriesInput = {
   user: Prisma.UserCreateNestedOneWithoutSessionsInput
   actorSecurityEvents?: Prisma.SecurityEventCreateNestedManyWithoutActorSessionInput
   subjectSecurityEvents?: Prisma.SecurityEventCreateNestedManyWithoutSubjectSessionInput
+  boundAuthenticationChallenges?: Prisma.AuthenticationChallengeCreateNestedManyWithoutBoundSessionInput
 }
 
 export type SessionUncheckedCreateWithoutNotificationDeliveriesInput = {
@@ -856,6 +1058,8 @@ export type SessionUncheckedCreateWithoutNotificationDeliveriesInput = {
   appVersion?: string | null
   locationCountryCode?: string | null
   locationCity?: string | null
+  authenticationMethod?: $Enums.AuthenticationMethod | null
+  authenticatedAt?: Date | string | null
   expiresAt: Date | string
   revokedAt?: Date | string | null
   lastActiveAt?: Date | string
@@ -863,6 +1067,7 @@ export type SessionUncheckedCreateWithoutNotificationDeliveriesInput = {
   updatedAt?: Date | string
   actorSecurityEvents?: Prisma.SecurityEventUncheckedCreateNestedManyWithoutActorSessionInput
   subjectSecurityEvents?: Prisma.SecurityEventUncheckedCreateNestedManyWithoutSubjectSessionInput
+  boundAuthenticationChallenges?: Prisma.AuthenticationChallengeUncheckedCreateNestedManyWithoutBoundSessionInput
 }
 
 export type SessionCreateOrConnectWithoutNotificationDeliveriesInput = {
@@ -894,6 +1099,8 @@ export type SessionUpdateWithoutNotificationDeliveriesInput = {
   appVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   locationCountryCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   locationCity?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  authenticationMethod?: Prisma.NullableEnumAuthenticationMethodFieldUpdateOperationsInput | $Enums.AuthenticationMethod | null
+  authenticatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   expiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   revokedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   lastActiveAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -902,6 +1109,7 @@ export type SessionUpdateWithoutNotificationDeliveriesInput = {
   user?: Prisma.UserUpdateOneRequiredWithoutSessionsNestedInput
   actorSecurityEvents?: Prisma.SecurityEventUpdateManyWithoutActorSessionNestedInput
   subjectSecurityEvents?: Prisma.SecurityEventUpdateManyWithoutSubjectSessionNestedInput
+  boundAuthenticationChallenges?: Prisma.AuthenticationChallengeUpdateManyWithoutBoundSessionNestedInput
 }
 
 export type SessionUncheckedUpdateWithoutNotificationDeliveriesInput = {
@@ -918,6 +1126,8 @@ export type SessionUncheckedUpdateWithoutNotificationDeliveriesInput = {
   appVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   locationCountryCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   locationCity?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  authenticationMethod?: Prisma.NullableEnumAuthenticationMethodFieldUpdateOperationsInput | $Enums.AuthenticationMethod | null
+  authenticatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   expiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   revokedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   lastActiveAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -925,6 +1135,7 @@ export type SessionUncheckedUpdateWithoutNotificationDeliveriesInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   actorSecurityEvents?: Prisma.SecurityEventUncheckedUpdateManyWithoutActorSessionNestedInput
   subjectSecurityEvents?: Prisma.SecurityEventUncheckedUpdateManyWithoutSubjectSessionNestedInput
+  boundAuthenticationChallenges?: Prisma.AuthenticationChallengeUncheckedUpdateManyWithoutBoundSessionNestedInput
 }
 
 export type SessionCreateWithoutActorSecurityEventsInput = {
@@ -940,6 +1151,8 @@ export type SessionCreateWithoutActorSecurityEventsInput = {
   appVersion?: string | null
   locationCountryCode?: string | null
   locationCity?: string | null
+  authenticationMethod?: $Enums.AuthenticationMethod | null
+  authenticatedAt?: Date | string | null
   expiresAt: Date | string
   revokedAt?: Date | string | null
   lastActiveAt?: Date | string
@@ -948,6 +1161,7 @@ export type SessionCreateWithoutActorSecurityEventsInput = {
   user: Prisma.UserCreateNestedOneWithoutSessionsInput
   subjectSecurityEvents?: Prisma.SecurityEventCreateNestedManyWithoutSubjectSessionInput
   notificationDeliveries?: Prisma.NotificationDeliveryCreateNestedManyWithoutSessionInput
+  boundAuthenticationChallenges?: Prisma.AuthenticationChallengeCreateNestedManyWithoutBoundSessionInput
 }
 
 export type SessionUncheckedCreateWithoutActorSecurityEventsInput = {
@@ -964,6 +1178,8 @@ export type SessionUncheckedCreateWithoutActorSecurityEventsInput = {
   appVersion?: string | null
   locationCountryCode?: string | null
   locationCity?: string | null
+  authenticationMethod?: $Enums.AuthenticationMethod | null
+  authenticatedAt?: Date | string | null
   expiresAt: Date | string
   revokedAt?: Date | string | null
   lastActiveAt?: Date | string
@@ -971,6 +1187,7 @@ export type SessionUncheckedCreateWithoutActorSecurityEventsInput = {
   updatedAt?: Date | string
   subjectSecurityEvents?: Prisma.SecurityEventUncheckedCreateNestedManyWithoutSubjectSessionInput
   notificationDeliveries?: Prisma.NotificationDeliveryUncheckedCreateNestedManyWithoutSessionInput
+  boundAuthenticationChallenges?: Prisma.AuthenticationChallengeUncheckedCreateNestedManyWithoutBoundSessionInput
 }
 
 export type SessionCreateOrConnectWithoutActorSecurityEventsInput = {
@@ -991,6 +1208,8 @@ export type SessionCreateWithoutSubjectSecurityEventsInput = {
   appVersion?: string | null
   locationCountryCode?: string | null
   locationCity?: string | null
+  authenticationMethod?: $Enums.AuthenticationMethod | null
+  authenticatedAt?: Date | string | null
   expiresAt: Date | string
   revokedAt?: Date | string | null
   lastActiveAt?: Date | string
@@ -999,6 +1218,7 @@ export type SessionCreateWithoutSubjectSecurityEventsInput = {
   user: Prisma.UserCreateNestedOneWithoutSessionsInput
   actorSecurityEvents?: Prisma.SecurityEventCreateNestedManyWithoutActorSessionInput
   notificationDeliveries?: Prisma.NotificationDeliveryCreateNestedManyWithoutSessionInput
+  boundAuthenticationChallenges?: Prisma.AuthenticationChallengeCreateNestedManyWithoutBoundSessionInput
 }
 
 export type SessionUncheckedCreateWithoutSubjectSecurityEventsInput = {
@@ -1015,6 +1235,8 @@ export type SessionUncheckedCreateWithoutSubjectSecurityEventsInput = {
   appVersion?: string | null
   locationCountryCode?: string | null
   locationCity?: string | null
+  authenticationMethod?: $Enums.AuthenticationMethod | null
+  authenticatedAt?: Date | string | null
   expiresAt: Date | string
   revokedAt?: Date | string | null
   lastActiveAt?: Date | string
@@ -1022,6 +1244,7 @@ export type SessionUncheckedCreateWithoutSubjectSecurityEventsInput = {
   updatedAt?: Date | string
   actorSecurityEvents?: Prisma.SecurityEventUncheckedCreateNestedManyWithoutActorSessionInput
   notificationDeliveries?: Prisma.NotificationDeliveryUncheckedCreateNestedManyWithoutSessionInput
+  boundAuthenticationChallenges?: Prisma.AuthenticationChallengeUncheckedCreateNestedManyWithoutBoundSessionInput
 }
 
 export type SessionCreateOrConnectWithoutSubjectSecurityEventsInput = {
@@ -1053,6 +1276,8 @@ export type SessionUpdateWithoutActorSecurityEventsInput = {
   appVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   locationCountryCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   locationCity?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  authenticationMethod?: Prisma.NullableEnumAuthenticationMethodFieldUpdateOperationsInput | $Enums.AuthenticationMethod | null
+  authenticatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   expiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   revokedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   lastActiveAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1061,6 +1286,7 @@ export type SessionUpdateWithoutActorSecurityEventsInput = {
   user?: Prisma.UserUpdateOneRequiredWithoutSessionsNestedInput
   subjectSecurityEvents?: Prisma.SecurityEventUpdateManyWithoutSubjectSessionNestedInput
   notificationDeliveries?: Prisma.NotificationDeliveryUpdateManyWithoutSessionNestedInput
+  boundAuthenticationChallenges?: Prisma.AuthenticationChallengeUpdateManyWithoutBoundSessionNestedInput
 }
 
 export type SessionUncheckedUpdateWithoutActorSecurityEventsInput = {
@@ -1077,6 +1303,8 @@ export type SessionUncheckedUpdateWithoutActorSecurityEventsInput = {
   appVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   locationCountryCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   locationCity?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  authenticationMethod?: Prisma.NullableEnumAuthenticationMethodFieldUpdateOperationsInput | $Enums.AuthenticationMethod | null
+  authenticatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   expiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   revokedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   lastActiveAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1084,6 +1312,7 @@ export type SessionUncheckedUpdateWithoutActorSecurityEventsInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   subjectSecurityEvents?: Prisma.SecurityEventUncheckedUpdateManyWithoutSubjectSessionNestedInput
   notificationDeliveries?: Prisma.NotificationDeliveryUncheckedUpdateManyWithoutSessionNestedInput
+  boundAuthenticationChallenges?: Prisma.AuthenticationChallengeUncheckedUpdateManyWithoutBoundSessionNestedInput
 }
 
 export type SessionUpsertWithoutSubjectSecurityEventsInput = {
@@ -1110,6 +1339,8 @@ export type SessionUpdateWithoutSubjectSecurityEventsInput = {
   appVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   locationCountryCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   locationCity?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  authenticationMethod?: Prisma.NullableEnumAuthenticationMethodFieldUpdateOperationsInput | $Enums.AuthenticationMethod | null
+  authenticatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   expiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   revokedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   lastActiveAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1118,6 +1349,7 @@ export type SessionUpdateWithoutSubjectSecurityEventsInput = {
   user?: Prisma.UserUpdateOneRequiredWithoutSessionsNestedInput
   actorSecurityEvents?: Prisma.SecurityEventUpdateManyWithoutActorSessionNestedInput
   notificationDeliveries?: Prisma.NotificationDeliveryUpdateManyWithoutSessionNestedInput
+  boundAuthenticationChallenges?: Prisma.AuthenticationChallengeUpdateManyWithoutBoundSessionNestedInput
 }
 
 export type SessionUncheckedUpdateWithoutSubjectSecurityEventsInput = {
@@ -1134,6 +1366,8 @@ export type SessionUncheckedUpdateWithoutSubjectSecurityEventsInput = {
   appVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   locationCountryCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   locationCity?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  authenticationMethod?: Prisma.NullableEnumAuthenticationMethodFieldUpdateOperationsInput | $Enums.AuthenticationMethod | null
+  authenticatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   expiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   revokedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   lastActiveAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1141,6 +1375,7 @@ export type SessionUncheckedUpdateWithoutSubjectSecurityEventsInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   actorSecurityEvents?: Prisma.SecurityEventUncheckedUpdateManyWithoutActorSessionNestedInput
   notificationDeliveries?: Prisma.NotificationDeliveryUncheckedUpdateManyWithoutSessionNestedInput
+  boundAuthenticationChallenges?: Prisma.AuthenticationChallengeUncheckedUpdateManyWithoutBoundSessionNestedInput
 }
 
 export type SessionCreateManyUserInput = {
@@ -1156,6 +1391,8 @@ export type SessionCreateManyUserInput = {
   appVersion?: string | null
   locationCountryCode?: string | null
   locationCity?: string | null
+  authenticationMethod?: $Enums.AuthenticationMethod | null
+  authenticatedAt?: Date | string | null
   expiresAt: Date | string
   revokedAt?: Date | string | null
   lastActiveAt?: Date | string
@@ -1176,6 +1413,8 @@ export type SessionUpdateWithoutUserInput = {
   appVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   locationCountryCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   locationCity?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  authenticationMethod?: Prisma.NullableEnumAuthenticationMethodFieldUpdateOperationsInput | $Enums.AuthenticationMethod | null
+  authenticatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   expiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   revokedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   lastActiveAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1184,6 +1423,7 @@ export type SessionUpdateWithoutUserInput = {
   actorSecurityEvents?: Prisma.SecurityEventUpdateManyWithoutActorSessionNestedInput
   subjectSecurityEvents?: Prisma.SecurityEventUpdateManyWithoutSubjectSessionNestedInput
   notificationDeliveries?: Prisma.NotificationDeliveryUpdateManyWithoutSessionNestedInput
+  boundAuthenticationChallenges?: Prisma.AuthenticationChallengeUpdateManyWithoutBoundSessionNestedInput
 }
 
 export type SessionUncheckedUpdateWithoutUserInput = {
@@ -1199,6 +1439,8 @@ export type SessionUncheckedUpdateWithoutUserInput = {
   appVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   locationCountryCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   locationCity?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  authenticationMethod?: Prisma.NullableEnumAuthenticationMethodFieldUpdateOperationsInput | $Enums.AuthenticationMethod | null
+  authenticatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   expiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   revokedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   lastActiveAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1207,6 +1449,7 @@ export type SessionUncheckedUpdateWithoutUserInput = {
   actorSecurityEvents?: Prisma.SecurityEventUncheckedUpdateManyWithoutActorSessionNestedInput
   subjectSecurityEvents?: Prisma.SecurityEventUncheckedUpdateManyWithoutSubjectSessionNestedInput
   notificationDeliveries?: Prisma.NotificationDeliveryUncheckedUpdateManyWithoutSessionNestedInput
+  boundAuthenticationChallenges?: Prisma.AuthenticationChallengeUncheckedUpdateManyWithoutBoundSessionNestedInput
 }
 
 export type SessionUncheckedUpdateManyWithoutUserInput = {
@@ -1222,6 +1465,8 @@ export type SessionUncheckedUpdateManyWithoutUserInput = {
   appVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   locationCountryCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   locationCity?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  authenticationMethod?: Prisma.NullableEnumAuthenticationMethodFieldUpdateOperationsInput | $Enums.AuthenticationMethod | null
+  authenticatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   expiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   revokedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   lastActiveAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1238,12 +1483,14 @@ export type SessionCountOutputType = {
   actorSecurityEvents: number
   subjectSecurityEvents: number
   notificationDeliveries: number
+  boundAuthenticationChallenges: number
 }
 
 export type SessionCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   actorSecurityEvents?: boolean | SessionCountOutputTypeCountActorSecurityEventsArgs
   subjectSecurityEvents?: boolean | SessionCountOutputTypeCountSubjectSecurityEventsArgs
   notificationDeliveries?: boolean | SessionCountOutputTypeCountNotificationDeliveriesArgs
+  boundAuthenticationChallenges?: boolean | SessionCountOutputTypeCountBoundAuthenticationChallengesArgs
 }
 
 /**
@@ -1277,6 +1524,13 @@ export type SessionCountOutputTypeCountNotificationDeliveriesArgs<ExtArgs extend
   where?: Prisma.NotificationDeliveryWhereInput
 }
 
+/**
+ * SessionCountOutputType without action
+ */
+export type SessionCountOutputTypeCountBoundAuthenticationChallengesArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.AuthenticationChallengeWhereInput
+}
+
 
 export type SessionSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
@@ -1292,6 +1546,8 @@ export type SessionSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs 
   appVersion?: boolean
   locationCountryCode?: boolean
   locationCity?: boolean
+  authenticationMethod?: boolean
+  authenticatedAt?: boolean
   expiresAt?: boolean
   revokedAt?: boolean
   lastActiveAt?: boolean
@@ -1301,6 +1557,7 @@ export type SessionSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs 
   actorSecurityEvents?: boolean | Prisma.Session$actorSecurityEventsArgs<ExtArgs>
   subjectSecurityEvents?: boolean | Prisma.Session$subjectSecurityEventsArgs<ExtArgs>
   notificationDeliveries?: boolean | Prisma.Session$notificationDeliveriesArgs<ExtArgs>
+  boundAuthenticationChallenges?: boolean | Prisma.Session$boundAuthenticationChallengesArgs<ExtArgs>
   _count?: boolean | Prisma.SessionCountOutputTypeDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["session"]>
 
@@ -1318,6 +1575,8 @@ export type SessionSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Exten
   appVersion?: boolean
   locationCountryCode?: boolean
   locationCity?: boolean
+  authenticationMethod?: boolean
+  authenticatedAt?: boolean
   expiresAt?: boolean
   revokedAt?: boolean
   lastActiveAt?: boolean
@@ -1340,6 +1599,8 @@ export type SessionSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Exten
   appVersion?: boolean
   locationCountryCode?: boolean
   locationCity?: boolean
+  authenticationMethod?: boolean
+  authenticatedAt?: boolean
   expiresAt?: boolean
   revokedAt?: boolean
   lastActiveAt?: boolean
@@ -1362,6 +1623,8 @@ export type SessionSelectScalar = {
   appVersion?: boolean
   locationCountryCode?: boolean
   locationCity?: boolean
+  authenticationMethod?: boolean
+  authenticatedAt?: boolean
   expiresAt?: boolean
   revokedAt?: boolean
   lastActiveAt?: boolean
@@ -1369,12 +1632,13 @@ export type SessionSelectScalar = {
   updatedAt?: boolean
 }
 
-export type SessionOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "userId" | "hashedRefreshToken" | "ipAddress" | "userAgent" | "sessionName" | "deviceModelIdentifier" | "deviceModel" | "platform" | "osVersion" | "appVersion" | "locationCountryCode" | "locationCity" | "expiresAt" | "revokedAt" | "lastActiveAt" | "createdAt" | "updatedAt", ExtArgs["result"]["session"]>
+export type SessionOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "userId" | "hashedRefreshToken" | "ipAddress" | "userAgent" | "sessionName" | "deviceModelIdentifier" | "deviceModel" | "platform" | "osVersion" | "appVersion" | "locationCountryCode" | "locationCity" | "authenticationMethod" | "authenticatedAt" | "expiresAt" | "revokedAt" | "lastActiveAt" | "createdAt" | "updatedAt", ExtArgs["result"]["session"]>
 export type SessionInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   user?: boolean | Prisma.UserDefaultArgs<ExtArgs>
   actorSecurityEvents?: boolean | Prisma.Session$actorSecurityEventsArgs<ExtArgs>
   subjectSecurityEvents?: boolean | Prisma.Session$subjectSecurityEventsArgs<ExtArgs>
   notificationDeliveries?: boolean | Prisma.Session$notificationDeliveriesArgs<ExtArgs>
+  boundAuthenticationChallenges?: boolean | Prisma.Session$boundAuthenticationChallengesArgs<ExtArgs>
   _count?: boolean | Prisma.SessionCountOutputTypeDefaultArgs<ExtArgs>
 }
 export type SessionIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
@@ -1391,6 +1655,7 @@ export type $SessionPayload<ExtArgs extends runtime.Types.Extensions.InternalArg
     actorSecurityEvents: Prisma.$SecurityEventPayload<ExtArgs>[]
     subjectSecurityEvents: Prisma.$SecurityEventPayload<ExtArgs>[]
     notificationDeliveries: Prisma.$NotificationDeliveryPayload<ExtArgs>[]
+    boundAuthenticationChallenges: Prisma.$AuthenticationChallengePayload<ExtArgs>[]
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: string
@@ -1406,6 +1671,8 @@ export type $SessionPayload<ExtArgs extends runtime.Types.Extensions.InternalArg
     appVersion: string | null
     locationCountryCode: string | null
     locationCity: string | null
+    authenticationMethod: $Enums.AuthenticationMethod | null
+    authenticatedAt: Date | null
     expiresAt: Date
     revokedAt: Date | null
     lastActiveAt: Date
@@ -1809,6 +2076,7 @@ export interface Prisma__SessionClient<T, Null = never, ExtArgs extends runtime.
   actorSecurityEvents<T extends Prisma.Session$actorSecurityEventsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Session$actorSecurityEventsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$SecurityEventPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   subjectSecurityEvents<T extends Prisma.Session$subjectSecurityEventsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Session$subjectSecurityEventsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$SecurityEventPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   notificationDeliveries<T extends Prisma.Session$notificationDeliveriesArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Session$notificationDeliveriesArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$NotificationDeliveryPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  boundAuthenticationChallenges<T extends Prisma.Session$boundAuthenticationChallengesArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Session$boundAuthenticationChallengesArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$AuthenticationChallengePayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -1851,6 +2119,8 @@ export interface SessionFieldRefs {
   readonly appVersion: Prisma.FieldRef<"Session", 'String'>
   readonly locationCountryCode: Prisma.FieldRef<"Session", 'String'>
   readonly locationCity: Prisma.FieldRef<"Session", 'String'>
+  readonly authenticationMethod: Prisma.FieldRef<"Session", 'AuthenticationMethod'>
+  readonly authenticatedAt: Prisma.FieldRef<"Session", 'DateTime'>
   readonly expiresAt: Prisma.FieldRef<"Session", 'DateTime'>
   readonly revokedAt: Prisma.FieldRef<"Session", 'DateTime'>
   readonly lastActiveAt: Prisma.FieldRef<"Session", 'DateTime'>
@@ -2326,6 +2596,30 @@ export type Session$notificationDeliveriesArgs<ExtArgs extends runtime.Types.Ext
   take?: number
   skip?: number
   distinct?: Prisma.NotificationDeliveryScalarFieldEnum | Prisma.NotificationDeliveryScalarFieldEnum[]
+}
+
+/**
+ * Session.boundAuthenticationChallenges
+ */
+export type Session$boundAuthenticationChallengesArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the AuthenticationChallenge
+   */
+  select?: Prisma.AuthenticationChallengeSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the AuthenticationChallenge
+   */
+  omit?: Prisma.AuthenticationChallengeOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.AuthenticationChallengeInclude<ExtArgs> | null
+  where?: Prisma.AuthenticationChallengeWhereInput
+  orderBy?: Prisma.AuthenticationChallengeOrderByWithRelationInput | Prisma.AuthenticationChallengeOrderByWithRelationInput[]
+  cursor?: Prisma.AuthenticationChallengeWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.AuthenticationChallengeScalarFieldEnum | Prisma.AuthenticationChallengeScalarFieldEnum[]
 }
 
 /**

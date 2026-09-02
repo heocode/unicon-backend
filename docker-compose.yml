@@ -12,6 +12,25 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
+  postgres-test:
+    image: postgres:17-alpine
+    container_name: unicon-postgres-test
+    profiles:
+      - test
+    environment:
+      POSTGRES_USER: unicon_e2e
+      POSTGRES_PASSWORD: unicon_e2e_local
+      POSTGRES_DB: unicon_test
+    ports:
+      - '5433:5432'
+    volumes:
+      - postgres_test_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U unicon_e2e -d unicon_test']
+      interval: 2s
+      timeout: 5s
+      retries: 15
+
   geoipupdate:
     image: ghcr.io/maxmind/geoipupdate:v7.1.1
     profiles:
@@ -26,3 +45,4 @@ services:
 
 volumes:
   postgres_data:
+  postgres_test_data:

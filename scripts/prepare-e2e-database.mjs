@@ -1,10 +1,12 @@
+import 'dotenv/config';
+
 import { spawnSync } from 'node:child_process';
 import process from 'node:process';
 import pg from 'pg';
 
 const testDatabaseUrl =
   process.env.TEST_DATABASE_URL ??
-  'postgresql://postgres:postgres@localhost:5432/unicon_test';
+  'postgresql://unicon_e2e:unicon_e2e_local@localhost:5433/unicon_test';
 const parsedUrl = new URL(testDatabaseUrl);
 const databaseName = parsedUrl.pathname.slice(1);
 

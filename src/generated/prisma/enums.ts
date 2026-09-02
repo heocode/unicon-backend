@@ -39,6 +39,45 @@ export const SessionPlatform = {
 export type SessionPlatform = (typeof SessionPlatform)[keyof typeof SessionPlatform]
 
 
+export const AuthenticationIdentityType = {
+  INSTITUTIONAL_EMAIL: 'INSTITUTIONAL_EMAIL'
+} as const
+
+export type AuthenticationIdentityType = (typeof AuthenticationIdentityType)[keyof typeof AuthenticationIdentityType]
+
+
+export const AuthenticationChallengePurpose = {
+  SIGN_IN: 'SIGN_IN',
+  STEP_UP: 'STEP_UP'
+} as const
+
+export type AuthenticationChallengePurpose = (typeof AuthenticationChallengePurpose)[keyof typeof AuthenticationChallengePurpose]
+
+
+export const AuthenticationMethod = {
+  EMAIL_OTP: 'EMAIL_OTP',
+  EMAIL_MAGIC_LINK: 'EMAIL_MAGIC_LINK'
+} as const
+
+export type AuthenticationMethod = (typeof AuthenticationMethod)[keyof typeof AuthenticationMethod]
+
+
+export const AuthenticationDeliveryMethod = {
+  EMAIL: 'EMAIL'
+} as const
+
+export type AuthenticationDeliveryMethod = (typeof AuthenticationDeliveryMethod)[keyof typeof AuthenticationDeliveryMethod]
+
+
+export const AuthenticationDeliveryStatus = {
+  PENDING: 'PENDING',
+  SENT: 'SENT',
+  FAILED: 'FAILED'
+} as const
+
+export type AuthenticationDeliveryStatus = (typeof AuthenticationDeliveryStatus)[keyof typeof AuthenticationDeliveryStatus]
+
+
 export const SecurityEventType = {
   LOGIN_SUCCEEDED: 'LOGIN_SUCCEEDED',
   LOGIN_FAILED: 'LOGIN_FAILED',

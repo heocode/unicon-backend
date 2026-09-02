@@ -123,6 +123,9 @@ export class AccountDeletionFinalizationService {
             await transaction.session.deleteMany({
               where: { userId: candidate.id },
             });
+            await transaction.authenticationChallenge.deleteMany({
+              where: { userId: candidate.id },
+            });
             await transaction.passwordResetToken.deleteMany({
               where: { userId: candidate.id },
             });

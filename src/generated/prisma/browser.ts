@@ -38,6 +38,26 @@ export type PasswordResetRateLimit = Prisma.PasswordResetRateLimitModel
  */
 export type AccountDeletionCancellationRateLimit = Prisma.AccountDeletionCancellationRateLimitModel
 /**
+ * Model AuthenticationChallengeSubject
+ * 
+ */
+export type AuthenticationChallengeSubject = Prisma.AuthenticationChallengeSubjectModel
+/**
+ * Model AuthenticationChallenge
+ * 
+ */
+export type AuthenticationChallenge = Prisma.AuthenticationChallengeModel
+/**
+ * Model AuthenticationChallengeDelivery
+ * 
+ */
+export type AuthenticationChallengeDelivery = Prisma.AuthenticationChallengeDeliveryModel
+/**
+ * Model AuthenticationRateLimit
+ * 
+ */
+export type AuthenticationRateLimit = Prisma.AuthenticationRateLimitModel
+/**
  * Model University
  * 
  */

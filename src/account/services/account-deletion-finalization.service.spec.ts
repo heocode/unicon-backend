@@ -19,6 +19,7 @@ describe('AccountDeletionFinalizationService', () => {
     $transaction: jest.fn(),
     $queryRaw: jest.fn(),
     session: { deleteMany: jest.fn() },
+    authenticationChallenge: { deleteMany: jest.fn() },
     passwordResetToken: { deleteMany: jest.fn() },
     user: { updateMany: jest.fn() },
   };
@@ -90,6 +91,9 @@ describe('AccountDeletionFinalizationService', () => {
       },
     );
     expect(prisma.session.deleteMany).toHaveBeenCalledWith({
+      where: { userId: 'user-id' },
+    });
+    expect(prisma.authenticationChallenge.deleteMany).toHaveBeenCalledWith({
       where: { userId: 'user-id' },
     });
     expect(prisma.passwordResetToken.deleteMany).toHaveBeenCalledWith({
