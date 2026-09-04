@@ -83,6 +83,7 @@ AuthenticationChallenge
 ├── hashProtocolVersion
 ├── hashKeyVersion
 ├── encryptedProof
+├── encryptionProtocolVersion
 ├── encryptionKeyVersion
 ├── expiresAt
 ├── failedAttemptCount
@@ -150,14 +151,17 @@ Proof generation returns an explicit persistence/transient boundary:
 ```text
 GeneratedChallengeProof
 ├── persistence: ChallengeProofPersistenceData
-│   ├── otpHash
-│   ├── linkTokenHash
-│   ├── hashProtocolVersion
-│   ├── hashKeyVersion
-│   ├── encryptedProof
-│   ├── encryptionNonce
-│   ├── encryptionTag
-│   └── encryptionKeyVersion
+│   ├── hashing: HashedChallengeProofData
+│   │   ├── otpHash
+│   │   ├── linkTokenHash
+│   │   ├── hashProtocolVersion
+│   │   └── hashKeyVersion
+│   └── encryption: EncryptedChallengeProofData
+│       ├── encryptedProof
+│       ├── proofEncryptionIv
+│       ├── proofEncryptionTag
+│       ├── encryptionProtocolVersion
+│       └── encryptionKeyVersion
 └── deliveryProof: TransientChallengeDeliveryProof
     ├── otp
     └── linkToken
@@ -167,6 +171,33 @@ Only `ChallengeProofPersistenceData` may be passed to Prisma. The transient
 delivery proof exists only in bounded process memory while constructing a
 Delivery and must never be serialized into logs, errors, events, or database
 records.
+
+Encryption is independently versioned. Protocol v1 is immutable and uses
+AES-256-GCM with a 32-byte key, random 12-byte IV, and 16-byte authentication
+tag. Its length-prefixed plaintext fields are the UTF-8 domain
+`unicon.auth.challenge.envelope.payload.v1`, the six ASCII OTP bytes, and the
+32 raw magic-link secret bytes. Its length-prefixed additional authenticated
+data fields are the UTF-8 domain
+`unicon.auth.challenge.envelope.aad.v1`, purpose, canonical challenge ID, and
+normalized identity, in that order.
+
+`encryptionProtocolVersion` dispatches to the protocol implementation before
+decryption; the selected implementation then constructs its AAD. It is
+independent from `encryptionKeyVersion`. Unsupported protocol or unavailable
+key versions are configuration/data-invariant failures. A GCM authentication
+failure or malformed decrypted payload is a corrupted-proof failure. Public
+HTTP handling may mask both as a generic internal failure, but backend
+diagnostics preserve the category without recording proof or key material.
+
+The encryption service accepts only `EncryptedChallengeProofData`, never the
+hashing persistence fields. Active hash and encryption versions and keys are
+each captured once within their respective generation call. This prevents a
+single proof set from mixing key versions during rotation.
+
+Ciphertext, IV, and tag are either all present or all absent. When present,
+ciphertext is non-empty and IV/tag have the protocol-v1 lengths. Protocol and
+key versions are always positive, non-null audit metadata. Terminal cleanup
+clears only ciphertext, IV, and tag; it preserves both version fields.
 
 ## Delivery model
 

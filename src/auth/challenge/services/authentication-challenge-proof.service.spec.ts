@@ -108,6 +108,18 @@ describe('AuthenticationChallengeProofService', () => {
     ).toBe(false);
   });
 
+  it('hashes both proofs through one active protocol and key snapshot', () => {
+    const proof = { otp: '004201', linkToken: magicLinkToken };
+    const result = service.hashProofSet(context, proof);
+
+    expect(result.hashProtocolVersion).toBe(1);
+    expect(result.hashKeyVersion).toBe(2);
+    expect(result.otpHash).toEqual(service.hashOtp(context, proof.otp).hash);
+    expect(result.linkTokenHash).toEqual(
+      service.hashMagicLinkToken(context, proof.linkToken).hash,
+    );
+  });
+
   it('verifies hashes created with a historical key version', () => {
     const active = service.hashOtp(context, '004201');
     const historicalService = new AuthenticationChallengeProofService(

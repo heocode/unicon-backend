@@ -205,14 +205,15 @@ model AuthenticationChallenge {
   userId             String?
   boundSessionId     String?
 
-  otpHash              Bytes
-  linkTokenHash        Bytes
-  hashProtocolVersion  Int
-  hashKeyVersion       Int
-  encryptedProof       Bytes?
-  proofEncryptionIv    Bytes?
-  proofEncryptionTag   Bytes?
-  encryptionKeyVersion Int
+  otpHash                   Bytes
+  linkTokenHash             Bytes
+  hashProtocolVersion       Int
+  hashKeyVersion            Int
+  encryptedProof            Bytes?
+  proofEncryptionIv         Bytes?
+  proofEncryptionTag        Bytes?
+  encryptionProtocolVersion Int
+  encryptionKeyVersion      Int
 
   expiresAt          DateTime
   failedAttemptCount Int       @default(0)

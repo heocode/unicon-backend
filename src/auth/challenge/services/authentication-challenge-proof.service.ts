@@ -4,9 +4,6 @@ import { Injectable, InternalServerErrorException } from '@nestjs/common';
 // Node.js
 import { createHmac, timingSafeEqual } from 'crypto';
 
-// Prisma
-import { AuthenticationChallengePurpose } from '../../../generated/prisma/enums';
-
 // Internal services
 import { AuthenticationChallengeConfigService } from './authentication-challenge-config.service';
 import { AuthenticationChallengeRandomSourceService } from './authentication-challenge-random-source.service';
@@ -26,17 +23,17 @@ import {
   ChallengeProofMethod,
   type ChallengeProofContext,
   type HashedChallengeProof,
+  type HashedChallengeProofData,
+  type TransientChallengeDeliveryProof,
 } from '../types/challenge-proof.type';
 
 // Internal utilities
+import { assertCanonicalChallengeProofContext } from '../utils/assert-canonical-challenge-proof-context.util';
 import { encodeLengthPrefixedFields } from '../utils/encode-length-prefixed-fields.util';
 import {
   parseCanonicalMagicLinkToken,
   parseCanonicalOtp,
 } from '../utils/parse-canonical-challenge-proof.util';
-
-const CANONICAL_UUID_PATTERN =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 
 @Injectable()
 export class AuthenticationChallengeProofService {
@@ -77,6 +74,45 @@ export class AuthenticationChallengeProofService {
       parseCanonicalMagicLinkToken(token),
       this.config.activeHmacKeyVersion,
     );
+  }
+
+  hashProofSet(
+    context: ChallengeProofContext,
+    proof: TransientChallengeDeliveryProof,
+  ): HashedChallengeProofData {
+    assertCanonicalChallengeProofContext(context);
+
+    const hashProtocolVersion = AUTHENTICATION_CHALLENGE_HASH_PROTOCOL_VERSION;
+    const hashKeyVersion = this.config.activeHmacKeyVersion;
+    const key = this.config.getHmacKey(hashKeyVersion);
+
+    try {
+      const otpHash = this.hashProofWithKey(
+        context,
+        ChallengeProofMethod.OTP,
+        parseCanonicalOtp(proof.otp),
+        hashProtocolVersion,
+        hashKeyVersion,
+        key,
+      ).hash;
+      const linkTokenHash = this.hashProofWithKey(
+        context,
+        ChallengeProofMethod.MAGIC_LINK,
+        parseCanonicalMagicLinkToken(proof.linkToken),
+        hashProtocolVersion,
+        hashKeyVersion,
+        key,
+      ).hash;
+
+      return {
+        otpHash,
+        linkTokenHash,
+        hashProtocolVersion,
+        hashKeyVersion,
+      };
+    } finally {
+      key.fill(0);
+    }
   }
 
   verifyOtp(
@@ -162,8 +198,32 @@ export class AuthenticationChallengeProofService {
     hashProtocolVersion = AUTHENTICATION_CHALLENGE_HASH_PROTOCOL_VERSION,
   ): HashedChallengeProof {
     this.assertSupportedProtocol(hashProtocolVersion);
-    this.assertCanonicalContext(context);
+    assertCanonicalChallengeProofContext(context);
 
+    const key = this.config.getHmacKey(hashKeyVersion);
+
+    try {
+      return this.hashProofWithKey(
+        context,
+        method,
+        proof,
+        hashProtocolVersion,
+        hashKeyVersion,
+        key,
+      );
+    } finally {
+      key.fill(0);
+    }
+  }
+
+  private hashProofWithKey(
+    context: ChallengeProofContext,
+    method: ChallengeProofMethod,
+    proof: Buffer,
+    hashProtocolVersion: number,
+    hashKeyVersion: number,
+    key: Buffer,
+  ): HashedChallengeProof {
     const payload = encodeLengthPrefixedFields([
       Buffer.from(AUTHENTICATION_CHALLENGE_HMAC_DOMAIN, 'utf8'),
       Buffer.from(method, 'utf8'),
@@ -172,7 +232,6 @@ export class AuthenticationChallengeProofService {
       Buffer.from(context.normalizedIdentity, 'utf8'),
       proof,
     ]);
-    const key = this.config.getHmacKey(hashKeyVersion);
     const hash = createHmac('sha256', key).update(payload).digest();
 
     return {
@@ -189,28 +248,6 @@ export class AuthenticationChallengeProofService {
       throw new InternalServerErrorException(
         'Authentication challenge hash protocol is unavailable.',
       );
-    }
-  }
-
-  private assertCanonicalContext(context: ChallengeProofContext): void {
-    if (!CANONICAL_UUID_PATTERN.test(context.challengeId)) {
-      throw new TypeError(
-        'Challenge ID must use its canonical representation.',
-      );
-    }
-
-    if (
-      context.normalizedIdentity.length === 0 ||
-      context.normalizedIdentity !== context.normalizedIdentity.trim() ||
-      context.normalizedIdentity !== context.normalizedIdentity.toLowerCase()
-    ) {
-      throw new TypeError('Challenge identity must already be normalized.');
-    }
-
-    if (
-      !Object.values(AuthenticationChallengePurpose).includes(context.purpose)
-    ) {
-      throw new TypeError('Challenge purpose is invalid.');
     }
   }
 }

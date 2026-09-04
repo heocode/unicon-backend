@@ -32,6 +32,8 @@ import { RecoveryRateLimitService } from './recovery/services/recovery-rate-limi
 import { AuthenticationChallengeConfigService } from './challenge/services/authentication-challenge-config.service';
 import { AuthenticationChallengeProofService } from './challenge/services/authentication-challenge-proof.service';
 import { AuthenticationChallengeRandomSourceService } from './challenge/services/authentication-challenge-random-source.service';
+import { AuthenticationChallengeProofEncryptionService } from './challenge/services/authentication-challenge-proof-encryption.service';
+import { AuthenticationChallengeProofFactoryService } from './challenge/services/authentication-challenge-proof-factory.service';
 
 @Module({
   imports: [
@@ -60,6 +62,8 @@ import { AuthenticationChallengeRandomSourceService } from './challenge/services
     AuthenticationChallengeConfigService,
     AuthenticationChallengeProofService,
     AuthenticationChallengeRandomSourceService,
+    AuthenticationChallengeProofEncryptionService,
+    AuthenticationChallengeProofFactoryService,
     RefreshTokenGuard,
   ],
   exports: [AuthService, SessionCreationService],

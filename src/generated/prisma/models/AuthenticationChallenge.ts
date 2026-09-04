@@ -29,6 +29,7 @@ export type AggregateAuthenticationChallenge = {
 export type AuthenticationChallengeAvgAggregateOutputType = {
   hashProtocolVersion: number | null
   hashKeyVersion: number | null
+  encryptionProtocolVersion: number | null
   encryptionKeyVersion: number | null
   failedAttemptCount: number | null
   maxAttempts: number | null
@@ -37,6 +38,7 @@ export type AuthenticationChallengeAvgAggregateOutputType = {
 export type AuthenticationChallengeSumAggregateOutputType = {
   hashProtocolVersion: number | null
   hashKeyVersion: number | null
+  encryptionProtocolVersion: number | null
   encryptionKeyVersion: number | null
   failedAttemptCount: number | null
   maxAttempts: number | null
@@ -57,6 +59,7 @@ export type AuthenticationChallengeMinAggregateOutputType = {
   encryptedProof: runtime.Bytes | null
   proofEncryptionIv: runtime.Bytes | null
   proofEncryptionTag: runtime.Bytes | null
+  encryptionProtocolVersion: number | null
   encryptionKeyVersion: number | null
   expiresAt: Date | null
   failedAttemptCount: number | null
@@ -83,6 +86,7 @@ export type AuthenticationChallengeMaxAggregateOutputType = {
   encryptedProof: runtime.Bytes | null
   proofEncryptionIv: runtime.Bytes | null
   proofEncryptionTag: runtime.Bytes | null
+  encryptionProtocolVersion: number | null
   encryptionKeyVersion: number | null
   expiresAt: Date | null
   failedAttemptCount: number | null
@@ -109,6 +113,7 @@ export type AuthenticationChallengeCountAggregateOutputType = {
   encryptedProof: number
   proofEncryptionIv: number
   proofEncryptionTag: number
+  encryptionProtocolVersion: number
   encryptionKeyVersion: number
   expiresAt: number
   failedAttemptCount: number
@@ -125,6 +130,7 @@ export type AuthenticationChallengeCountAggregateOutputType = {
 export type AuthenticationChallengeAvgAggregateInputType = {
   hashProtocolVersion?: true
   hashKeyVersion?: true
+  encryptionProtocolVersion?: true
   encryptionKeyVersion?: true
   failedAttemptCount?: true
   maxAttempts?: true
@@ -133,6 +139,7 @@ export type AuthenticationChallengeAvgAggregateInputType = {
 export type AuthenticationChallengeSumAggregateInputType = {
   hashProtocolVersion?: true
   hashKeyVersion?: true
+  encryptionProtocolVersion?: true
   encryptionKeyVersion?: true
   failedAttemptCount?: true
   maxAttempts?: true
@@ -153,6 +160,7 @@ export type AuthenticationChallengeMinAggregateInputType = {
   encryptedProof?: true
   proofEncryptionIv?: true
   proofEncryptionTag?: true
+  encryptionProtocolVersion?: true
   encryptionKeyVersion?: true
   expiresAt?: true
   failedAttemptCount?: true
@@ -179,6 +187,7 @@ export type AuthenticationChallengeMaxAggregateInputType = {
   encryptedProof?: true
   proofEncryptionIv?: true
   proofEncryptionTag?: true
+  encryptionProtocolVersion?: true
   encryptionKeyVersion?: true
   expiresAt?: true
   failedAttemptCount?: true
@@ -205,6 +214,7 @@ export type AuthenticationChallengeCountAggregateInputType = {
   encryptedProof?: true
   proofEncryptionIv?: true
   proofEncryptionTag?: true
+  encryptionProtocolVersion?: true
   encryptionKeyVersion?: true
   expiresAt?: true
   failedAttemptCount?: true
@@ -318,6 +328,7 @@ export type AuthenticationChallengeGroupByOutputType = {
   encryptedProof: runtime.Bytes | null
   proofEncryptionIv: runtime.Bytes | null
   proofEncryptionTag: runtime.Bytes | null
+  encryptionProtocolVersion: number
   encryptionKeyVersion: number
   expiresAt: Date
   failedAttemptCount: number
@@ -367,6 +378,7 @@ export type AuthenticationChallengeWhereInput = {
   encryptedProof?: Prisma.BytesNullableFilter<"AuthenticationChallenge"> | runtime.Bytes | null
   proofEncryptionIv?: Prisma.BytesNullableFilter<"AuthenticationChallenge"> | runtime.Bytes | null
   proofEncryptionTag?: Prisma.BytesNullableFilter<"AuthenticationChallenge"> | runtime.Bytes | null
+  encryptionProtocolVersion?: Prisma.IntFilter<"AuthenticationChallenge"> | number
   encryptionKeyVersion?: Prisma.IntFilter<"AuthenticationChallenge"> | number
   expiresAt?: Prisma.DateTimeFilter<"AuthenticationChallenge"> | Date | string
   failedAttemptCount?: Prisma.IntFilter<"AuthenticationChallenge"> | number
@@ -397,6 +409,7 @@ export type AuthenticationChallengeOrderByWithRelationInput = {
   encryptedProof?: Prisma.SortOrderInput | Prisma.SortOrder
   proofEncryptionIv?: Prisma.SortOrderInput | Prisma.SortOrder
   proofEncryptionTag?: Prisma.SortOrderInput | Prisma.SortOrder
+  encryptionProtocolVersion?: Prisma.SortOrder
   encryptionKeyVersion?: Prisma.SortOrder
   expiresAt?: Prisma.SortOrder
   failedAttemptCount?: Prisma.SortOrder
@@ -430,6 +443,7 @@ export type AuthenticationChallengeWhereUniqueInput = Prisma.AtLeast<{
   encryptedProof?: Prisma.BytesNullableFilter<"AuthenticationChallenge"> | runtime.Bytes | null
   proofEncryptionIv?: Prisma.BytesNullableFilter<"AuthenticationChallenge"> | runtime.Bytes | null
   proofEncryptionTag?: Prisma.BytesNullableFilter<"AuthenticationChallenge"> | runtime.Bytes | null
+  encryptionProtocolVersion?: Prisma.IntFilter<"AuthenticationChallenge"> | number
   encryptionKeyVersion?: Prisma.IntFilter<"AuthenticationChallenge"> | number
   expiresAt?: Prisma.DateTimeFilter<"AuthenticationChallenge"> | Date | string
   failedAttemptCount?: Prisma.IntFilter<"AuthenticationChallenge"> | number
@@ -460,6 +474,7 @@ export type AuthenticationChallengeOrderByWithAggregationInput = {
   encryptedProof?: Prisma.SortOrderInput | Prisma.SortOrder
   proofEncryptionIv?: Prisma.SortOrderInput | Prisma.SortOrder
   proofEncryptionTag?: Prisma.SortOrderInput | Prisma.SortOrder
+  encryptionProtocolVersion?: Prisma.SortOrder
   encryptionKeyVersion?: Prisma.SortOrder
   expiresAt?: Prisma.SortOrder
   failedAttemptCount?: Prisma.SortOrder
@@ -494,6 +509,7 @@ export type AuthenticationChallengeScalarWhereWithAggregatesInput = {
   encryptedProof?: Prisma.BytesNullableWithAggregatesFilter<"AuthenticationChallenge"> | runtime.Bytes | null
   proofEncryptionIv?: Prisma.BytesNullableWithAggregatesFilter<"AuthenticationChallenge"> | runtime.Bytes | null
   proofEncryptionTag?: Prisma.BytesNullableWithAggregatesFilter<"AuthenticationChallenge"> | runtime.Bytes | null
+  encryptionProtocolVersion?: Prisma.IntWithAggregatesFilter<"AuthenticationChallenge"> | number
   encryptionKeyVersion?: Prisma.IntWithAggregatesFilter<"AuthenticationChallenge"> | number
   expiresAt?: Prisma.DateTimeWithAggregatesFilter<"AuthenticationChallenge"> | Date | string
   failedAttemptCount?: Prisma.IntWithAggregatesFilter<"AuthenticationChallenge"> | number
@@ -517,6 +533,7 @@ export type AuthenticationChallengeCreateInput = {
   encryptedProof?: runtime.Bytes | null
   proofEncryptionIv?: runtime.Bytes | null
   proofEncryptionTag?: runtime.Bytes | null
+  encryptionProtocolVersion: number
   encryptionKeyVersion: number
   expiresAt: Date | string
   failedAttemptCount?: number
@@ -547,6 +564,7 @@ export type AuthenticationChallengeUncheckedCreateInput = {
   encryptedProof?: runtime.Bytes | null
   proofEncryptionIv?: runtime.Bytes | null
   proofEncryptionTag?: runtime.Bytes | null
+  encryptionProtocolVersion: number
   encryptionKeyVersion: number
   expiresAt: Date | string
   failedAttemptCount?: number
@@ -571,6 +589,7 @@ export type AuthenticationChallengeUpdateInput = {
   encryptedProof?: Prisma.NullableBytesFieldUpdateOperationsInput | runtime.Bytes | null
   proofEncryptionIv?: Prisma.NullableBytesFieldUpdateOperationsInput | runtime.Bytes | null
   proofEncryptionTag?: Prisma.NullableBytesFieldUpdateOperationsInput | runtime.Bytes | null
+  encryptionProtocolVersion?: Prisma.IntFieldUpdateOperationsInput | number
   encryptionKeyVersion?: Prisma.IntFieldUpdateOperationsInput | number
   expiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   failedAttemptCount?: Prisma.IntFieldUpdateOperationsInput | number
@@ -601,6 +620,7 @@ export type AuthenticationChallengeUncheckedUpdateInput = {
   encryptedProof?: Prisma.NullableBytesFieldUpdateOperationsInput | runtime.Bytes | null
   proofEncryptionIv?: Prisma.NullableBytesFieldUpdateOperationsInput | runtime.Bytes | null
   proofEncryptionTag?: Prisma.NullableBytesFieldUpdateOperationsInput | runtime.Bytes | null
+  encryptionProtocolVersion?: Prisma.IntFieldUpdateOperationsInput | number
   encryptionKeyVersion?: Prisma.IntFieldUpdateOperationsInput | number
   expiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   failedAttemptCount?: Prisma.IntFieldUpdateOperationsInput | number
@@ -628,6 +648,7 @@ export type AuthenticationChallengeCreateManyInput = {
   encryptedProof?: runtime.Bytes | null
   proofEncryptionIv?: runtime.Bytes | null
   proofEncryptionTag?: runtime.Bytes | null
+  encryptionProtocolVersion: number
   encryptionKeyVersion: number
   expiresAt: Date | string
   failedAttemptCount?: number
@@ -651,6 +672,7 @@ export type AuthenticationChallengeUpdateManyMutationInput = {
   encryptedProof?: Prisma.NullableBytesFieldUpdateOperationsInput | runtime.Bytes | null
   proofEncryptionIv?: Prisma.NullableBytesFieldUpdateOperationsInput | runtime.Bytes | null
   proofEncryptionTag?: Prisma.NullableBytesFieldUpdateOperationsInput | runtime.Bytes | null
+  encryptionProtocolVersion?: Prisma.IntFieldUpdateOperationsInput | number
   encryptionKeyVersion?: Prisma.IntFieldUpdateOperationsInput | number
   expiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   failedAttemptCount?: Prisma.IntFieldUpdateOperationsInput | number
@@ -677,6 +699,7 @@ export type AuthenticationChallengeUncheckedUpdateManyInput = {
   encryptedProof?: Prisma.NullableBytesFieldUpdateOperationsInput | runtime.Bytes | null
   proofEncryptionIv?: Prisma.NullableBytesFieldUpdateOperationsInput | runtime.Bytes | null
   proofEncryptionTag?: Prisma.NullableBytesFieldUpdateOperationsInput | runtime.Bytes | null
+  encryptionProtocolVersion?: Prisma.IntFieldUpdateOperationsInput | number
   encryptionKeyVersion?: Prisma.IntFieldUpdateOperationsInput | number
   expiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   failedAttemptCount?: Prisma.IntFieldUpdateOperationsInput | number
@@ -713,6 +736,7 @@ export type AuthenticationChallengeCountOrderByAggregateInput = {
   encryptedProof?: Prisma.SortOrder
   proofEncryptionIv?: Prisma.SortOrder
   proofEncryptionTag?: Prisma.SortOrder
+  encryptionProtocolVersion?: Prisma.SortOrder
   encryptionKeyVersion?: Prisma.SortOrder
   expiresAt?: Prisma.SortOrder
   failedAttemptCount?: Prisma.SortOrder
@@ -727,6 +751,7 @@ export type AuthenticationChallengeCountOrderByAggregateInput = {
 export type AuthenticationChallengeAvgOrderByAggregateInput = {
   hashProtocolVersion?: Prisma.SortOrder
   hashKeyVersion?: Prisma.SortOrder
+  encryptionProtocolVersion?: Prisma.SortOrder
   encryptionKeyVersion?: Prisma.SortOrder
   failedAttemptCount?: Prisma.SortOrder
   maxAttempts?: Prisma.SortOrder
@@ -747,6 +772,7 @@ export type AuthenticationChallengeMaxOrderByAggregateInput = {
   encryptedProof?: Prisma.SortOrder
   proofEncryptionIv?: Prisma.SortOrder
   proofEncryptionTag?: Prisma.SortOrder
+  encryptionProtocolVersion?: Prisma.SortOrder
   encryptionKeyVersion?: Prisma.SortOrder
   expiresAt?: Prisma.SortOrder
   failedAttemptCount?: Prisma.SortOrder
@@ -773,6 +799,7 @@ export type AuthenticationChallengeMinOrderByAggregateInput = {
   encryptedProof?: Prisma.SortOrder
   proofEncryptionIv?: Prisma.SortOrder
   proofEncryptionTag?: Prisma.SortOrder
+  encryptionProtocolVersion?: Prisma.SortOrder
   encryptionKeyVersion?: Prisma.SortOrder
   expiresAt?: Prisma.SortOrder
   failedAttemptCount?: Prisma.SortOrder
@@ -787,6 +814,7 @@ export type AuthenticationChallengeMinOrderByAggregateInput = {
 export type AuthenticationChallengeSumOrderByAggregateInput = {
   hashProtocolVersion?: Prisma.SortOrder
   hashKeyVersion?: Prisma.SortOrder
+  encryptionProtocolVersion?: Prisma.SortOrder
   encryptionKeyVersion?: Prisma.SortOrder
   failedAttemptCount?: Prisma.SortOrder
   maxAttempts?: Prisma.SortOrder
@@ -965,6 +993,7 @@ export type AuthenticationChallengeCreateWithoutUserInput = {
   encryptedProof?: runtime.Bytes | null
   proofEncryptionIv?: runtime.Bytes | null
   proofEncryptionTag?: runtime.Bytes | null
+  encryptionProtocolVersion: number
   encryptionKeyVersion: number
   expiresAt: Date | string
   failedAttemptCount?: number
@@ -993,6 +1022,7 @@ export type AuthenticationChallengeUncheckedCreateWithoutUserInput = {
   encryptedProof?: runtime.Bytes | null
   proofEncryptionIv?: runtime.Bytes | null
   proofEncryptionTag?: runtime.Bytes | null
+  encryptionProtocolVersion: number
   encryptionKeyVersion: number
   expiresAt: Date | string
   failedAttemptCount?: number
@@ -1049,6 +1079,7 @@ export type AuthenticationChallengeScalarWhereInput = {
   encryptedProof?: Prisma.BytesNullableFilter<"AuthenticationChallenge"> | runtime.Bytes | null
   proofEncryptionIv?: Prisma.BytesNullableFilter<"AuthenticationChallenge"> | runtime.Bytes | null
   proofEncryptionTag?: Prisma.BytesNullableFilter<"AuthenticationChallenge"> | runtime.Bytes | null
+  encryptionProtocolVersion?: Prisma.IntFilter<"AuthenticationChallenge"> | number
   encryptionKeyVersion?: Prisma.IntFilter<"AuthenticationChallenge"> | number
   expiresAt?: Prisma.DateTimeFilter<"AuthenticationChallenge"> | Date | string
   failedAttemptCount?: Prisma.IntFilter<"AuthenticationChallenge"> | number
@@ -1072,6 +1103,7 @@ export type AuthenticationChallengeCreateWithoutSubjectInput = {
   encryptedProof?: runtime.Bytes | null
   proofEncryptionIv?: runtime.Bytes | null
   proofEncryptionTag?: runtime.Bytes | null
+  encryptionProtocolVersion: number
   encryptionKeyVersion: number
   expiresAt: Date | string
   failedAttemptCount?: number
@@ -1100,6 +1132,7 @@ export type AuthenticationChallengeUncheckedCreateWithoutSubjectInput = {
   encryptedProof?: runtime.Bytes | null
   proofEncryptionIv?: runtime.Bytes | null
   proofEncryptionTag?: runtime.Bytes | null
+  encryptionProtocolVersion: number
   encryptionKeyVersion: number
   expiresAt: Date | string
   failedAttemptCount?: number
@@ -1150,6 +1183,7 @@ export type AuthenticationChallengeCreateWithoutDeliveriesInput = {
   encryptedProof?: runtime.Bytes | null
   proofEncryptionIv?: runtime.Bytes | null
   proofEncryptionTag?: runtime.Bytes | null
+  encryptionProtocolVersion: number
   encryptionKeyVersion: number
   expiresAt: Date | string
   failedAttemptCount?: number
@@ -1179,6 +1213,7 @@ export type AuthenticationChallengeUncheckedCreateWithoutDeliveriesInput = {
   encryptedProof?: runtime.Bytes | null
   proofEncryptionIv?: runtime.Bytes | null
   proofEncryptionTag?: runtime.Bytes | null
+  encryptionProtocolVersion: number
   encryptionKeyVersion: number
   expiresAt: Date | string
   failedAttemptCount?: number
@@ -1218,6 +1253,7 @@ export type AuthenticationChallengeUpdateWithoutDeliveriesInput = {
   encryptedProof?: Prisma.NullableBytesFieldUpdateOperationsInput | runtime.Bytes | null
   proofEncryptionIv?: Prisma.NullableBytesFieldUpdateOperationsInput | runtime.Bytes | null
   proofEncryptionTag?: Prisma.NullableBytesFieldUpdateOperationsInput | runtime.Bytes | null
+  encryptionProtocolVersion?: Prisma.IntFieldUpdateOperationsInput | number
   encryptionKeyVersion?: Prisma.IntFieldUpdateOperationsInput | number
   expiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   failedAttemptCount?: Prisma.IntFieldUpdateOperationsInput | number
@@ -1247,6 +1283,7 @@ export type AuthenticationChallengeUncheckedUpdateWithoutDeliveriesInput = {
   encryptedProof?: Prisma.NullableBytesFieldUpdateOperationsInput | runtime.Bytes | null
   proofEncryptionIv?: Prisma.NullableBytesFieldUpdateOperationsInput | runtime.Bytes | null
   proofEncryptionTag?: Prisma.NullableBytesFieldUpdateOperationsInput | runtime.Bytes | null
+  encryptionProtocolVersion?: Prisma.IntFieldUpdateOperationsInput | number
   encryptionKeyVersion?: Prisma.IntFieldUpdateOperationsInput | number
   expiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   failedAttemptCount?: Prisma.IntFieldUpdateOperationsInput | number
@@ -1270,6 +1307,7 @@ export type AuthenticationChallengeCreateWithoutBoundSessionInput = {
   encryptedProof?: runtime.Bytes | null
   proofEncryptionIv?: runtime.Bytes | null
   proofEncryptionTag?: runtime.Bytes | null
+  encryptionProtocolVersion: number
   encryptionKeyVersion: number
   expiresAt: Date | string
   failedAttemptCount?: number
@@ -1298,6 +1336,7 @@ export type AuthenticationChallengeUncheckedCreateWithoutBoundSessionInput = {
   encryptedProof?: runtime.Bytes | null
   proofEncryptionIv?: runtime.Bytes | null
   proofEncryptionTag?: runtime.Bytes | null
+  encryptionProtocolVersion: number
   encryptionKeyVersion: number
   expiresAt: Date | string
   failedAttemptCount?: number
@@ -1350,6 +1389,7 @@ export type AuthenticationChallengeCreateManyUserInput = {
   encryptedProof?: runtime.Bytes | null
   proofEncryptionIv?: runtime.Bytes | null
   proofEncryptionTag?: runtime.Bytes | null
+  encryptionProtocolVersion: number
   encryptionKeyVersion: number
   expiresAt: Date | string
   failedAttemptCount?: number
@@ -1373,6 +1413,7 @@ export type AuthenticationChallengeUpdateWithoutUserInput = {
   encryptedProof?: Prisma.NullableBytesFieldUpdateOperationsInput | runtime.Bytes | null
   proofEncryptionIv?: Prisma.NullableBytesFieldUpdateOperationsInput | runtime.Bytes | null
   proofEncryptionTag?: Prisma.NullableBytesFieldUpdateOperationsInput | runtime.Bytes | null
+  encryptionProtocolVersion?: Prisma.IntFieldUpdateOperationsInput | number
   encryptionKeyVersion?: Prisma.IntFieldUpdateOperationsInput | number
   expiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   failedAttemptCount?: Prisma.IntFieldUpdateOperationsInput | number
@@ -1401,6 +1442,7 @@ export type AuthenticationChallengeUncheckedUpdateWithoutUserInput = {
   encryptedProof?: Prisma.NullableBytesFieldUpdateOperationsInput | runtime.Bytes | null
   proofEncryptionIv?: Prisma.NullableBytesFieldUpdateOperationsInput | runtime.Bytes | null
   proofEncryptionTag?: Prisma.NullableBytesFieldUpdateOperationsInput | runtime.Bytes | null
+  encryptionProtocolVersion?: Prisma.IntFieldUpdateOperationsInput | number
   encryptionKeyVersion?: Prisma.IntFieldUpdateOperationsInput | number
   expiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   failedAttemptCount?: Prisma.IntFieldUpdateOperationsInput | number
@@ -1427,6 +1469,7 @@ export type AuthenticationChallengeUncheckedUpdateManyWithoutUserInput = {
   encryptedProof?: Prisma.NullableBytesFieldUpdateOperationsInput | runtime.Bytes | null
   proofEncryptionIv?: Prisma.NullableBytesFieldUpdateOperationsInput | runtime.Bytes | null
   proofEncryptionTag?: Prisma.NullableBytesFieldUpdateOperationsInput | runtime.Bytes | null
+  encryptionProtocolVersion?: Prisma.IntFieldUpdateOperationsInput | number
   encryptionKeyVersion?: Prisma.IntFieldUpdateOperationsInput | number
   expiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   failedAttemptCount?: Prisma.IntFieldUpdateOperationsInput | number
@@ -1452,6 +1495,7 @@ export type AuthenticationChallengeCreateManySubjectInput = {
   encryptedProof?: runtime.Bytes | null
   proofEncryptionIv?: runtime.Bytes | null
   proofEncryptionTag?: runtime.Bytes | null
+  encryptionProtocolVersion: number
   encryptionKeyVersion: number
   expiresAt: Date | string
   failedAttemptCount?: number
@@ -1475,6 +1519,7 @@ export type AuthenticationChallengeUpdateWithoutSubjectInput = {
   encryptedProof?: Prisma.NullableBytesFieldUpdateOperationsInput | runtime.Bytes | null
   proofEncryptionIv?: Prisma.NullableBytesFieldUpdateOperationsInput | runtime.Bytes | null
   proofEncryptionTag?: Prisma.NullableBytesFieldUpdateOperationsInput | runtime.Bytes | null
+  encryptionProtocolVersion?: Prisma.IntFieldUpdateOperationsInput | number
   encryptionKeyVersion?: Prisma.IntFieldUpdateOperationsInput | number
   expiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   failedAttemptCount?: Prisma.IntFieldUpdateOperationsInput | number
@@ -1503,6 +1548,7 @@ export type AuthenticationChallengeUncheckedUpdateWithoutSubjectInput = {
   encryptedProof?: Prisma.NullableBytesFieldUpdateOperationsInput | runtime.Bytes | null
   proofEncryptionIv?: Prisma.NullableBytesFieldUpdateOperationsInput | runtime.Bytes | null
   proofEncryptionTag?: Prisma.NullableBytesFieldUpdateOperationsInput | runtime.Bytes | null
+  encryptionProtocolVersion?: Prisma.IntFieldUpdateOperationsInput | number
   encryptionKeyVersion?: Prisma.IntFieldUpdateOperationsInput | number
   expiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   failedAttemptCount?: Prisma.IntFieldUpdateOperationsInput | number
@@ -1529,6 +1575,7 @@ export type AuthenticationChallengeUncheckedUpdateManyWithoutSubjectInput = {
   encryptedProof?: Prisma.NullableBytesFieldUpdateOperationsInput | runtime.Bytes | null
   proofEncryptionIv?: Prisma.NullableBytesFieldUpdateOperationsInput | runtime.Bytes | null
   proofEncryptionTag?: Prisma.NullableBytesFieldUpdateOperationsInput | runtime.Bytes | null
+  encryptionProtocolVersion?: Prisma.IntFieldUpdateOperationsInput | number
   encryptionKeyVersion?: Prisma.IntFieldUpdateOperationsInput | number
   expiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   failedAttemptCount?: Prisma.IntFieldUpdateOperationsInput | number
@@ -1554,6 +1601,7 @@ export type AuthenticationChallengeCreateManyBoundSessionInput = {
   encryptedProof?: runtime.Bytes | null
   proofEncryptionIv?: runtime.Bytes | null
   proofEncryptionTag?: runtime.Bytes | null
+  encryptionProtocolVersion: number
   encryptionKeyVersion: number
   expiresAt: Date | string
   failedAttemptCount?: number
@@ -1577,6 +1625,7 @@ export type AuthenticationChallengeUpdateWithoutBoundSessionInput = {
   encryptedProof?: Prisma.NullableBytesFieldUpdateOperationsInput | runtime.Bytes | null
   proofEncryptionIv?: Prisma.NullableBytesFieldUpdateOperationsInput | runtime.Bytes | null
   proofEncryptionTag?: Prisma.NullableBytesFieldUpdateOperationsInput | runtime.Bytes | null
+  encryptionProtocolVersion?: Prisma.IntFieldUpdateOperationsInput | number
   encryptionKeyVersion?: Prisma.IntFieldUpdateOperationsInput | number
   expiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   failedAttemptCount?: Prisma.IntFieldUpdateOperationsInput | number
@@ -1605,6 +1654,7 @@ export type AuthenticationChallengeUncheckedUpdateWithoutBoundSessionInput = {
   encryptedProof?: Prisma.NullableBytesFieldUpdateOperationsInput | runtime.Bytes | null
   proofEncryptionIv?: Prisma.NullableBytesFieldUpdateOperationsInput | runtime.Bytes | null
   proofEncryptionTag?: Prisma.NullableBytesFieldUpdateOperationsInput | runtime.Bytes | null
+  encryptionProtocolVersion?: Prisma.IntFieldUpdateOperationsInput | number
   encryptionKeyVersion?: Prisma.IntFieldUpdateOperationsInput | number
   expiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   failedAttemptCount?: Prisma.IntFieldUpdateOperationsInput | number
@@ -1631,6 +1681,7 @@ export type AuthenticationChallengeUncheckedUpdateManyWithoutBoundSessionInput =
   encryptedProof?: Prisma.NullableBytesFieldUpdateOperationsInput | runtime.Bytes | null
   proofEncryptionIv?: Prisma.NullableBytesFieldUpdateOperationsInput | runtime.Bytes | null
   proofEncryptionTag?: Prisma.NullableBytesFieldUpdateOperationsInput | runtime.Bytes | null
+  encryptionProtocolVersion?: Prisma.IntFieldUpdateOperationsInput | number
   encryptionKeyVersion?: Prisma.IntFieldUpdateOperationsInput | number
   expiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   failedAttemptCount?: Prisma.IntFieldUpdateOperationsInput | number
@@ -1688,6 +1739,7 @@ export type AuthenticationChallengeSelect<ExtArgs extends runtime.Types.Extensio
   encryptedProof?: boolean
   proofEncryptionIv?: boolean
   proofEncryptionTag?: boolean
+  encryptionProtocolVersion?: boolean
   encryptionKeyVersion?: boolean
   expiresAt?: boolean
   failedAttemptCount?: boolean
@@ -1719,6 +1771,7 @@ export type AuthenticationChallengeSelectCreateManyAndReturn<ExtArgs extends run
   encryptedProof?: boolean
   proofEncryptionIv?: boolean
   proofEncryptionTag?: boolean
+  encryptionProtocolVersion?: boolean
   encryptionKeyVersion?: boolean
   expiresAt?: boolean
   failedAttemptCount?: boolean
@@ -1748,6 +1801,7 @@ export type AuthenticationChallengeSelectUpdateManyAndReturn<ExtArgs extends run
   encryptedProof?: boolean
   proofEncryptionIv?: boolean
   proofEncryptionTag?: boolean
+  encryptionProtocolVersion?: boolean
   encryptionKeyVersion?: boolean
   expiresAt?: boolean
   failedAttemptCount?: boolean
@@ -1777,6 +1831,7 @@ export type AuthenticationChallengeSelectScalar = {
   encryptedProof?: boolean
   proofEncryptionIv?: boolean
   proofEncryptionTag?: boolean
+  encryptionProtocolVersion?: boolean
   encryptionKeyVersion?: boolean
   expiresAt?: boolean
   failedAttemptCount?: boolean
@@ -1788,7 +1843,7 @@ export type AuthenticationChallengeSelectScalar = {
   updatedAt?: boolean
 }
 
-export type AuthenticationChallengeOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "subjectKey" | "identityType" | "normalizedIdentity" | "purpose" | "userId" | "boundSessionId" | "otpHash" | "linkTokenHash" | "hashProtocolVersion" | "hashKeyVersion" | "encryptedProof" | "proofEncryptionIv" | "proofEncryptionTag" | "encryptionKeyVersion" | "expiresAt" | "failedAttemptCount" | "maxAttempts" | "consumedAt" | "lockedAt" | "retentionExpiresAt" | "createdAt" | "updatedAt", ExtArgs["result"]["authenticationChallenge"]>
+export type AuthenticationChallengeOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "subjectKey" | "identityType" | "normalizedIdentity" | "purpose" | "userId" | "boundSessionId" | "otpHash" | "linkTokenHash" | "hashProtocolVersion" | "hashKeyVersion" | "encryptedProof" | "proofEncryptionIv" | "proofEncryptionTag" | "encryptionProtocolVersion" | "encryptionKeyVersion" | "expiresAt" | "failedAttemptCount" | "maxAttempts" | "consumedAt" | "lockedAt" | "retentionExpiresAt" | "createdAt" | "updatedAt", ExtArgs["result"]["authenticationChallenge"]>
 export type AuthenticationChallengeInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   subject?: boolean | Prisma.AuthenticationChallengeSubjectDefaultArgs<ExtArgs>
   user?: boolean | Prisma.AuthenticationChallenge$userArgs<ExtArgs>
@@ -1830,6 +1885,7 @@ export type $AuthenticationChallengePayload<ExtArgs extends runtime.Types.Extens
     encryptedProof: runtime.Bytes | null
     proofEncryptionIv: runtime.Bytes | null
     proofEncryptionTag: runtime.Bytes | null
+    encryptionProtocolVersion: number
     encryptionKeyVersion: number
     expiresAt: Date
     failedAttemptCount: number
@@ -2280,6 +2336,7 @@ export interface AuthenticationChallengeFieldRefs {
   readonly encryptedProof: Prisma.FieldRef<"AuthenticationChallenge", 'Bytes'>
   readonly proofEncryptionIv: Prisma.FieldRef<"AuthenticationChallenge", 'Bytes'>
   readonly proofEncryptionTag: Prisma.FieldRef<"AuthenticationChallenge", 'Bytes'>
+  readonly encryptionProtocolVersion: Prisma.FieldRef<"AuthenticationChallenge", 'Int'>
   readonly encryptionKeyVersion: Prisma.FieldRef<"AuthenticationChallenge", 'Int'>
   readonly expiresAt: Prisma.FieldRef<"AuthenticationChallenge", 'DateTime'>
   readonly failedAttemptCount: Prisma.FieldRef<"AuthenticationChallenge", 'Int'>

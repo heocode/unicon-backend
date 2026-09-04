@@ -164,6 +164,7 @@ export const AuthenticationChallengeScalarFieldEnum = {
   encryptedProof: 'encryptedProof',
   proofEncryptionIv: 'proofEncryptionIv',
   proofEncryptionTag: 'proofEncryptionTag',
+  encryptionProtocolVersion: 'encryptionProtocolVersion',
   encryptionKeyVersion: 'encryptionKeyVersion',
   expiresAt: 'expiresAt',
   failedAttemptCount: 'failedAttemptCount',

@@ -141,6 +141,8 @@ Implement focused services for:
 - 256-bit magic-link secrets;
 - versioned HMAC hashing and constant-time comparison;
 - versioned authenticated encryption/decryption used only for delivery;
+- immutable, independently versioned hash and encryption protocol encodings;
+- one active key snapshot per generated hash set or encrypted envelope;
 - clearing encrypted proof when a challenge becomes terminal;
 - fixed challenge lifetime;
 - purpose validation;
