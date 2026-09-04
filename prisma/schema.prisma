@@ -205,8 +205,9 @@ model AuthenticationChallenge {
   userId             String?
   boundSessionId     String?
 
-  otpHash              String
-  linkTokenHash        String
+  otpHash              Bytes
+  linkTokenHash        Bytes
+  hashProtocolVersion  Int
   hashKeyVersion       Int
   encryptedProof       Bytes?
   proofEncryptionIv    Bytes?

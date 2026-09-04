@@ -94,10 +94,11 @@ Session.authenticationMethod
 Session.authenticatedAt
 ```
 
-The challenge stores stable keyed hashes, key version, fixed expiration,
-attempt counter, terminal timestamps, and a versioned authenticated-encryption
-envelope required to reproduce stable proof for delivery. Delivery stores only
-provider-neutral attempt state and idempotency, never proof.
+The challenge stores stable keyed hashes, independently versioned hash protocol
+and key material, fixed expiration, attempt counter, terminal timestamps, and a
+versioned authenticated-encryption envelope required to reproduce stable proof
+for delivery. Delivery stores only provider-neutral attempt state and
+idempotency, never proof.
 
 Keep target-obsolete storage temporarily during the expanding migration so the
 existing runtime remains buildable:

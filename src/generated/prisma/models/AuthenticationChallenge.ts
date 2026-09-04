@@ -27,6 +27,7 @@ export type AggregateAuthenticationChallenge = {
 }
 
 export type AuthenticationChallengeAvgAggregateOutputType = {
+  hashProtocolVersion: number | null
   hashKeyVersion: number | null
   encryptionKeyVersion: number | null
   failedAttemptCount: number | null
@@ -34,6 +35,7 @@ export type AuthenticationChallengeAvgAggregateOutputType = {
 }
 
 export type AuthenticationChallengeSumAggregateOutputType = {
+  hashProtocolVersion: number | null
   hashKeyVersion: number | null
   encryptionKeyVersion: number | null
   failedAttemptCount: number | null
@@ -48,8 +50,9 @@ export type AuthenticationChallengeMinAggregateOutputType = {
   purpose: $Enums.AuthenticationChallengePurpose | null
   userId: string | null
   boundSessionId: string | null
-  otpHash: string | null
-  linkTokenHash: string | null
+  otpHash: runtime.Bytes | null
+  linkTokenHash: runtime.Bytes | null
+  hashProtocolVersion: number | null
   hashKeyVersion: number | null
   encryptedProof: runtime.Bytes | null
   proofEncryptionIv: runtime.Bytes | null
@@ -73,8 +76,9 @@ export type AuthenticationChallengeMaxAggregateOutputType = {
   purpose: $Enums.AuthenticationChallengePurpose | null
   userId: string | null
   boundSessionId: string | null
-  otpHash: string | null
-  linkTokenHash: string | null
+  otpHash: runtime.Bytes | null
+  linkTokenHash: runtime.Bytes | null
+  hashProtocolVersion: number | null
   hashKeyVersion: number | null
   encryptedProof: runtime.Bytes | null
   proofEncryptionIv: runtime.Bytes | null
@@ -100,6 +104,7 @@ export type AuthenticationChallengeCountAggregateOutputType = {
   boundSessionId: number
   otpHash: number
   linkTokenHash: number
+  hashProtocolVersion: number
   hashKeyVersion: number
   encryptedProof: number
   proofEncryptionIv: number
@@ -118,6 +123,7 @@ export type AuthenticationChallengeCountAggregateOutputType = {
 
 
 export type AuthenticationChallengeAvgAggregateInputType = {
+  hashProtocolVersion?: true
   hashKeyVersion?: true
   encryptionKeyVersion?: true
   failedAttemptCount?: true
@@ -125,6 +131,7 @@ export type AuthenticationChallengeAvgAggregateInputType = {
 }
 
 export type AuthenticationChallengeSumAggregateInputType = {
+  hashProtocolVersion?: true
   hashKeyVersion?: true
   encryptionKeyVersion?: true
   failedAttemptCount?: true
@@ -141,6 +148,7 @@ export type AuthenticationChallengeMinAggregateInputType = {
   boundSessionId?: true
   otpHash?: true
   linkTokenHash?: true
+  hashProtocolVersion?: true
   hashKeyVersion?: true
   encryptedProof?: true
   proofEncryptionIv?: true
@@ -166,6 +174,7 @@ export type AuthenticationChallengeMaxAggregateInputType = {
   boundSessionId?: true
   otpHash?: true
   linkTokenHash?: true
+  hashProtocolVersion?: true
   hashKeyVersion?: true
   encryptedProof?: true
   proofEncryptionIv?: true
@@ -191,6 +200,7 @@ export type AuthenticationChallengeCountAggregateInputType = {
   boundSessionId?: true
   otpHash?: true
   linkTokenHash?: true
+  hashProtocolVersion?: true
   hashKeyVersion?: true
   encryptedProof?: true
   proofEncryptionIv?: true
@@ -301,8 +311,9 @@ export type AuthenticationChallengeGroupByOutputType = {
   purpose: $Enums.AuthenticationChallengePurpose
   userId: string | null
   boundSessionId: string | null
-  otpHash: string
-  linkTokenHash: string
+  otpHash: runtime.Bytes
+  linkTokenHash: runtime.Bytes
+  hashProtocolVersion: number
   hashKeyVersion: number
   encryptedProof: runtime.Bytes | null
   proofEncryptionIv: runtime.Bytes | null
@@ -349,8 +360,9 @@ export type AuthenticationChallengeWhereInput = {
   purpose?: Prisma.EnumAuthenticationChallengePurposeFilter<"AuthenticationChallenge"> | $Enums.AuthenticationChallengePurpose
   userId?: Prisma.StringNullableFilter<"AuthenticationChallenge"> | string | null
   boundSessionId?: Prisma.StringNullableFilter<"AuthenticationChallenge"> | string | null
-  otpHash?: Prisma.StringFilter<"AuthenticationChallenge"> | string
-  linkTokenHash?: Prisma.StringFilter<"AuthenticationChallenge"> | string
+  otpHash?: Prisma.BytesFilter<"AuthenticationChallenge"> | runtime.Bytes
+  linkTokenHash?: Prisma.BytesFilter<"AuthenticationChallenge"> | runtime.Bytes
+  hashProtocolVersion?: Prisma.IntFilter<"AuthenticationChallenge"> | number
   hashKeyVersion?: Prisma.IntFilter<"AuthenticationChallenge"> | number
   encryptedProof?: Prisma.BytesNullableFilter<"AuthenticationChallenge"> | runtime.Bytes | null
   proofEncryptionIv?: Prisma.BytesNullableFilter<"AuthenticationChallenge"> | runtime.Bytes | null
@@ -380,6 +392,7 @@ export type AuthenticationChallengeOrderByWithRelationInput = {
   boundSessionId?: Prisma.SortOrderInput | Prisma.SortOrder
   otpHash?: Prisma.SortOrder
   linkTokenHash?: Prisma.SortOrder
+  hashProtocolVersion?: Prisma.SortOrder
   hashKeyVersion?: Prisma.SortOrder
   encryptedProof?: Prisma.SortOrderInput | Prisma.SortOrder
   proofEncryptionIv?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -410,8 +423,9 @@ export type AuthenticationChallengeWhereUniqueInput = Prisma.AtLeast<{
   purpose?: Prisma.EnumAuthenticationChallengePurposeFilter<"AuthenticationChallenge"> | $Enums.AuthenticationChallengePurpose
   userId?: Prisma.StringNullableFilter<"AuthenticationChallenge"> | string | null
   boundSessionId?: Prisma.StringNullableFilter<"AuthenticationChallenge"> | string | null
-  otpHash?: Prisma.StringFilter<"AuthenticationChallenge"> | string
-  linkTokenHash?: Prisma.StringFilter<"AuthenticationChallenge"> | string
+  otpHash?: Prisma.BytesFilter<"AuthenticationChallenge"> | runtime.Bytes
+  linkTokenHash?: Prisma.BytesFilter<"AuthenticationChallenge"> | runtime.Bytes
+  hashProtocolVersion?: Prisma.IntFilter<"AuthenticationChallenge"> | number
   hashKeyVersion?: Prisma.IntFilter<"AuthenticationChallenge"> | number
   encryptedProof?: Prisma.BytesNullableFilter<"AuthenticationChallenge"> | runtime.Bytes | null
   proofEncryptionIv?: Prisma.BytesNullableFilter<"AuthenticationChallenge"> | runtime.Bytes | null
@@ -441,6 +455,7 @@ export type AuthenticationChallengeOrderByWithAggregationInput = {
   boundSessionId?: Prisma.SortOrderInput | Prisma.SortOrder
   otpHash?: Prisma.SortOrder
   linkTokenHash?: Prisma.SortOrder
+  hashProtocolVersion?: Prisma.SortOrder
   hashKeyVersion?: Prisma.SortOrder
   encryptedProof?: Prisma.SortOrderInput | Prisma.SortOrder
   proofEncryptionIv?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -472,8 +487,9 @@ export type AuthenticationChallengeScalarWhereWithAggregatesInput = {
   purpose?: Prisma.EnumAuthenticationChallengePurposeWithAggregatesFilter<"AuthenticationChallenge"> | $Enums.AuthenticationChallengePurpose
   userId?: Prisma.StringNullableWithAggregatesFilter<"AuthenticationChallenge"> | string | null
   boundSessionId?: Prisma.StringNullableWithAggregatesFilter<"AuthenticationChallenge"> | string | null
-  otpHash?: Prisma.StringWithAggregatesFilter<"AuthenticationChallenge"> | string
-  linkTokenHash?: Prisma.StringWithAggregatesFilter<"AuthenticationChallenge"> | string
+  otpHash?: Prisma.BytesWithAggregatesFilter<"AuthenticationChallenge"> | runtime.Bytes
+  linkTokenHash?: Prisma.BytesWithAggregatesFilter<"AuthenticationChallenge"> | runtime.Bytes
+  hashProtocolVersion?: Prisma.IntWithAggregatesFilter<"AuthenticationChallenge"> | number
   hashKeyVersion?: Prisma.IntWithAggregatesFilter<"AuthenticationChallenge"> | number
   encryptedProof?: Prisma.BytesNullableWithAggregatesFilter<"AuthenticationChallenge"> | runtime.Bytes | null
   proofEncryptionIv?: Prisma.BytesNullableWithAggregatesFilter<"AuthenticationChallenge"> | runtime.Bytes | null
@@ -494,8 +510,9 @@ export type AuthenticationChallengeCreateInput = {
   identityType: $Enums.AuthenticationIdentityType
   normalizedIdentity: string
   purpose: $Enums.AuthenticationChallengePurpose
-  otpHash: string
-  linkTokenHash: string
+  otpHash: runtime.Bytes
+  linkTokenHash: runtime.Bytes
+  hashProtocolVersion: number
   hashKeyVersion: number
   encryptedProof?: runtime.Bytes | null
   proofEncryptionIv?: runtime.Bytes | null
@@ -523,8 +540,9 @@ export type AuthenticationChallengeUncheckedCreateInput = {
   purpose: $Enums.AuthenticationChallengePurpose
   userId?: string | null
   boundSessionId?: string | null
-  otpHash: string
-  linkTokenHash: string
+  otpHash: runtime.Bytes
+  linkTokenHash: runtime.Bytes
+  hashProtocolVersion: number
   hashKeyVersion: number
   encryptedProof?: runtime.Bytes | null
   proofEncryptionIv?: runtime.Bytes | null
@@ -546,8 +564,9 @@ export type AuthenticationChallengeUpdateInput = {
   identityType?: Prisma.EnumAuthenticationIdentityTypeFieldUpdateOperationsInput | $Enums.AuthenticationIdentityType
   normalizedIdentity?: Prisma.StringFieldUpdateOperationsInput | string
   purpose?: Prisma.EnumAuthenticationChallengePurposeFieldUpdateOperationsInput | $Enums.AuthenticationChallengePurpose
-  otpHash?: Prisma.StringFieldUpdateOperationsInput | string
-  linkTokenHash?: Prisma.StringFieldUpdateOperationsInput | string
+  otpHash?: Prisma.BytesFieldUpdateOperationsInput | runtime.Bytes
+  linkTokenHash?: Prisma.BytesFieldUpdateOperationsInput | runtime.Bytes
+  hashProtocolVersion?: Prisma.IntFieldUpdateOperationsInput | number
   hashKeyVersion?: Prisma.IntFieldUpdateOperationsInput | number
   encryptedProof?: Prisma.NullableBytesFieldUpdateOperationsInput | runtime.Bytes | null
   proofEncryptionIv?: Prisma.NullableBytesFieldUpdateOperationsInput | runtime.Bytes | null
@@ -575,8 +594,9 @@ export type AuthenticationChallengeUncheckedUpdateInput = {
   purpose?: Prisma.EnumAuthenticationChallengePurposeFieldUpdateOperationsInput | $Enums.AuthenticationChallengePurpose
   userId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   boundSessionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  otpHash?: Prisma.StringFieldUpdateOperationsInput | string
-  linkTokenHash?: Prisma.StringFieldUpdateOperationsInput | string
+  otpHash?: Prisma.BytesFieldUpdateOperationsInput | runtime.Bytes
+  linkTokenHash?: Prisma.BytesFieldUpdateOperationsInput | runtime.Bytes
+  hashProtocolVersion?: Prisma.IntFieldUpdateOperationsInput | number
   hashKeyVersion?: Prisma.IntFieldUpdateOperationsInput | number
   encryptedProof?: Prisma.NullableBytesFieldUpdateOperationsInput | runtime.Bytes | null
   proofEncryptionIv?: Prisma.NullableBytesFieldUpdateOperationsInput | runtime.Bytes | null
@@ -601,8 +621,9 @@ export type AuthenticationChallengeCreateManyInput = {
   purpose: $Enums.AuthenticationChallengePurpose
   userId?: string | null
   boundSessionId?: string | null
-  otpHash: string
-  linkTokenHash: string
+  otpHash: runtime.Bytes
+  linkTokenHash: runtime.Bytes
+  hashProtocolVersion: number
   hashKeyVersion: number
   encryptedProof?: runtime.Bytes | null
   proofEncryptionIv?: runtime.Bytes | null
@@ -623,8 +644,9 @@ export type AuthenticationChallengeUpdateManyMutationInput = {
   identityType?: Prisma.EnumAuthenticationIdentityTypeFieldUpdateOperationsInput | $Enums.AuthenticationIdentityType
   normalizedIdentity?: Prisma.StringFieldUpdateOperationsInput | string
   purpose?: Prisma.EnumAuthenticationChallengePurposeFieldUpdateOperationsInput | $Enums.AuthenticationChallengePurpose
-  otpHash?: Prisma.StringFieldUpdateOperationsInput | string
-  linkTokenHash?: Prisma.StringFieldUpdateOperationsInput | string
+  otpHash?: Prisma.BytesFieldUpdateOperationsInput | runtime.Bytes
+  linkTokenHash?: Prisma.BytesFieldUpdateOperationsInput | runtime.Bytes
+  hashProtocolVersion?: Prisma.IntFieldUpdateOperationsInput | number
   hashKeyVersion?: Prisma.IntFieldUpdateOperationsInput | number
   encryptedProof?: Prisma.NullableBytesFieldUpdateOperationsInput | runtime.Bytes | null
   proofEncryptionIv?: Prisma.NullableBytesFieldUpdateOperationsInput | runtime.Bytes | null
@@ -648,8 +670,9 @@ export type AuthenticationChallengeUncheckedUpdateManyInput = {
   purpose?: Prisma.EnumAuthenticationChallengePurposeFieldUpdateOperationsInput | $Enums.AuthenticationChallengePurpose
   userId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   boundSessionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  otpHash?: Prisma.StringFieldUpdateOperationsInput | string
-  linkTokenHash?: Prisma.StringFieldUpdateOperationsInput | string
+  otpHash?: Prisma.BytesFieldUpdateOperationsInput | runtime.Bytes
+  linkTokenHash?: Prisma.BytesFieldUpdateOperationsInput | runtime.Bytes
+  hashProtocolVersion?: Prisma.IntFieldUpdateOperationsInput | number
   hashKeyVersion?: Prisma.IntFieldUpdateOperationsInput | number
   encryptedProof?: Prisma.NullableBytesFieldUpdateOperationsInput | runtime.Bytes | null
   proofEncryptionIv?: Prisma.NullableBytesFieldUpdateOperationsInput | runtime.Bytes | null
@@ -685,6 +708,7 @@ export type AuthenticationChallengeCountOrderByAggregateInput = {
   boundSessionId?: Prisma.SortOrder
   otpHash?: Prisma.SortOrder
   linkTokenHash?: Prisma.SortOrder
+  hashProtocolVersion?: Prisma.SortOrder
   hashKeyVersion?: Prisma.SortOrder
   encryptedProof?: Prisma.SortOrder
   proofEncryptionIv?: Prisma.SortOrder
@@ -701,6 +725,7 @@ export type AuthenticationChallengeCountOrderByAggregateInput = {
 }
 
 export type AuthenticationChallengeAvgOrderByAggregateInput = {
+  hashProtocolVersion?: Prisma.SortOrder
   hashKeyVersion?: Prisma.SortOrder
   encryptionKeyVersion?: Prisma.SortOrder
   failedAttemptCount?: Prisma.SortOrder
@@ -717,6 +742,7 @@ export type AuthenticationChallengeMaxOrderByAggregateInput = {
   boundSessionId?: Prisma.SortOrder
   otpHash?: Prisma.SortOrder
   linkTokenHash?: Prisma.SortOrder
+  hashProtocolVersion?: Prisma.SortOrder
   hashKeyVersion?: Prisma.SortOrder
   encryptedProof?: Prisma.SortOrder
   proofEncryptionIv?: Prisma.SortOrder
@@ -742,6 +768,7 @@ export type AuthenticationChallengeMinOrderByAggregateInput = {
   boundSessionId?: Prisma.SortOrder
   otpHash?: Prisma.SortOrder
   linkTokenHash?: Prisma.SortOrder
+  hashProtocolVersion?: Prisma.SortOrder
   hashKeyVersion?: Prisma.SortOrder
   encryptedProof?: Prisma.SortOrder
   proofEncryptionIv?: Prisma.SortOrder
@@ -758,6 +785,7 @@ export type AuthenticationChallengeMinOrderByAggregateInput = {
 }
 
 export type AuthenticationChallengeSumOrderByAggregateInput = {
+  hashProtocolVersion?: Prisma.SortOrder
   hashKeyVersion?: Prisma.SortOrder
   encryptionKeyVersion?: Prisma.SortOrder
   failedAttemptCount?: Prisma.SortOrder
@@ -861,6 +889,10 @@ export type EnumAuthenticationChallengePurposeFieldUpdateOperationsInput = {
   set?: $Enums.AuthenticationChallengePurpose
 }
 
+export type BytesFieldUpdateOperationsInput = {
+  set?: runtime.Bytes
+}
+
 export type NullableBytesFieldUpdateOperationsInput = {
   set?: runtime.Bytes | null
 }
@@ -926,8 +958,9 @@ export type AuthenticationChallengeCreateWithoutUserInput = {
   identityType: $Enums.AuthenticationIdentityType
   normalizedIdentity: string
   purpose: $Enums.AuthenticationChallengePurpose
-  otpHash: string
-  linkTokenHash: string
+  otpHash: runtime.Bytes
+  linkTokenHash: runtime.Bytes
+  hashProtocolVersion: number
   hashKeyVersion: number
   encryptedProof?: runtime.Bytes | null
   proofEncryptionIv?: runtime.Bytes | null
@@ -953,8 +986,9 @@ export type AuthenticationChallengeUncheckedCreateWithoutUserInput = {
   normalizedIdentity: string
   purpose: $Enums.AuthenticationChallengePurpose
   boundSessionId?: string | null
-  otpHash: string
-  linkTokenHash: string
+  otpHash: runtime.Bytes
+  linkTokenHash: runtime.Bytes
+  hashProtocolVersion: number
   hashKeyVersion: number
   encryptedProof?: runtime.Bytes | null
   proofEncryptionIv?: runtime.Bytes | null
@@ -1008,8 +1042,9 @@ export type AuthenticationChallengeScalarWhereInput = {
   purpose?: Prisma.EnumAuthenticationChallengePurposeFilter<"AuthenticationChallenge"> | $Enums.AuthenticationChallengePurpose
   userId?: Prisma.StringNullableFilter<"AuthenticationChallenge"> | string | null
   boundSessionId?: Prisma.StringNullableFilter<"AuthenticationChallenge"> | string | null
-  otpHash?: Prisma.StringFilter<"AuthenticationChallenge"> | string
-  linkTokenHash?: Prisma.StringFilter<"AuthenticationChallenge"> | string
+  otpHash?: Prisma.BytesFilter<"AuthenticationChallenge"> | runtime.Bytes
+  linkTokenHash?: Prisma.BytesFilter<"AuthenticationChallenge"> | runtime.Bytes
+  hashProtocolVersion?: Prisma.IntFilter<"AuthenticationChallenge"> | number
   hashKeyVersion?: Prisma.IntFilter<"AuthenticationChallenge"> | number
   encryptedProof?: Prisma.BytesNullableFilter<"AuthenticationChallenge"> | runtime.Bytes | null
   proofEncryptionIv?: Prisma.BytesNullableFilter<"AuthenticationChallenge"> | runtime.Bytes | null
@@ -1030,8 +1065,9 @@ export type AuthenticationChallengeCreateWithoutSubjectInput = {
   identityType: $Enums.AuthenticationIdentityType
   normalizedIdentity: string
   purpose: $Enums.AuthenticationChallengePurpose
-  otpHash: string
-  linkTokenHash: string
+  otpHash: runtime.Bytes
+  linkTokenHash: runtime.Bytes
+  hashProtocolVersion: number
   hashKeyVersion: number
   encryptedProof?: runtime.Bytes | null
   proofEncryptionIv?: runtime.Bytes | null
@@ -1057,8 +1093,9 @@ export type AuthenticationChallengeUncheckedCreateWithoutSubjectInput = {
   purpose: $Enums.AuthenticationChallengePurpose
   userId?: string | null
   boundSessionId?: string | null
-  otpHash: string
-  linkTokenHash: string
+  otpHash: runtime.Bytes
+  linkTokenHash: runtime.Bytes
+  hashProtocolVersion: number
   hashKeyVersion: number
   encryptedProof?: runtime.Bytes | null
   proofEncryptionIv?: runtime.Bytes | null
@@ -1106,8 +1143,9 @@ export type AuthenticationChallengeCreateWithoutDeliveriesInput = {
   identityType: $Enums.AuthenticationIdentityType
   normalizedIdentity: string
   purpose: $Enums.AuthenticationChallengePurpose
-  otpHash: string
-  linkTokenHash: string
+  otpHash: runtime.Bytes
+  linkTokenHash: runtime.Bytes
+  hashProtocolVersion: number
   hashKeyVersion: number
   encryptedProof?: runtime.Bytes | null
   proofEncryptionIv?: runtime.Bytes | null
@@ -1134,8 +1172,9 @@ export type AuthenticationChallengeUncheckedCreateWithoutDeliveriesInput = {
   purpose: $Enums.AuthenticationChallengePurpose
   userId?: string | null
   boundSessionId?: string | null
-  otpHash: string
-  linkTokenHash: string
+  otpHash: runtime.Bytes
+  linkTokenHash: runtime.Bytes
+  hashProtocolVersion: number
   hashKeyVersion: number
   encryptedProof?: runtime.Bytes | null
   proofEncryptionIv?: runtime.Bytes | null
@@ -1172,8 +1211,9 @@ export type AuthenticationChallengeUpdateWithoutDeliveriesInput = {
   identityType?: Prisma.EnumAuthenticationIdentityTypeFieldUpdateOperationsInput | $Enums.AuthenticationIdentityType
   normalizedIdentity?: Prisma.StringFieldUpdateOperationsInput | string
   purpose?: Prisma.EnumAuthenticationChallengePurposeFieldUpdateOperationsInput | $Enums.AuthenticationChallengePurpose
-  otpHash?: Prisma.StringFieldUpdateOperationsInput | string
-  linkTokenHash?: Prisma.StringFieldUpdateOperationsInput | string
+  otpHash?: Prisma.BytesFieldUpdateOperationsInput | runtime.Bytes
+  linkTokenHash?: Prisma.BytesFieldUpdateOperationsInput | runtime.Bytes
+  hashProtocolVersion?: Prisma.IntFieldUpdateOperationsInput | number
   hashKeyVersion?: Prisma.IntFieldUpdateOperationsInput | number
   encryptedProof?: Prisma.NullableBytesFieldUpdateOperationsInput | runtime.Bytes | null
   proofEncryptionIv?: Prisma.NullableBytesFieldUpdateOperationsInput | runtime.Bytes | null
@@ -1200,8 +1240,9 @@ export type AuthenticationChallengeUncheckedUpdateWithoutDeliveriesInput = {
   purpose?: Prisma.EnumAuthenticationChallengePurposeFieldUpdateOperationsInput | $Enums.AuthenticationChallengePurpose
   userId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   boundSessionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  otpHash?: Prisma.StringFieldUpdateOperationsInput | string
-  linkTokenHash?: Prisma.StringFieldUpdateOperationsInput | string
+  otpHash?: Prisma.BytesFieldUpdateOperationsInput | runtime.Bytes
+  linkTokenHash?: Prisma.BytesFieldUpdateOperationsInput | runtime.Bytes
+  hashProtocolVersion?: Prisma.IntFieldUpdateOperationsInput | number
   hashKeyVersion?: Prisma.IntFieldUpdateOperationsInput | number
   encryptedProof?: Prisma.NullableBytesFieldUpdateOperationsInput | runtime.Bytes | null
   proofEncryptionIv?: Prisma.NullableBytesFieldUpdateOperationsInput | runtime.Bytes | null
@@ -1222,8 +1263,9 @@ export type AuthenticationChallengeCreateWithoutBoundSessionInput = {
   identityType: $Enums.AuthenticationIdentityType
   normalizedIdentity: string
   purpose: $Enums.AuthenticationChallengePurpose
-  otpHash: string
-  linkTokenHash: string
+  otpHash: runtime.Bytes
+  linkTokenHash: runtime.Bytes
+  hashProtocolVersion: number
   hashKeyVersion: number
   encryptedProof?: runtime.Bytes | null
   proofEncryptionIv?: runtime.Bytes | null
@@ -1249,8 +1291,9 @@ export type AuthenticationChallengeUncheckedCreateWithoutBoundSessionInput = {
   normalizedIdentity: string
   purpose: $Enums.AuthenticationChallengePurpose
   userId?: string | null
-  otpHash: string
-  linkTokenHash: string
+  otpHash: runtime.Bytes
+  linkTokenHash: runtime.Bytes
+  hashProtocolVersion: number
   hashKeyVersion: number
   encryptedProof?: runtime.Bytes | null
   proofEncryptionIv?: runtime.Bytes | null
@@ -1300,8 +1343,9 @@ export type AuthenticationChallengeCreateManyUserInput = {
   normalizedIdentity: string
   purpose: $Enums.AuthenticationChallengePurpose
   boundSessionId?: string | null
-  otpHash: string
-  linkTokenHash: string
+  otpHash: runtime.Bytes
+  linkTokenHash: runtime.Bytes
+  hashProtocolVersion: number
   hashKeyVersion: number
   encryptedProof?: runtime.Bytes | null
   proofEncryptionIv?: runtime.Bytes | null
@@ -1322,8 +1366,9 @@ export type AuthenticationChallengeUpdateWithoutUserInput = {
   identityType?: Prisma.EnumAuthenticationIdentityTypeFieldUpdateOperationsInput | $Enums.AuthenticationIdentityType
   normalizedIdentity?: Prisma.StringFieldUpdateOperationsInput | string
   purpose?: Prisma.EnumAuthenticationChallengePurposeFieldUpdateOperationsInput | $Enums.AuthenticationChallengePurpose
-  otpHash?: Prisma.StringFieldUpdateOperationsInput | string
-  linkTokenHash?: Prisma.StringFieldUpdateOperationsInput | string
+  otpHash?: Prisma.BytesFieldUpdateOperationsInput | runtime.Bytes
+  linkTokenHash?: Prisma.BytesFieldUpdateOperationsInput | runtime.Bytes
+  hashProtocolVersion?: Prisma.IntFieldUpdateOperationsInput | number
   hashKeyVersion?: Prisma.IntFieldUpdateOperationsInput | number
   encryptedProof?: Prisma.NullableBytesFieldUpdateOperationsInput | runtime.Bytes | null
   proofEncryptionIv?: Prisma.NullableBytesFieldUpdateOperationsInput | runtime.Bytes | null
@@ -1349,8 +1394,9 @@ export type AuthenticationChallengeUncheckedUpdateWithoutUserInput = {
   normalizedIdentity?: Prisma.StringFieldUpdateOperationsInput | string
   purpose?: Prisma.EnumAuthenticationChallengePurposeFieldUpdateOperationsInput | $Enums.AuthenticationChallengePurpose
   boundSessionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  otpHash?: Prisma.StringFieldUpdateOperationsInput | string
-  linkTokenHash?: Prisma.StringFieldUpdateOperationsInput | string
+  otpHash?: Prisma.BytesFieldUpdateOperationsInput | runtime.Bytes
+  linkTokenHash?: Prisma.BytesFieldUpdateOperationsInput | runtime.Bytes
+  hashProtocolVersion?: Prisma.IntFieldUpdateOperationsInput | number
   hashKeyVersion?: Prisma.IntFieldUpdateOperationsInput | number
   encryptedProof?: Prisma.NullableBytesFieldUpdateOperationsInput | runtime.Bytes | null
   proofEncryptionIv?: Prisma.NullableBytesFieldUpdateOperationsInput | runtime.Bytes | null
@@ -1374,8 +1420,9 @@ export type AuthenticationChallengeUncheckedUpdateManyWithoutUserInput = {
   normalizedIdentity?: Prisma.StringFieldUpdateOperationsInput | string
   purpose?: Prisma.EnumAuthenticationChallengePurposeFieldUpdateOperationsInput | $Enums.AuthenticationChallengePurpose
   boundSessionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  otpHash?: Prisma.StringFieldUpdateOperationsInput | string
-  linkTokenHash?: Prisma.StringFieldUpdateOperationsInput | string
+  otpHash?: Prisma.BytesFieldUpdateOperationsInput | runtime.Bytes
+  linkTokenHash?: Prisma.BytesFieldUpdateOperationsInput | runtime.Bytes
+  hashProtocolVersion?: Prisma.IntFieldUpdateOperationsInput | number
   hashKeyVersion?: Prisma.IntFieldUpdateOperationsInput | number
   encryptedProof?: Prisma.NullableBytesFieldUpdateOperationsInput | runtime.Bytes | null
   proofEncryptionIv?: Prisma.NullableBytesFieldUpdateOperationsInput | runtime.Bytes | null
@@ -1398,8 +1445,9 @@ export type AuthenticationChallengeCreateManySubjectInput = {
   purpose: $Enums.AuthenticationChallengePurpose
   userId?: string | null
   boundSessionId?: string | null
-  otpHash: string
-  linkTokenHash: string
+  otpHash: runtime.Bytes
+  linkTokenHash: runtime.Bytes
+  hashProtocolVersion: number
   hashKeyVersion: number
   encryptedProof?: runtime.Bytes | null
   proofEncryptionIv?: runtime.Bytes | null
@@ -1420,8 +1468,9 @@ export type AuthenticationChallengeUpdateWithoutSubjectInput = {
   identityType?: Prisma.EnumAuthenticationIdentityTypeFieldUpdateOperationsInput | $Enums.AuthenticationIdentityType
   normalizedIdentity?: Prisma.StringFieldUpdateOperationsInput | string
   purpose?: Prisma.EnumAuthenticationChallengePurposeFieldUpdateOperationsInput | $Enums.AuthenticationChallengePurpose
-  otpHash?: Prisma.StringFieldUpdateOperationsInput | string
-  linkTokenHash?: Prisma.StringFieldUpdateOperationsInput | string
+  otpHash?: Prisma.BytesFieldUpdateOperationsInput | runtime.Bytes
+  linkTokenHash?: Prisma.BytesFieldUpdateOperationsInput | runtime.Bytes
+  hashProtocolVersion?: Prisma.IntFieldUpdateOperationsInput | number
   hashKeyVersion?: Prisma.IntFieldUpdateOperationsInput | number
   encryptedProof?: Prisma.NullableBytesFieldUpdateOperationsInput | runtime.Bytes | null
   proofEncryptionIv?: Prisma.NullableBytesFieldUpdateOperationsInput | runtime.Bytes | null
@@ -1447,8 +1496,9 @@ export type AuthenticationChallengeUncheckedUpdateWithoutSubjectInput = {
   purpose?: Prisma.EnumAuthenticationChallengePurposeFieldUpdateOperationsInput | $Enums.AuthenticationChallengePurpose
   userId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   boundSessionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  otpHash?: Prisma.StringFieldUpdateOperationsInput | string
-  linkTokenHash?: Prisma.StringFieldUpdateOperationsInput | string
+  otpHash?: Prisma.BytesFieldUpdateOperationsInput | runtime.Bytes
+  linkTokenHash?: Prisma.BytesFieldUpdateOperationsInput | runtime.Bytes
+  hashProtocolVersion?: Prisma.IntFieldUpdateOperationsInput | number
   hashKeyVersion?: Prisma.IntFieldUpdateOperationsInput | number
   encryptedProof?: Prisma.NullableBytesFieldUpdateOperationsInput | runtime.Bytes | null
   proofEncryptionIv?: Prisma.NullableBytesFieldUpdateOperationsInput | runtime.Bytes | null
@@ -1472,8 +1522,9 @@ export type AuthenticationChallengeUncheckedUpdateManyWithoutSubjectInput = {
   purpose?: Prisma.EnumAuthenticationChallengePurposeFieldUpdateOperationsInput | $Enums.AuthenticationChallengePurpose
   userId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   boundSessionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  otpHash?: Prisma.StringFieldUpdateOperationsInput | string
-  linkTokenHash?: Prisma.StringFieldUpdateOperationsInput | string
+  otpHash?: Prisma.BytesFieldUpdateOperationsInput | runtime.Bytes
+  linkTokenHash?: Prisma.BytesFieldUpdateOperationsInput | runtime.Bytes
+  hashProtocolVersion?: Prisma.IntFieldUpdateOperationsInput | number
   hashKeyVersion?: Prisma.IntFieldUpdateOperationsInput | number
   encryptedProof?: Prisma.NullableBytesFieldUpdateOperationsInput | runtime.Bytes | null
   proofEncryptionIv?: Prisma.NullableBytesFieldUpdateOperationsInput | runtime.Bytes | null
@@ -1496,8 +1547,9 @@ export type AuthenticationChallengeCreateManyBoundSessionInput = {
   normalizedIdentity: string
   purpose: $Enums.AuthenticationChallengePurpose
   userId?: string | null
-  otpHash: string
-  linkTokenHash: string
+  otpHash: runtime.Bytes
+  linkTokenHash: runtime.Bytes
+  hashProtocolVersion: number
   hashKeyVersion: number
   encryptedProof?: runtime.Bytes | null
   proofEncryptionIv?: runtime.Bytes | null
@@ -1518,8 +1570,9 @@ export type AuthenticationChallengeUpdateWithoutBoundSessionInput = {
   identityType?: Prisma.EnumAuthenticationIdentityTypeFieldUpdateOperationsInput | $Enums.AuthenticationIdentityType
   normalizedIdentity?: Prisma.StringFieldUpdateOperationsInput | string
   purpose?: Prisma.EnumAuthenticationChallengePurposeFieldUpdateOperationsInput | $Enums.AuthenticationChallengePurpose
-  otpHash?: Prisma.StringFieldUpdateOperationsInput | string
-  linkTokenHash?: Prisma.StringFieldUpdateOperationsInput | string
+  otpHash?: Prisma.BytesFieldUpdateOperationsInput | runtime.Bytes
+  linkTokenHash?: Prisma.BytesFieldUpdateOperationsInput | runtime.Bytes
+  hashProtocolVersion?: Prisma.IntFieldUpdateOperationsInput | number
   hashKeyVersion?: Prisma.IntFieldUpdateOperationsInput | number
   encryptedProof?: Prisma.NullableBytesFieldUpdateOperationsInput | runtime.Bytes | null
   proofEncryptionIv?: Prisma.NullableBytesFieldUpdateOperationsInput | runtime.Bytes | null
@@ -1545,8 +1598,9 @@ export type AuthenticationChallengeUncheckedUpdateWithoutBoundSessionInput = {
   normalizedIdentity?: Prisma.StringFieldUpdateOperationsInput | string
   purpose?: Prisma.EnumAuthenticationChallengePurposeFieldUpdateOperationsInput | $Enums.AuthenticationChallengePurpose
   userId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  otpHash?: Prisma.StringFieldUpdateOperationsInput | string
-  linkTokenHash?: Prisma.StringFieldUpdateOperationsInput | string
+  otpHash?: Prisma.BytesFieldUpdateOperationsInput | runtime.Bytes
+  linkTokenHash?: Prisma.BytesFieldUpdateOperationsInput | runtime.Bytes
+  hashProtocolVersion?: Prisma.IntFieldUpdateOperationsInput | number
   hashKeyVersion?: Prisma.IntFieldUpdateOperationsInput | number
   encryptedProof?: Prisma.NullableBytesFieldUpdateOperationsInput | runtime.Bytes | null
   proofEncryptionIv?: Prisma.NullableBytesFieldUpdateOperationsInput | runtime.Bytes | null
@@ -1570,8 +1624,9 @@ export type AuthenticationChallengeUncheckedUpdateManyWithoutBoundSessionInput =
   normalizedIdentity?: Prisma.StringFieldUpdateOperationsInput | string
   purpose?: Prisma.EnumAuthenticationChallengePurposeFieldUpdateOperationsInput | $Enums.AuthenticationChallengePurpose
   userId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  otpHash?: Prisma.StringFieldUpdateOperationsInput | string
-  linkTokenHash?: Prisma.StringFieldUpdateOperationsInput | string
+  otpHash?: Prisma.BytesFieldUpdateOperationsInput | runtime.Bytes
+  linkTokenHash?: Prisma.BytesFieldUpdateOperationsInput | runtime.Bytes
+  hashProtocolVersion?: Prisma.IntFieldUpdateOperationsInput | number
   hashKeyVersion?: Prisma.IntFieldUpdateOperationsInput | number
   encryptedProof?: Prisma.NullableBytesFieldUpdateOperationsInput | runtime.Bytes | null
   proofEncryptionIv?: Prisma.NullableBytesFieldUpdateOperationsInput | runtime.Bytes | null
@@ -1628,6 +1683,7 @@ export type AuthenticationChallengeSelect<ExtArgs extends runtime.Types.Extensio
   boundSessionId?: boolean
   otpHash?: boolean
   linkTokenHash?: boolean
+  hashProtocolVersion?: boolean
   hashKeyVersion?: boolean
   encryptedProof?: boolean
   proofEncryptionIv?: boolean
@@ -1658,6 +1714,7 @@ export type AuthenticationChallengeSelectCreateManyAndReturn<ExtArgs extends run
   boundSessionId?: boolean
   otpHash?: boolean
   linkTokenHash?: boolean
+  hashProtocolVersion?: boolean
   hashKeyVersion?: boolean
   encryptedProof?: boolean
   proofEncryptionIv?: boolean
@@ -1686,6 +1743,7 @@ export type AuthenticationChallengeSelectUpdateManyAndReturn<ExtArgs extends run
   boundSessionId?: boolean
   otpHash?: boolean
   linkTokenHash?: boolean
+  hashProtocolVersion?: boolean
   hashKeyVersion?: boolean
   encryptedProof?: boolean
   proofEncryptionIv?: boolean
@@ -1714,6 +1772,7 @@ export type AuthenticationChallengeSelectScalar = {
   boundSessionId?: boolean
   otpHash?: boolean
   linkTokenHash?: boolean
+  hashProtocolVersion?: boolean
   hashKeyVersion?: boolean
   encryptedProof?: boolean
   proofEncryptionIv?: boolean
@@ -1729,7 +1788,7 @@ export type AuthenticationChallengeSelectScalar = {
   updatedAt?: boolean
 }
 
-export type AuthenticationChallengeOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "subjectKey" | "identityType" | "normalizedIdentity" | "purpose" | "userId" | "boundSessionId" | "otpHash" | "linkTokenHash" | "hashKeyVersion" | "encryptedProof" | "proofEncryptionIv" | "proofEncryptionTag" | "encryptionKeyVersion" | "expiresAt" | "failedAttemptCount" | "maxAttempts" | "consumedAt" | "lockedAt" | "retentionExpiresAt" | "createdAt" | "updatedAt", ExtArgs["result"]["authenticationChallenge"]>
+export type AuthenticationChallengeOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "subjectKey" | "identityType" | "normalizedIdentity" | "purpose" | "userId" | "boundSessionId" | "otpHash" | "linkTokenHash" | "hashProtocolVersion" | "hashKeyVersion" | "encryptedProof" | "proofEncryptionIv" | "proofEncryptionTag" | "encryptionKeyVersion" | "expiresAt" | "failedAttemptCount" | "maxAttempts" | "consumedAt" | "lockedAt" | "retentionExpiresAt" | "createdAt" | "updatedAt", ExtArgs["result"]["authenticationChallenge"]>
 export type AuthenticationChallengeInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   subject?: boolean | Prisma.AuthenticationChallengeSubjectDefaultArgs<ExtArgs>
   user?: boolean | Prisma.AuthenticationChallenge$userArgs<ExtArgs>
@@ -1764,8 +1823,9 @@ export type $AuthenticationChallengePayload<ExtArgs extends runtime.Types.Extens
     purpose: $Enums.AuthenticationChallengePurpose
     userId: string | null
     boundSessionId: string | null
-    otpHash: string
-    linkTokenHash: string
+    otpHash: runtime.Bytes
+    linkTokenHash: runtime.Bytes
+    hashProtocolVersion: number
     hashKeyVersion: number
     encryptedProof: runtime.Bytes | null
     proofEncryptionIv: runtime.Bytes | null
@@ -2213,8 +2273,9 @@ export interface AuthenticationChallengeFieldRefs {
   readonly purpose: Prisma.FieldRef<"AuthenticationChallenge", 'AuthenticationChallengePurpose'>
   readonly userId: Prisma.FieldRef<"AuthenticationChallenge", 'String'>
   readonly boundSessionId: Prisma.FieldRef<"AuthenticationChallenge", 'String'>
-  readonly otpHash: Prisma.FieldRef<"AuthenticationChallenge", 'String'>
-  readonly linkTokenHash: Prisma.FieldRef<"AuthenticationChallenge", 'String'>
+  readonly otpHash: Prisma.FieldRef<"AuthenticationChallenge", 'Bytes'>
+  readonly linkTokenHash: Prisma.FieldRef<"AuthenticationChallenge", 'Bytes'>
+  readonly hashProtocolVersion: Prisma.FieldRef<"AuthenticationChallenge", 'Int'>
   readonly hashKeyVersion: Prisma.FieldRef<"AuthenticationChallenge", 'Int'>
   readonly encryptedProof: Prisma.FieldRef<"AuthenticationChallenge", 'Bytes'>
   readonly proofEncryptionIv: Prisma.FieldRef<"AuthenticationChallenge", 'Bytes'>

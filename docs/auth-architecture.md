@@ -80,6 +80,7 @@ AuthenticationChallenge
 ├── userId?
 ├── otpHash
 ├── linkTokenHash
+├── hashProtocolVersion
 ├── hashKeyVersion
 ├── encryptedProof
 ├── encryptionKeyVersion
@@ -151,6 +152,7 @@ GeneratedChallengeProof
 ├── persistence: ChallengeProofPersistenceData
 │   ├── otpHash
 │   ├── linkTokenHash
+│   ├── hashProtocolVersion
 │   ├── hashKeyVersion
 │   ├── encryptedProof
 │   ├── encryptionNonce
@@ -249,6 +251,13 @@ OTP proof bytes are the six ASCII digits, preserving leading zeroes. A magic
 link exposes its 32 random bytes as unpadded base64url, but those original 32
 bytes are used as the HMAC field after strict decoding. The database stores the
 32-byte HMAC result as raw bytes, with the key version in a separate field.
+
+HMAC protocol v1 is immutable once challenge hashes have been persisted. Its
+domain, proof-method values, field order, length encoding, string encodings,
+and proof representations cannot be changed in place. Any incompatible change
+defines a new protocol version and retains v1 verification while v1 challenges
+exist. `hashProtocolVersion` selects this encoding contract;
+`hashKeyVersion` independently selects secret key material.
 
 The database stores the HMAC and `hashKeyVersion`. HMAC and encryption keys are
 independent from each other and from JWT and rate-limit secrets, and both

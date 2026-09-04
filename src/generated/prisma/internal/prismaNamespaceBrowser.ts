@@ -159,6 +159,7 @@ export const AuthenticationChallengeScalarFieldEnum = {
   boundSessionId: 'boundSessionId',
   otpHash: 'otpHash',
   linkTokenHash: 'linkTokenHash',
+  hashProtocolVersion: 'hashProtocolVersion',
   hashKeyVersion: 'hashKeyVersion',
   encryptedProof: 'encryptedProof',
   proofEncryptionIv: 'proofEncryptionIv',

@@ -30,6 +30,8 @@ import { SessionManagementService } from './session/services/session-management.
 import { PasswordRecoveryService } from './recovery/services/password-recovery.service';
 import { RecoveryRateLimitService } from './recovery/services/recovery-rate-limit.service';
 import { AuthenticationChallengeConfigService } from './challenge/services/authentication-challenge-config.service';
+import { AuthenticationChallengeProofService } from './challenge/services/authentication-challenge-proof.service';
+import { AuthenticationChallengeRandomSourceService } from './challenge/services/authentication-challenge-random-source.service';
 
 @Module({
   imports: [
@@ -56,6 +58,8 @@ import { AuthenticationChallengeConfigService } from './challenge/services/authe
     PasswordRecoveryService,
     RecoveryRateLimitService,
     AuthenticationChallengeConfigService,
+    AuthenticationChallengeProofService,
+    AuthenticationChallengeRandomSourceService,
     RefreshTokenGuard,
   ],
   exports: [AuthService, SessionCreationService],
