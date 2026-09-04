@@ -333,6 +333,40 @@ service must:
 3. resolve, create, or transition the user;
 4. create the session and security events.
 
+The challenge verification primitive is transaction-composable: it accepts a
+Prisma transaction client and never commits independently. It first locks the
+challenge row with `SELECT ... FOR UPDATE`, then obtains exactly one
+`clock_timestamp()` after the lock. This `operationNow` is used for the expiry
+comparison and any `lockedAt`, `consumedAt`, or authenticated-at result. A
+challenge is expired when `expiresAt <= operationNow`; ordinary PostgreSQL
+transaction-start `now()` is not used after a potentially long lock wait.
+
+A malformed OTP does not consume a challenge attempt. Only a canonical
+six-digit OTP with a mismatching HMAC increments `failedAttemptCount`. Malformed
+proofs remain subject to request-level abuse limits. A canonical or malformed
+magic-link mismatch never changes the OTP attempt counter.
+
+OTP failure is one conditional `UPDATE ... RETURNING`. The transition either
+increments the counter or, upon reaching the maximum, increments, sets
+`lockedAt`, and clears ciphertext, IV, and tag atomically. If an unlocked row is
+ever observed with `failedAttemptCount >= maxAttempts`, verification fails
+closed: the locked transaction sets `lockedAt`, clears the envelope, and
+returns an internal locked result. This self-heal is mandatory, not optional.
+
+Expected verification outcomes are returned as values so their mutations can
+commit; throwing them inside the transaction would incorrectly roll back a
+failed-attempt increment or expiry cleanup. Internal unavailability reasons
+such as missing, purpose mismatch, consumed, locked, and expired are diagnostic
+state only and must never be copied into a public HTTP error. A later explicit
+mapper collapses them according to the approved public contract.
+
+After accepted proof, the caller owns the remaining transaction. An explicitly
+classified business outcome follows its own documented commit/rollback
+contract; `SESSION_LIMIT_REACHED` is already defined to commit consumption.
+Technical or internal failures throw and roll back the entire transaction,
+including consumption. Commit behavior for other account/deletion outcomes is
+defined only in their owning implementation stage.
+
 No successful challenge may create two sessions because of concurrent calls.
 The active-session limit is a strict hard limit. If valid proof is consumed
 while the user already has ten active sessions, no new or temporary session is

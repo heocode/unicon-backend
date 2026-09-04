@@ -28,6 +28,15 @@ process.env.ACCOUNT_DELETION_CANCEL_LIMIT_PER_EMAIL ??= '5';
 process.env.ACCOUNT_DELETION_CANCEL_LIMIT_PER_IP ??= '20';
 process.env.ACCOUNT_DELETION_CANCEL_RATE_LIMIT_SECRET ??=
   'test-account-deletion-cancel-rate-secret';
+process.env.AUTH_CHALLENGE_TTL_SECONDS ??= '600';
+process.env.AUTH_CHALLENGE_MAX_ATTEMPTS ??= '5';
+process.env.AUTH_CHALLENGE_RETENTION_SECONDS ??= '86400';
+process.env.AUTH_CHALLENGE_HMAC_ACTIVE_KEY_VERSION ??= '1';
+process.env.AUTH_CHALLENGE_HMAC_KEYS ??=
+  '1:AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE=';
+process.env.AUTH_CHALLENGE_ENCRYPTION_ACTIVE_KEY_VERSION ??= '1';
+process.env.AUTH_CHALLENGE_ENCRYPTION_KEYS ??=
+  '1:AgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgI=';
 process.env.RESEND_API_KEY ??= 'test-resend-api-key';
 process.env.MAIL_FROM ??= 'test@unicon.local';
 process.env.CLIENT_URL ??= 'http://localhost:3001';

@@ -34,6 +34,8 @@ import { AuthenticationChallengeProofService } from './challenge/services/authen
 import { AuthenticationChallengeRandomSourceService } from './challenge/services/authentication-challenge-random-source.service';
 import { AuthenticationChallengeProofEncryptionService } from './challenge/services/authentication-challenge-proof-encryption.service';
 import { AuthenticationChallengeProofFactoryService } from './challenge/services/authentication-challenge-proof-factory.service';
+import { AuthenticationChallengeRepository } from './challenge/repositories/authentication-challenge.repository';
+import { AuthenticationChallengeVerificationService } from './challenge/services/authentication-challenge-verification.service';
 
 @Module({
   imports: [
@@ -64,6 +66,8 @@ import { AuthenticationChallengeProofFactoryService } from './challenge/services
     AuthenticationChallengeRandomSourceService,
     AuthenticationChallengeProofEncryptionService,
     AuthenticationChallengeProofFactoryService,
+    AuthenticationChallengeRepository,
+    AuthenticationChallengeVerificationService,
     RefreshTokenGuard,
   ],
   exports: [AuthService, SessionCreationService],
