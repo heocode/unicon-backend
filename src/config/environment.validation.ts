@@ -1,3 +1,5 @@
+import { parseAuthenticationChallengeKeyring } from './utils/parse-authentication-challenge-keyring.util';
+
 const REQUIRED_ENVIRONMENT_VARIABLES = [
   'DATABASE_URL',
   'JWT_ACCESS_SECRET',
@@ -7,6 +9,8 @@ const REQUIRED_ENVIRONMENT_VARIABLES = [
   'CLIENT_URL',
   'PASSWORD_RESET_RATE_LIMIT_SECRET',
   'ACCOUNT_DELETION_CANCEL_RATE_LIMIT_SECRET',
+  'AUTH_CHALLENGE_HMAC_KEYS',
+  'AUTH_CHALLENGE_ENCRYPTION_KEYS',
 ] as const;
 
 export function validateEnvironment(
@@ -119,6 +123,66 @@ export function validateEnvironment(
       'ACCOUNT_DELETION_CANCEL_LIMIT_PER_IP',
     );
 
+  const challengeTtlSeconds = parsePositiveInteger(
+    environment.AUTH_CHALLENGE_TTL_SECONDS,
+    'AUTH_CHALLENGE_TTL_SECONDS',
+  );
+  validatedEnvironment.AUTH_CHALLENGE_MAX_ATTEMPTS = parsePositiveInteger(
+    environment.AUTH_CHALLENGE_MAX_ATTEMPTS,
+    'AUTH_CHALLENGE_MAX_ATTEMPTS',
+  );
+  const challengeRetentionSeconds = parsePositiveInteger(
+    environment.AUTH_CHALLENGE_RETENTION_SECONDS,
+    'AUTH_CHALLENGE_RETENTION_SECONDS',
+  );
+
+  if (challengeRetentionSeconds < challengeTtlSeconds) {
+    throw new Error(
+      'Environment variable AUTH_CHALLENGE_RETENTION_SECONDS must be greater than or equal to AUTH_CHALLENGE_TTL_SECONDS.',
+    );
+  }
+
+  validatedEnvironment.AUTH_CHALLENGE_TTL_SECONDS = challengeTtlSeconds;
+  validatedEnvironment.AUTH_CHALLENGE_RETENTION_SECONDS =
+    challengeRetentionSeconds;
+
+  validatedEnvironment.AUTH_CHALLENGE_HMAC_ACTIVE_KEY_VERSION =
+    parsePositiveInteger(
+      environment.AUTH_CHALLENGE_HMAC_ACTIVE_KEY_VERSION,
+      'AUTH_CHALLENGE_HMAC_ACTIVE_KEY_VERSION',
+    );
+  validatedEnvironment.AUTH_CHALLENGE_ENCRYPTION_ACTIVE_KEY_VERSION =
+    parsePositiveInteger(
+      environment.AUTH_CHALLENGE_ENCRYPTION_ACTIVE_KEY_VERSION,
+      'AUTH_CHALLENGE_ENCRYPTION_ACTIVE_KEY_VERSION',
+    );
+
+  const hmacKeyring = parseAuthenticationChallengeKeyring(
+    validatedEnvironment.AUTH_CHALLENGE_HMAC_KEYS,
+    'AUTH_CHALLENGE_HMAC_KEYS',
+    (key) => key.length >= 32,
+  );
+  const encryptionKeyring = parseAuthenticationChallengeKeyring(
+    validatedEnvironment.AUTH_CHALLENGE_ENCRYPTION_KEYS,
+    'AUTH_CHALLENGE_ENCRYPTION_KEYS',
+    (key) => key.length === 32,
+  );
+
+  assertActiveKeyExists(
+    hmacKeyring,
+    validatedEnvironment.AUTH_CHALLENGE_HMAC_ACTIVE_KEY_VERSION,
+    'AUTH_CHALLENGE_HMAC_ACTIVE_KEY_VERSION',
+  );
+  assertActiveKeyExists(
+    encryptionKeyring,
+    validatedEnvironment.AUTH_CHALLENGE_ENCRYPTION_ACTIVE_KEY_VERSION,
+    'AUTH_CHALLENGE_ENCRYPTION_ACTIVE_KEY_VERSION',
+  );
+  assertKeyringsAreIndependent(hmacKeyring, encryptionKeyring);
+
+  validatedEnvironment.AUTH_CHALLENGE_HMAC_KEYS = hmacKeyring;
+  validatedEnvironment.AUTH_CHALLENGE_ENCRYPTION_KEYS = encryptionKeyring;
+
   validatedEnvironment.PORT = parsePort(environment.PORT);
   validatedEnvironment.GEOIP_ENABLED = parseBoolean(
     environment.GEOIP_ENABLED,
@@ -135,6 +199,33 @@ export function validateEnvironment(
   );
 
   return validatedEnvironment;
+}
+
+function assertActiveKeyExists(
+  keyring: ReadonlyMap<number, Buffer>,
+  activeVersion: unknown,
+  environmentKey: string,
+): void {
+  if (typeof activeVersion !== 'number' || !keyring.has(activeVersion)) {
+    throw new Error(
+      `Environment variable ${environmentKey} must reference a key present in its keyring.`,
+    );
+  }
+}
+
+function assertKeyringsAreIndependent(
+  hmacKeyring: ReadonlyMap<number, Buffer>,
+  encryptionKeyring: ReadonlyMap<number, Buffer>,
+): void {
+  for (const hmacKey of hmacKeyring.values()) {
+    for (const encryptionKey of encryptionKeyring.values()) {
+      if (hmacKey.equals(encryptionKey)) {
+        throw new Error(
+          'Authentication challenge HMAC and encryption keys must be independent.',
+        );
+      }
+    }
+  }
 }
 
 function parseBoolean(

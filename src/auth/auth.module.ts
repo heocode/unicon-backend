@@ -29,6 +29,7 @@ import { SessionQueryService } from './session/services/session-query.service';
 import { SessionManagementService } from './session/services/session-management.service';
 import { PasswordRecoveryService } from './recovery/services/password-recovery.service';
 import { RecoveryRateLimitService } from './recovery/services/recovery-rate-limit.service';
+import { AuthenticationChallengeConfigService } from './challenge/services/authentication-challenge-config.service';
 
 @Module({
   imports: [
@@ -54,6 +55,7 @@ import { RecoveryRateLimitService } from './recovery/services/recovery-rate-limi
     EmailVerificationService,
     PasswordRecoveryService,
     RecoveryRateLimitService,
+    AuthenticationChallengeConfigService,
     RefreshTokenGuard,
   ],
   exports: [AuthService, SessionCreationService],

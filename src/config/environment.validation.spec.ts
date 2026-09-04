@@ -1,5 +1,9 @@
 import { validateEnvironment } from './environment.validation';
 
+const hmacKey = Buffer.alloc(32, 1).toString('base64');
+const rotatedHmacKey = Buffer.alloc(32, 2).toString('base64');
+const encryptionKey = Buffer.alloc(32, 3).toString('base64');
+
 const validEnvironment = {
   DATABASE_URL: 'postgresql://postgres:postgres@localhost:5432/unicon',
   JWT_ACCESS_SECRET: 'access-secret',
@@ -26,6 +30,13 @@ const validEnvironment = {
   ACCOUNT_DELETION_CANCEL_LIMIT_PER_EMAIL: '5',
   ACCOUNT_DELETION_CANCEL_LIMIT_PER_IP: '20',
   ACCOUNT_DELETION_CANCEL_RATE_LIMIT_SECRET: 'deletion-cancel-rate-secret',
+  AUTH_CHALLENGE_TTL_SECONDS: '600',
+  AUTH_CHALLENGE_MAX_ATTEMPTS: '5',
+  AUTH_CHALLENGE_RETENTION_SECONDS: '86400',
+  AUTH_CHALLENGE_HMAC_ACTIVE_KEY_VERSION: '1',
+  AUTH_CHALLENGE_HMAC_KEYS: `1:${hmacKey}`,
+  AUTH_CHALLENGE_ENCRYPTION_ACTIVE_KEY_VERSION: '1',
+  AUTH_CHALLENGE_ENCRYPTION_KEYS: `1:${encryptionKey}`,
   RESEND_API_KEY: 'resend-api-key',
   MAIL_FROM: 'noreply@unicon.local',
   CLIENT_URL: 'http://localhost:3001',
@@ -127,6 +138,131 @@ describe('validateEnvironment', () => {
         [key]: '0',
       }),
     ).toThrow(`Environment variable ${key} must be a positive integer.`);
+  });
+
+  it('rejects a fractional challenge setting', () => {
+    expect(() =>
+      validateEnvironment({
+        ...validEnvironment,
+        AUTH_CHALLENGE_MAX_ATTEMPTS: '5.5',
+      }),
+    ).toThrow(
+      'Environment variable AUTH_CHALLENGE_MAX_ATTEMPTS must be a positive integer.',
+    );
+  });
+
+  it.each([
+    'AUTH_CHALLENGE_TTL_SECONDS',
+    'AUTH_CHALLENGE_MAX_ATTEMPTS',
+    'AUTH_CHALLENGE_RETENTION_SECONDS',
+    'AUTH_CHALLENGE_HMAC_ACTIVE_KEY_VERSION',
+    'AUTH_CHALLENGE_ENCRYPTION_ACTIVE_KEY_VERSION',
+  ])('rejects a non-positive %s value', (key) => {
+    expect(() =>
+      validateEnvironment({
+        ...validEnvironment,
+        [key]: '0',
+      }),
+    ).toThrow(`Environment variable ${key} must be a positive integer.`);
+  });
+
+  it('rejects challenge retention shorter than its lifetime', () => {
+    expect(() =>
+      validateEnvironment({
+        ...validEnvironment,
+        AUTH_CHALLENGE_RETENTION_SECONDS: '599',
+      }),
+    ).toThrow(
+      'Environment variable AUTH_CHALLENGE_RETENTION_SECONDS must be greater than or equal to AUTH_CHALLENGE_TTL_SECONDS.',
+    );
+  });
+
+  it('parses versioned challenge keyrings', () => {
+    const environment = validateEnvironment({
+      ...validEnvironment,
+      AUTH_CHALLENGE_HMAC_ACTIVE_KEY_VERSION: '2',
+      AUTH_CHALLENGE_HMAC_KEYS: `1:${hmacKey},2:${rotatedHmacKey}`,
+    });
+
+    expect(environment.AUTH_CHALLENGE_HMAC_ACTIVE_KEY_VERSION).toBe(2);
+    expect(environment.AUTH_CHALLENGE_HMAC_KEYS).toEqual(
+      new Map([
+        [1, Buffer.alloc(32, 1)],
+        [2, Buffer.alloc(32, 2)],
+      ]),
+    );
+  });
+
+  it.each([
+    ['an entry without a version', 'invalid'],
+    ['a zero version', `0:${hmacKey}`],
+    ['duplicate versions', `1:${hmacKey},1:${rotatedHmacKey}`],
+    ['non-canonical base64', `1:${hmacKey.replace(/=$/, '')}`],
+    ['a short key', `1:${Buffer.alloc(31, 1).toString('base64')}`],
+  ])('rejects an HMAC keyring with %s', (_case, value) => {
+    expect(() =>
+      validateEnvironment({
+        ...validEnvironment,
+        AUTH_CHALLENGE_HMAC_KEYS: value,
+      }),
+    ).toThrow(
+      'Environment variable AUTH_CHALLENGE_HMAC_KEYS must be a valid versioned base64 keyring.',
+    );
+  });
+
+  it('rejects an encryption key that is not exactly 32 bytes', () => {
+    expect(() =>
+      validateEnvironment({
+        ...validEnvironment,
+        AUTH_CHALLENGE_ENCRYPTION_KEYS: `1:${Buffer.alloc(33, 3).toString('base64')}`,
+      }),
+    ).toThrow(
+      'Environment variable AUTH_CHALLENGE_ENCRYPTION_KEYS must be a valid versioned base64 keyring.',
+    );
+  });
+
+  it('rejects an active version absent from its keyring', () => {
+    expect(() =>
+      validateEnvironment({
+        ...validEnvironment,
+        AUTH_CHALLENGE_HMAC_ACTIVE_KEY_VERSION: '2',
+      }),
+    ).toThrow(
+      'Environment variable AUTH_CHALLENGE_HMAC_ACTIVE_KEY_VERSION must reference a key present in its keyring.',
+    );
+  });
+
+  it('rejects reuse of challenge keys across cryptographic purposes', () => {
+    expect(() =>
+      validateEnvironment({
+        ...validEnvironment,
+        AUTH_CHALLENGE_ENCRYPTION_KEYS: `1:${hmacKey}`,
+      }),
+    ).toThrow(
+      'Authentication challenge HMAC and encryption keys must be independent.',
+    );
+  });
+
+  it('does not expose challenge key material in validation errors', () => {
+    const secret = 'this-is-sensitive';
+
+    expect(() =>
+      validateEnvironment({
+        ...validEnvironment,
+        AUTH_CHALLENGE_HMAC_KEYS: `1:${secret}`,
+      }),
+    ).toThrow(
+      'Environment variable AUTH_CHALLENGE_HMAC_KEYS must be a valid versioned base64 keyring.',
+    );
+
+    try {
+      validateEnvironment({
+        ...validEnvironment,
+        AUTH_CHALLENGE_HMAC_KEYS: `1:${secret}`,
+      });
+    } catch (error) {
+      expect((error as Error).message).not.toContain(secret);
+    }
   });
 
   it.each([

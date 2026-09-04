@@ -144,6 +144,28 @@ is never written to logs, events, delivery rows, or provider-error records.
 Encrypted proof is cleared when the challenge becomes consumed, locked, or
 expired and no further delivery is permitted.
 
+Proof generation returns an explicit persistence/transient boundary:
+
+```text
+GeneratedChallengeProof
+├── persistence: ChallengeProofPersistenceData
+│   ├── otpHash
+│   ├── linkTokenHash
+│   ├── hashKeyVersion
+│   ├── encryptedProof
+│   ├── encryptionNonce
+│   ├── encryptionTag
+│   └── encryptionKeyVersion
+└── deliveryProof: TransientChallengeDeliveryProof
+    ├── otp
+    └── linkToken
+```
+
+Only `ChallengeProofPersistenceData` may be passed to Prisma. The transient
+delivery proof exists only in bounded process memory while constructing a
+Delivery and must never be serialized into logs, errors, events, or database
+records.
+
 ## Delivery model
 
 Delivery and proof are separate concepts:
@@ -209,6 +231,24 @@ purpose
 normalized identity
 OTP
 ```
+
+HMAC-SHA-256 uses a deterministic length-prefixed binary encoding rather than
+ambiguous string concatenation. Each field is encoded as an unsigned 32-bit
+big-endian byte length followed by its bytes, in this exact order:
+
+```text
+"unicon.auth.challenge.proof.v1" (UTF-8)
+proof method: OTP or MAGIC_LINK    (UTF-8)
+challenge purpose                 (UTF-8 enum value)
+canonical lowercase challenge ID  (UTF-8)
+normalized identity               (UTF-8)
+proof bytes
+```
+
+OTP proof bytes are the six ASCII digits, preserving leading zeroes. A magic
+link exposes its 32 random bytes as unpadded base64url, but those original 32
+bytes are used as the HMAC field after strict decoding. The database stores the
+32-byte HMAC result as raw bytes, with the key version in a separate field.
 
 The database stores the HMAC and `hashKeyVersion`. HMAC and encryption keys are
 independent from each other and from JWT and rate-limit secrets, and both
