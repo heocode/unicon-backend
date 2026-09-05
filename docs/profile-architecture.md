@@ -2,7 +2,7 @@
 
 This document records the agreed Profile and Profile Photo product model for
 the first mobile integration. Moderation is a separate bounded context whose
-source of truth is [`moderation-architecture.md`](moderation-architecture.md).
+source of truth is [`moderation/README.md`](moderation/README.md).
 Open items must not be treated as an implemented or approved public API
 contract.
 
@@ -343,7 +343,7 @@ loaded separately and lazily to avoid an initial payload or network waterfall.
 
 The complete moderation policy, provider, fallback, retry, audit, reuse, and
 human-review contract lives in
-[`moderation-architecture.md`](moderation-architecture.md). This document
+[`moderation/README.md`](moderation/README.md). This document
 retains only the Profile-facing integration invariants:
 
 - processing and moderation are independent state machines;
@@ -474,7 +474,7 @@ For `PROCESS_MEDIA`, the worker:
 5. creates and stores a private sanitized master, both owner-preview crops,
    and deterministic moderation inputs;
 6. hands those inputs to the moderation subsystem defined in
-   [`moderation-architecture.md`](moderation-architecture.md);
+   [`moderation/README.md`](moderation/README.md);
 7. publishes immutable production variants to the public bucket only for
    approved Media;
 8. commits the resulting Media state and asset metadata to PostgreSQL; and
@@ -499,7 +499,7 @@ acknowledged without repeating work. Conditional state transitions,
 deterministic/versioned object keys, and unique database constraints prevent
 duplicate variants, Profile selections, and state changes. Moderation-specific
 idempotency is defined in
-[`moderation-architecture.md`](moderation-architecture.md).
+[`moderation/README.md`](moderation/README.md).
 External calls and database transactions cannot be atomic together, so each
 pipeline stage must be safely resumable from persisted checkpoints.
 
@@ -571,7 +571,7 @@ Profile selection applies moderation decisions transactionally. A late result
 can update audit state for its Media, but it can publish or select a Profile
 Photo only when the Media remains approved, non-deleted, owned by the user, and
 the latest pending intent. Full decision authority and freshness rules are
-defined in [`moderation-architecture.md`](moderation-architecture.md).
+defined in [`moderation/README.md`](moderation/README.md).
 
 ## History management
 
@@ -791,11 +791,11 @@ The following architecture is accepted for `profile-photo-v1`.
   become current.
 - Provider strategy, PolicyRevision, attempts, decisions, retry, reuse,
   precedence, manual review, and moderation production checks are owned by
-  [`moderation-architecture.md`](moderation-architecture.md).
+  [`moderation/README.md`](moderation/README.md).
 
 ## Related open decisions
 
 All open moderation parameters and external provider checks are tracked only in
-[`moderation-architecture.md`](moderation-architecture.md) to avoid duplicate
+[`moderation/README.md`](moderation/README.md) to avoid duplicate
 sources of truth. Profile-specific API validation and DTO details will be
 finalized before the corresponding implementation stage.

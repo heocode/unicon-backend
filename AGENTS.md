@@ -3,7 +3,8 @@
 Read this file before changing the repository. For auth work, also read
 `docs/auth-architecture.md` and `docs/auth-roadmap.md`.
 For Profile or media work, read `docs/profile-architecture.md`. For moderation
-work, also read `docs/moderation-architecture.md`.
+work, also read `docs/moderation/README.md` and the focused moderation
+contracts it routes to.
 
 ## Project conventions
 

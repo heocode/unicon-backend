@@ -33,9 +33,9 @@ their post-MVP stages are activated.
   endpoints, response DTOs, error codes, and mobile-client requirements
 - [`docs/profile-architecture.md`](docs/profile-architecture.md) — accepted
   Onboarding, Profile, Profile Photo, media, storage, and delivery architecture
-- [`docs/moderation-architecture.md`](docs/moderation-architecture.md) —
-  provider-neutral moderation, `profile-photo-v1` policy, recovery, audit,
-  reuse, visibility, and human-review architecture
+- [`docs/moderation/README.md`](docs/moderation/README.md) — index for the
+  provider-neutral moderation, `profile-photo-v1` policy, processing, recovery,
+  audit, visibility, and human-review contracts
 
 Read `AGENTS.md` before changing the repository. Auth work must also follow the
 three auth documents above. Profile, media, and moderation work must follow
