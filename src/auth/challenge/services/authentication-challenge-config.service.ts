@@ -10,6 +10,9 @@ export class AuthenticationChallengeConfigService {
   readonly ttlSeconds: number;
   readonly maxAttempts: number;
   readonly retentionSeconds: number;
+  readonly cleanupIntervalSeconds: number;
+  readonly cleanupBatchSize: number;
+  readonly cleanupMaxBatchesPerRun: number;
   readonly activeHmacKeyVersion: number;
   readonly activeEncryptionKeyVersion: number;
 
@@ -25,6 +28,15 @@ export class AuthenticationChallengeConfigService {
     );
     this.retentionSeconds = configService.getOrThrow<number>(
       'AUTH_CHALLENGE_RETENTION_SECONDS',
+    );
+    this.cleanupIntervalSeconds = configService.getOrThrow<number>(
+      'AUTH_CHALLENGE_CLEANUP_INTERVAL_SECONDS',
+    );
+    this.cleanupBatchSize = configService.getOrThrow<number>(
+      'AUTH_CHALLENGE_CLEANUP_BATCH_SIZE',
+    );
+    this.cleanupMaxBatchesPerRun = configService.getOrThrow<number>(
+      'AUTH_CHALLENGE_CLEANUP_MAX_BATCHES_PER_RUN',
     );
     this.activeHmacKeyVersion = configService.getOrThrow<number>(
       'AUTH_CHALLENGE_HMAC_ACTIVE_KEY_VERSION',

@@ -199,6 +199,24 @@ ciphertext is non-empty and IV/tag have the protocol-v1 lengths. Protocol and
 key versions are always positive, non-null audit metadata. Terminal cleanup
 clears only ciphertext, IV, and tag; it preserves both version fields.
 
+Expired proof is also cleared proactively when no verification request arrives.
+Cleanup processes bounded PostgreSQL batches selected with
+`FOR UPDATE SKIP LOCKED`; selection and mutation remain in one short
+transaction. A batch uses one database `clock_timestamp()` and never loads
+proof material into application memory. The database all-present-or-all-null
+envelope constraint is a required invariant, not something cleanup silently
+repairs.
+
+Retention deletion uses the immutable `retentionExpiresAt` saved on each
+challenge. This preserves the lifecycle assigned at creation even if the
+configured retention changes later. Deleting a retained challenge cascades to
+its Delivery rows. Cleanup alternates envelope clearing and retention deletion
+under one configurable per-run batch budget so neither phase can starve the
+other. Empty database checks consume that budget, overlapping runs in one
+process are skipped, and multiple application instances safely divide work
+through `SKIP LOCKED`. A failed batch rolls back independently; earlier batches
+remain committed and a later scheduled run retries the remaining work.
+
 ## Delivery model
 
 Delivery and proof are separate concepts:

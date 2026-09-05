@@ -13,6 +13,9 @@ describe('AuthenticationChallengeConfigService', () => {
         AUTH_CHALLENGE_TTL_SECONDS: 600,
         AUTH_CHALLENGE_MAX_ATTEMPTS: 5,
         AUTH_CHALLENGE_RETENTION_SECONDS: 86_400,
+        AUTH_CHALLENGE_CLEANUP_INTERVAL_SECONDS: 60,
+        AUTH_CHALLENGE_CLEANUP_BATCH_SIZE: 100,
+        AUTH_CHALLENGE_CLEANUP_MAX_BATCHES_PER_RUN: 10,
         AUTH_CHALLENGE_HMAC_ACTIVE_KEY_VERSION: 2,
         AUTH_CHALLENGE_HMAC_KEYS: new Map([
           [1, Buffer.alloc(32, 3)],
@@ -30,6 +33,9 @@ describe('AuthenticationChallengeConfigService', () => {
     expect(service.ttlSeconds).toBe(600);
     expect(service.maxAttempts).toBe(5);
     expect(service.retentionSeconds).toBe(86_400);
+    expect(service.cleanupIntervalSeconds).toBe(60);
+    expect(service.cleanupBatchSize).toBe(100);
+    expect(service.cleanupMaxBatchesPerRun).toBe(10);
     expect(service.activeHmacKeyVersion).toBe(2);
     expect(service.activeEncryptionKeyVersion).toBe(1);
   });

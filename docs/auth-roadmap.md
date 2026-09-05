@@ -150,6 +150,15 @@ Implement focused services for:
 - atomic consume shared by OTP and magic link;
 - expired challenge cleanup.
 
+Cleanup uses short, independently committed PostgreSQL batches with
+`FOR UPDATE SKIP LOCKED`. It clears expired encrypted envelopes without
+changing consumption or lock state, then deletes challenges at their persisted
+`retentionExpiresAt` boundary with Delivery cascade. Envelope cleanup and
+retention deletion fairly share one configured maximum batch budget per run;
+the scheduler is non-overlapping within one process and safe across replicas.
+Cleanup failures remain degraded background failures and never prevent
+authentication startup or requests.
+
 Raw, hashed, or encrypted proofs never enter logs or security events. HMAC and
 encryption keys are independent from each other and from JWT and rate-limit
 secrets, and are validated at startup.

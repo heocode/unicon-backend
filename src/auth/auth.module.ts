@@ -36,6 +36,9 @@ import { AuthenticationChallengeProofEncryptionService } from './challenge/servi
 import { AuthenticationChallengeProofFactoryService } from './challenge/services/authentication-challenge-proof-factory.service';
 import { AuthenticationChallengeRepository } from './challenge/repositories/authentication-challenge.repository';
 import { AuthenticationChallengeVerificationService } from './challenge/services/authentication-challenge-verification.service';
+import { AuthenticationChallengeCleanupRepository } from './challenge/repositories/authentication-challenge-cleanup.repository';
+import { AuthenticationChallengeCleanupService } from './challenge/services/authentication-challenge-cleanup.service';
+import { AuthenticationChallengeCleanupSchedulerService } from './challenge/services/authentication-challenge-cleanup-scheduler.service';
 
 @Module({
   imports: [
@@ -68,6 +71,9 @@ import { AuthenticationChallengeVerificationService } from './challenge/services
     AuthenticationChallengeProofFactoryService,
     AuthenticationChallengeRepository,
     AuthenticationChallengeVerificationService,
+    AuthenticationChallengeCleanupRepository,
+    AuthenticationChallengeCleanupService,
+    AuthenticationChallengeCleanupSchedulerService,
     RefreshTokenGuard,
   ],
   exports: [AuthService, SessionCreationService],

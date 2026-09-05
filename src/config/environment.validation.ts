@@ -145,6 +145,23 @@ export function validateEnvironment(
   validatedEnvironment.AUTH_CHALLENGE_TTL_SECONDS = challengeTtlSeconds;
   validatedEnvironment.AUTH_CHALLENGE_RETENTION_SECONDS =
     challengeRetentionSeconds;
+  validatedEnvironment.AUTH_CHALLENGE_CLEANUP_INTERVAL_SECONDS =
+    parsePositiveInteger(
+      environment.AUTH_CHALLENGE_CLEANUP_INTERVAL_SECONDS,
+      'AUTH_CHALLENGE_CLEANUP_INTERVAL_SECONDS',
+    );
+  validatedEnvironment.AUTH_CHALLENGE_CLEANUP_BATCH_SIZE =
+    parsePositiveIntegerAtMost(
+      environment.AUTH_CHALLENGE_CLEANUP_BATCH_SIZE,
+      'AUTH_CHALLENGE_CLEANUP_BATCH_SIZE',
+      1_000,
+    );
+  validatedEnvironment.AUTH_CHALLENGE_CLEANUP_MAX_BATCHES_PER_RUN =
+    parsePositiveIntegerAtMost(
+      environment.AUTH_CHALLENGE_CLEANUP_MAX_BATCHES_PER_RUN,
+      'AUTH_CHALLENGE_CLEANUP_MAX_BATCHES_PER_RUN',
+      100,
+    );
 
   validatedEnvironment.AUTH_CHALLENGE_HMAC_ACTIVE_KEY_VERSION =
     parsePositiveInteger(
@@ -302,6 +319,22 @@ function parsePositiveInteger(value: unknown, key: string): number {
 
   if (!Number.isInteger(parsedValue) || parsedValue <= 0) {
     throw new Error(`Environment variable ${key} must be a positive integer.`);
+  }
+
+  return parsedValue;
+}
+
+function parsePositiveIntegerAtMost(
+  value: unknown,
+  key: string,
+  maximum: number,
+): number {
+  const parsedValue = parsePositiveInteger(value, key);
+
+  if (parsedValue > maximum) {
+    throw new Error(
+      `Environment variable ${key} must be less than or equal to ${maximum}.`,
+    );
   }
 
   return parsedValue;

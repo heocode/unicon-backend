@@ -33,6 +33,9 @@ const validEnvironment = {
   AUTH_CHALLENGE_TTL_SECONDS: '600',
   AUTH_CHALLENGE_MAX_ATTEMPTS: '5',
   AUTH_CHALLENGE_RETENTION_SECONDS: '86400',
+  AUTH_CHALLENGE_CLEANUP_INTERVAL_SECONDS: '60',
+  AUTH_CHALLENGE_CLEANUP_BATCH_SIZE: '100',
+  AUTH_CHALLENGE_CLEANUP_MAX_BATCHES_PER_RUN: '10',
   AUTH_CHALLENGE_HMAC_ACTIVE_KEY_VERSION: '1',
   AUTH_CHALLENGE_HMAC_KEYS: `1:${hmacKey}`,
   AUTH_CHALLENGE_ENCRYPTION_ACTIVE_KEY_VERSION: '1',
@@ -155,6 +158,9 @@ describe('validateEnvironment', () => {
     'AUTH_CHALLENGE_TTL_SECONDS',
     'AUTH_CHALLENGE_MAX_ATTEMPTS',
     'AUTH_CHALLENGE_RETENTION_SECONDS',
+    'AUTH_CHALLENGE_CLEANUP_INTERVAL_SECONDS',
+    'AUTH_CHALLENGE_CLEANUP_BATCH_SIZE',
+    'AUTH_CHALLENGE_CLEANUP_MAX_BATCHES_PER_RUN',
     'AUTH_CHALLENGE_HMAC_ACTIVE_KEY_VERSION',
     'AUTH_CHALLENGE_ENCRYPTION_ACTIVE_KEY_VERSION',
   ])('rejects a non-positive %s value', (key) => {
@@ -174,6 +180,20 @@ describe('validateEnvironment', () => {
       }),
     ).toThrow(
       'Environment variable AUTH_CHALLENGE_RETENTION_SECONDS must be greater than or equal to AUTH_CHALLENGE_TTL_SECONDS.',
+    );
+  });
+
+  it.each([
+    ['AUTH_CHALLENGE_CLEANUP_BATCH_SIZE', '1001', 1_000],
+    ['AUTH_CHALLENGE_CLEANUP_MAX_BATCHES_PER_RUN', '101', 100],
+  ])('rejects %s above its operational maximum', (key, value, maximum) => {
+    expect(() =>
+      validateEnvironment({
+        ...validEnvironment,
+        [key]: value,
+      }),
+    ).toThrow(
+      `Environment variable ${key} must be less than or equal to ${maximum}.`,
     );
   });
 
