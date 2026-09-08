@@ -47,10 +47,17 @@ enum AuthenticationDeliveryMethod {
   EMAIL
 }
 
+enum AuthenticationDeliveryOrigin {
+  INITIAL
+  RESEND
+}
+
 enum AuthenticationDeliveryStatus {
   PENDING
+  PROCESSING
   SENT
   FAILED
+  CANCELLED
 }
 
 enum SecurityEventType {
@@ -237,24 +244,33 @@ model AuthenticationChallenge {
 }
 
 model AuthenticationChallengeDelivery {
-  id                 String                       @id @default(uuid())
-  challengeId        String
-  method             AuthenticationDeliveryMethod
-  status             AuthenticationDeliveryStatus @default(PENDING)
-  recipientSnapshot  String
-  idempotencyKey     String                       @unique
-  providerMessageId  String?
-  failureCode        String?
-  attemptedAt        DateTime?
-  sentAt             DateTime?
-  retentionExpiresAt DateTime
-  createdAt          DateTime                     @default(now())
-  updatedAt          DateTime                     @updatedAt
+  id                       String                       @id @default(uuid())
+  challengeId              String
+  method                   AuthenticationDeliveryMethod
+  origin                   AuthenticationDeliveryOrigin
+  status                   AuthenticationDeliveryStatus @default(PENDING)
+  recipientSnapshot        String
+  idempotencyKey           String                       @unique
+  templateProtocolVersion  Int
+  attemptCount             Int                          @default(0)
+  nextAttemptAt            DateTime?
+  processingLeaseId        String?                      @db.Uuid
+  processingLeaseExpiresAt DateTime?
+  providerMessageId        String?
+  lastSafeFailureCode      String?
+  attemptedAt              DateTime?
+  sentAt                   DateTime?
+  retentionExpiresAt       DateTime
+  createdAt                DateTime                     @default(now())
+  updatedAt                DateTime                     @updatedAt
 
   challenge AuthenticationChallenge @relation(fields: [challengeId], references: [id], onDelete: Cascade)
 
   @@index([challengeId, createdAt])
+  @@index([challengeId, status])
   @@index([status, createdAt])
+  @@index([status, nextAttemptAt])
+  @@index([status, processingLeaseExpiresAt])
   @@index([retentionExpiresAt])
 }
 

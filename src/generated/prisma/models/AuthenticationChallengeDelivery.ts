@@ -20,19 +20,37 @@ export type AuthenticationChallengeDeliveryModel = runtime.Types.Result.DefaultS
 
 export type AggregateAuthenticationChallengeDelivery = {
   _count: AuthenticationChallengeDeliveryCountAggregateOutputType | null
+  _avg: AuthenticationChallengeDeliveryAvgAggregateOutputType | null
+  _sum: AuthenticationChallengeDeliverySumAggregateOutputType | null
   _min: AuthenticationChallengeDeliveryMinAggregateOutputType | null
   _max: AuthenticationChallengeDeliveryMaxAggregateOutputType | null
+}
+
+export type AuthenticationChallengeDeliveryAvgAggregateOutputType = {
+  templateProtocolVersion: number | null
+  attemptCount: number | null
+}
+
+export type AuthenticationChallengeDeliverySumAggregateOutputType = {
+  templateProtocolVersion: number | null
+  attemptCount: number | null
 }
 
 export type AuthenticationChallengeDeliveryMinAggregateOutputType = {
   id: string | null
   challengeId: string | null
   method: $Enums.AuthenticationDeliveryMethod | null
+  origin: $Enums.AuthenticationDeliveryOrigin | null
   status: $Enums.AuthenticationDeliveryStatus | null
   recipientSnapshot: string | null
   idempotencyKey: string | null
+  templateProtocolVersion: number | null
+  attemptCount: number | null
+  nextAttemptAt: Date | null
+  processingLeaseId: string | null
+  processingLeaseExpiresAt: Date | null
   providerMessageId: string | null
-  failureCode: string | null
+  lastSafeFailureCode: string | null
   attemptedAt: Date | null
   sentAt: Date | null
   retentionExpiresAt: Date | null
@@ -44,11 +62,17 @@ export type AuthenticationChallengeDeliveryMaxAggregateOutputType = {
   id: string | null
   challengeId: string | null
   method: $Enums.AuthenticationDeliveryMethod | null
+  origin: $Enums.AuthenticationDeliveryOrigin | null
   status: $Enums.AuthenticationDeliveryStatus | null
   recipientSnapshot: string | null
   idempotencyKey: string | null
+  templateProtocolVersion: number | null
+  attemptCount: number | null
+  nextAttemptAt: Date | null
+  processingLeaseId: string | null
+  processingLeaseExpiresAt: Date | null
   providerMessageId: string | null
-  failureCode: string | null
+  lastSafeFailureCode: string | null
   attemptedAt: Date | null
   sentAt: Date | null
   retentionExpiresAt: Date | null
@@ -60,11 +84,17 @@ export type AuthenticationChallengeDeliveryCountAggregateOutputType = {
   id: number
   challengeId: number
   method: number
+  origin: number
   status: number
   recipientSnapshot: number
   idempotencyKey: number
+  templateProtocolVersion: number
+  attemptCount: number
+  nextAttemptAt: number
+  processingLeaseId: number
+  processingLeaseExpiresAt: number
   providerMessageId: number
-  failureCode: number
+  lastSafeFailureCode: number
   attemptedAt: number
   sentAt: number
   retentionExpiresAt: number
@@ -74,15 +104,31 @@ export type AuthenticationChallengeDeliveryCountAggregateOutputType = {
 }
 
 
+export type AuthenticationChallengeDeliveryAvgAggregateInputType = {
+  templateProtocolVersion?: true
+  attemptCount?: true
+}
+
+export type AuthenticationChallengeDeliverySumAggregateInputType = {
+  templateProtocolVersion?: true
+  attemptCount?: true
+}
+
 export type AuthenticationChallengeDeliveryMinAggregateInputType = {
   id?: true
   challengeId?: true
   method?: true
+  origin?: true
   status?: true
   recipientSnapshot?: true
   idempotencyKey?: true
+  templateProtocolVersion?: true
+  attemptCount?: true
+  nextAttemptAt?: true
+  processingLeaseId?: true
+  processingLeaseExpiresAt?: true
   providerMessageId?: true
-  failureCode?: true
+  lastSafeFailureCode?: true
   attemptedAt?: true
   sentAt?: true
   retentionExpiresAt?: true
@@ -94,11 +140,17 @@ export type AuthenticationChallengeDeliveryMaxAggregateInputType = {
   id?: true
   challengeId?: true
   method?: true
+  origin?: true
   status?: true
   recipientSnapshot?: true
   idempotencyKey?: true
+  templateProtocolVersion?: true
+  attemptCount?: true
+  nextAttemptAt?: true
+  processingLeaseId?: true
+  processingLeaseExpiresAt?: true
   providerMessageId?: true
-  failureCode?: true
+  lastSafeFailureCode?: true
   attemptedAt?: true
   sentAt?: true
   retentionExpiresAt?: true
@@ -110,11 +162,17 @@ export type AuthenticationChallengeDeliveryCountAggregateInputType = {
   id?: true
   challengeId?: true
   method?: true
+  origin?: true
   status?: true
   recipientSnapshot?: true
   idempotencyKey?: true
+  templateProtocolVersion?: true
+  attemptCount?: true
+  nextAttemptAt?: true
+  processingLeaseId?: true
+  processingLeaseExpiresAt?: true
   providerMessageId?: true
-  failureCode?: true
+  lastSafeFailureCode?: true
   attemptedAt?: true
   sentAt?: true
   retentionExpiresAt?: true
@@ -161,6 +219,18 @@ export type AuthenticationChallengeDeliveryAggregateArgs<ExtArgs extends runtime
   /**
    * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
    * 
+   * Select which fields to average
+  **/
+  _avg?: AuthenticationChallengeDeliveryAvgAggregateInputType
+  /**
+   * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+   * 
+   * Select which fields to sum
+  **/
+  _sum?: AuthenticationChallengeDeliverySumAggregateInputType
+  /**
+   * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+   * 
    * Select which fields to find the minimum value
   **/
   _min?: AuthenticationChallengeDeliveryMinAggregateInputType
@@ -191,6 +261,8 @@ export type AuthenticationChallengeDeliveryGroupByArgs<ExtArgs extends runtime.T
   take?: number
   skip?: number
   _count?: AuthenticationChallengeDeliveryCountAggregateInputType | true
+  _avg?: AuthenticationChallengeDeliveryAvgAggregateInputType
+  _sum?: AuthenticationChallengeDeliverySumAggregateInputType
   _min?: AuthenticationChallengeDeliveryMinAggregateInputType
   _max?: AuthenticationChallengeDeliveryMaxAggregateInputType
 }
@@ -199,17 +271,25 @@ export type AuthenticationChallengeDeliveryGroupByOutputType = {
   id: string
   challengeId: string
   method: $Enums.AuthenticationDeliveryMethod
+  origin: $Enums.AuthenticationDeliveryOrigin
   status: $Enums.AuthenticationDeliveryStatus
   recipientSnapshot: string
   idempotencyKey: string
+  templateProtocolVersion: number
+  attemptCount: number
+  nextAttemptAt: Date | null
+  processingLeaseId: string | null
+  processingLeaseExpiresAt: Date | null
   providerMessageId: string | null
-  failureCode: string | null
+  lastSafeFailureCode: string | null
   attemptedAt: Date | null
   sentAt: Date | null
   retentionExpiresAt: Date
   createdAt: Date
   updatedAt: Date
   _count: AuthenticationChallengeDeliveryCountAggregateOutputType | null
+  _avg: AuthenticationChallengeDeliveryAvgAggregateOutputType | null
+  _sum: AuthenticationChallengeDeliverySumAggregateOutputType | null
   _min: AuthenticationChallengeDeliveryMinAggregateOutputType | null
   _max: AuthenticationChallengeDeliveryMaxAggregateOutputType | null
 }
@@ -236,11 +316,17 @@ export type AuthenticationChallengeDeliveryWhereInput = {
   id?: Prisma.StringFilter<"AuthenticationChallengeDelivery"> | string
   challengeId?: Prisma.StringFilter<"AuthenticationChallengeDelivery"> | string
   method?: Prisma.EnumAuthenticationDeliveryMethodFilter<"AuthenticationChallengeDelivery"> | $Enums.AuthenticationDeliveryMethod
+  origin?: Prisma.EnumAuthenticationDeliveryOriginFilter<"AuthenticationChallengeDelivery"> | $Enums.AuthenticationDeliveryOrigin
   status?: Prisma.EnumAuthenticationDeliveryStatusFilter<"AuthenticationChallengeDelivery"> | $Enums.AuthenticationDeliveryStatus
   recipientSnapshot?: Prisma.StringFilter<"AuthenticationChallengeDelivery"> | string
   idempotencyKey?: Prisma.StringFilter<"AuthenticationChallengeDelivery"> | string
+  templateProtocolVersion?: Prisma.IntFilter<"AuthenticationChallengeDelivery"> | number
+  attemptCount?: Prisma.IntFilter<"AuthenticationChallengeDelivery"> | number
+  nextAttemptAt?: Prisma.DateTimeNullableFilter<"AuthenticationChallengeDelivery"> | Date | string | null
+  processingLeaseId?: Prisma.UuidNullableFilter<"AuthenticationChallengeDelivery"> | string | null
+  processingLeaseExpiresAt?: Prisma.DateTimeNullableFilter<"AuthenticationChallengeDelivery"> | Date | string | null
   providerMessageId?: Prisma.StringNullableFilter<"AuthenticationChallengeDelivery"> | string | null
-  failureCode?: Prisma.StringNullableFilter<"AuthenticationChallengeDelivery"> | string | null
+  lastSafeFailureCode?: Prisma.StringNullableFilter<"AuthenticationChallengeDelivery"> | string | null
   attemptedAt?: Prisma.DateTimeNullableFilter<"AuthenticationChallengeDelivery"> | Date | string | null
   sentAt?: Prisma.DateTimeNullableFilter<"AuthenticationChallengeDelivery"> | Date | string | null
   retentionExpiresAt?: Prisma.DateTimeFilter<"AuthenticationChallengeDelivery"> | Date | string
@@ -253,11 +339,17 @@ export type AuthenticationChallengeDeliveryOrderByWithRelationInput = {
   id?: Prisma.SortOrder
   challengeId?: Prisma.SortOrder
   method?: Prisma.SortOrder
+  origin?: Prisma.SortOrder
   status?: Prisma.SortOrder
   recipientSnapshot?: Prisma.SortOrder
   idempotencyKey?: Prisma.SortOrder
+  templateProtocolVersion?: Prisma.SortOrder
+  attemptCount?: Prisma.SortOrder
+  nextAttemptAt?: Prisma.SortOrderInput | Prisma.SortOrder
+  processingLeaseId?: Prisma.SortOrderInput | Prisma.SortOrder
+  processingLeaseExpiresAt?: Prisma.SortOrderInput | Prisma.SortOrder
   providerMessageId?: Prisma.SortOrderInput | Prisma.SortOrder
-  failureCode?: Prisma.SortOrderInput | Prisma.SortOrder
+  lastSafeFailureCode?: Prisma.SortOrderInput | Prisma.SortOrder
   attemptedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   sentAt?: Prisma.SortOrderInput | Prisma.SortOrder
   retentionExpiresAt?: Prisma.SortOrder
@@ -274,10 +366,16 @@ export type AuthenticationChallengeDeliveryWhereUniqueInput = Prisma.AtLeast<{
   NOT?: Prisma.AuthenticationChallengeDeliveryWhereInput | Prisma.AuthenticationChallengeDeliveryWhereInput[]
   challengeId?: Prisma.StringFilter<"AuthenticationChallengeDelivery"> | string
   method?: Prisma.EnumAuthenticationDeliveryMethodFilter<"AuthenticationChallengeDelivery"> | $Enums.AuthenticationDeliveryMethod
+  origin?: Prisma.EnumAuthenticationDeliveryOriginFilter<"AuthenticationChallengeDelivery"> | $Enums.AuthenticationDeliveryOrigin
   status?: Prisma.EnumAuthenticationDeliveryStatusFilter<"AuthenticationChallengeDelivery"> | $Enums.AuthenticationDeliveryStatus
   recipientSnapshot?: Prisma.StringFilter<"AuthenticationChallengeDelivery"> | string
+  templateProtocolVersion?: Prisma.IntFilter<"AuthenticationChallengeDelivery"> | number
+  attemptCount?: Prisma.IntFilter<"AuthenticationChallengeDelivery"> | number
+  nextAttemptAt?: Prisma.DateTimeNullableFilter<"AuthenticationChallengeDelivery"> | Date | string | null
+  processingLeaseId?: Prisma.UuidNullableFilter<"AuthenticationChallengeDelivery"> | string | null
+  processingLeaseExpiresAt?: Prisma.DateTimeNullableFilter<"AuthenticationChallengeDelivery"> | Date | string | null
   providerMessageId?: Prisma.StringNullableFilter<"AuthenticationChallengeDelivery"> | string | null
-  failureCode?: Prisma.StringNullableFilter<"AuthenticationChallengeDelivery"> | string | null
+  lastSafeFailureCode?: Prisma.StringNullableFilter<"AuthenticationChallengeDelivery"> | string | null
   attemptedAt?: Prisma.DateTimeNullableFilter<"AuthenticationChallengeDelivery"> | Date | string | null
   sentAt?: Prisma.DateTimeNullableFilter<"AuthenticationChallengeDelivery"> | Date | string | null
   retentionExpiresAt?: Prisma.DateTimeFilter<"AuthenticationChallengeDelivery"> | Date | string
@@ -290,19 +388,27 @@ export type AuthenticationChallengeDeliveryOrderByWithAggregationInput = {
   id?: Prisma.SortOrder
   challengeId?: Prisma.SortOrder
   method?: Prisma.SortOrder
+  origin?: Prisma.SortOrder
   status?: Prisma.SortOrder
   recipientSnapshot?: Prisma.SortOrder
   idempotencyKey?: Prisma.SortOrder
+  templateProtocolVersion?: Prisma.SortOrder
+  attemptCount?: Prisma.SortOrder
+  nextAttemptAt?: Prisma.SortOrderInput | Prisma.SortOrder
+  processingLeaseId?: Prisma.SortOrderInput | Prisma.SortOrder
+  processingLeaseExpiresAt?: Prisma.SortOrderInput | Prisma.SortOrder
   providerMessageId?: Prisma.SortOrderInput | Prisma.SortOrder
-  failureCode?: Prisma.SortOrderInput | Prisma.SortOrder
+  lastSafeFailureCode?: Prisma.SortOrderInput | Prisma.SortOrder
   attemptedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   sentAt?: Prisma.SortOrderInput | Prisma.SortOrder
   retentionExpiresAt?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   _count?: Prisma.AuthenticationChallengeDeliveryCountOrderByAggregateInput
+  _avg?: Prisma.AuthenticationChallengeDeliveryAvgOrderByAggregateInput
   _max?: Prisma.AuthenticationChallengeDeliveryMaxOrderByAggregateInput
   _min?: Prisma.AuthenticationChallengeDeliveryMinOrderByAggregateInput
+  _sum?: Prisma.AuthenticationChallengeDeliverySumOrderByAggregateInput
 }
 
 export type AuthenticationChallengeDeliveryScalarWhereWithAggregatesInput = {
@@ -312,11 +418,17 @@ export type AuthenticationChallengeDeliveryScalarWhereWithAggregatesInput = {
   id?: Prisma.StringWithAggregatesFilter<"AuthenticationChallengeDelivery"> | string
   challengeId?: Prisma.StringWithAggregatesFilter<"AuthenticationChallengeDelivery"> | string
   method?: Prisma.EnumAuthenticationDeliveryMethodWithAggregatesFilter<"AuthenticationChallengeDelivery"> | $Enums.AuthenticationDeliveryMethod
+  origin?: Prisma.EnumAuthenticationDeliveryOriginWithAggregatesFilter<"AuthenticationChallengeDelivery"> | $Enums.AuthenticationDeliveryOrigin
   status?: Prisma.EnumAuthenticationDeliveryStatusWithAggregatesFilter<"AuthenticationChallengeDelivery"> | $Enums.AuthenticationDeliveryStatus
   recipientSnapshot?: Prisma.StringWithAggregatesFilter<"AuthenticationChallengeDelivery"> | string
   idempotencyKey?: Prisma.StringWithAggregatesFilter<"AuthenticationChallengeDelivery"> | string
+  templateProtocolVersion?: Prisma.IntWithAggregatesFilter<"AuthenticationChallengeDelivery"> | number
+  attemptCount?: Prisma.IntWithAggregatesFilter<"AuthenticationChallengeDelivery"> | number
+  nextAttemptAt?: Prisma.DateTimeNullableWithAggregatesFilter<"AuthenticationChallengeDelivery"> | Date | string | null
+  processingLeaseId?: Prisma.UuidNullableWithAggregatesFilter<"AuthenticationChallengeDelivery"> | string | null
+  processingLeaseExpiresAt?: Prisma.DateTimeNullableWithAggregatesFilter<"AuthenticationChallengeDelivery"> | Date | string | null
   providerMessageId?: Prisma.StringNullableWithAggregatesFilter<"AuthenticationChallengeDelivery"> | string | null
-  failureCode?: Prisma.StringNullableWithAggregatesFilter<"AuthenticationChallengeDelivery"> | string | null
+  lastSafeFailureCode?: Prisma.StringNullableWithAggregatesFilter<"AuthenticationChallengeDelivery"> | string | null
   attemptedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"AuthenticationChallengeDelivery"> | Date | string | null
   sentAt?: Prisma.DateTimeNullableWithAggregatesFilter<"AuthenticationChallengeDelivery"> | Date | string | null
   retentionExpiresAt?: Prisma.DateTimeWithAggregatesFilter<"AuthenticationChallengeDelivery"> | Date | string
@@ -327,11 +439,17 @@ export type AuthenticationChallengeDeliveryScalarWhereWithAggregatesInput = {
 export type AuthenticationChallengeDeliveryCreateInput = {
   id?: string
   method: $Enums.AuthenticationDeliveryMethod
+  origin: $Enums.AuthenticationDeliveryOrigin
   status?: $Enums.AuthenticationDeliveryStatus
   recipientSnapshot: string
   idempotencyKey: string
+  templateProtocolVersion: number
+  attemptCount?: number
+  nextAttemptAt?: Date | string | null
+  processingLeaseId?: string | null
+  processingLeaseExpiresAt?: Date | string | null
   providerMessageId?: string | null
-  failureCode?: string | null
+  lastSafeFailureCode?: string | null
   attemptedAt?: Date | string | null
   sentAt?: Date | string | null
   retentionExpiresAt: Date | string
@@ -344,11 +462,17 @@ export type AuthenticationChallengeDeliveryUncheckedCreateInput = {
   id?: string
   challengeId: string
   method: $Enums.AuthenticationDeliveryMethod
+  origin: $Enums.AuthenticationDeliveryOrigin
   status?: $Enums.AuthenticationDeliveryStatus
   recipientSnapshot: string
   idempotencyKey: string
+  templateProtocolVersion: number
+  attemptCount?: number
+  nextAttemptAt?: Date | string | null
+  processingLeaseId?: string | null
+  processingLeaseExpiresAt?: Date | string | null
   providerMessageId?: string | null
-  failureCode?: string | null
+  lastSafeFailureCode?: string | null
   attemptedAt?: Date | string | null
   sentAt?: Date | string | null
   retentionExpiresAt: Date | string
@@ -359,11 +483,17 @@ export type AuthenticationChallengeDeliveryUncheckedCreateInput = {
 export type AuthenticationChallengeDeliveryUpdateInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   method?: Prisma.EnumAuthenticationDeliveryMethodFieldUpdateOperationsInput | $Enums.AuthenticationDeliveryMethod
+  origin?: Prisma.EnumAuthenticationDeliveryOriginFieldUpdateOperationsInput | $Enums.AuthenticationDeliveryOrigin
   status?: Prisma.EnumAuthenticationDeliveryStatusFieldUpdateOperationsInput | $Enums.AuthenticationDeliveryStatus
   recipientSnapshot?: Prisma.StringFieldUpdateOperationsInput | string
   idempotencyKey?: Prisma.StringFieldUpdateOperationsInput | string
+  templateProtocolVersion?: Prisma.IntFieldUpdateOperationsInput | number
+  attemptCount?: Prisma.IntFieldUpdateOperationsInput | number
+  nextAttemptAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  processingLeaseId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  processingLeaseExpiresAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   providerMessageId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  failureCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lastSafeFailureCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   attemptedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   sentAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   retentionExpiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -376,11 +506,17 @@ export type AuthenticationChallengeDeliveryUncheckedUpdateInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   challengeId?: Prisma.StringFieldUpdateOperationsInput | string
   method?: Prisma.EnumAuthenticationDeliveryMethodFieldUpdateOperationsInput | $Enums.AuthenticationDeliveryMethod
+  origin?: Prisma.EnumAuthenticationDeliveryOriginFieldUpdateOperationsInput | $Enums.AuthenticationDeliveryOrigin
   status?: Prisma.EnumAuthenticationDeliveryStatusFieldUpdateOperationsInput | $Enums.AuthenticationDeliveryStatus
   recipientSnapshot?: Prisma.StringFieldUpdateOperationsInput | string
   idempotencyKey?: Prisma.StringFieldUpdateOperationsInput | string
+  templateProtocolVersion?: Prisma.IntFieldUpdateOperationsInput | number
+  attemptCount?: Prisma.IntFieldUpdateOperationsInput | number
+  nextAttemptAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  processingLeaseId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  processingLeaseExpiresAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   providerMessageId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  failureCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lastSafeFailureCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   attemptedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   sentAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   retentionExpiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -392,11 +528,17 @@ export type AuthenticationChallengeDeliveryCreateManyInput = {
   id?: string
   challengeId: string
   method: $Enums.AuthenticationDeliveryMethod
+  origin: $Enums.AuthenticationDeliveryOrigin
   status?: $Enums.AuthenticationDeliveryStatus
   recipientSnapshot: string
   idempotencyKey: string
+  templateProtocolVersion: number
+  attemptCount?: number
+  nextAttemptAt?: Date | string | null
+  processingLeaseId?: string | null
+  processingLeaseExpiresAt?: Date | string | null
   providerMessageId?: string | null
-  failureCode?: string | null
+  lastSafeFailureCode?: string | null
   attemptedAt?: Date | string | null
   sentAt?: Date | string | null
   retentionExpiresAt: Date | string
@@ -407,11 +549,17 @@ export type AuthenticationChallengeDeliveryCreateManyInput = {
 export type AuthenticationChallengeDeliveryUpdateManyMutationInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   method?: Prisma.EnumAuthenticationDeliveryMethodFieldUpdateOperationsInput | $Enums.AuthenticationDeliveryMethod
+  origin?: Prisma.EnumAuthenticationDeliveryOriginFieldUpdateOperationsInput | $Enums.AuthenticationDeliveryOrigin
   status?: Prisma.EnumAuthenticationDeliveryStatusFieldUpdateOperationsInput | $Enums.AuthenticationDeliveryStatus
   recipientSnapshot?: Prisma.StringFieldUpdateOperationsInput | string
   idempotencyKey?: Prisma.StringFieldUpdateOperationsInput | string
+  templateProtocolVersion?: Prisma.IntFieldUpdateOperationsInput | number
+  attemptCount?: Prisma.IntFieldUpdateOperationsInput | number
+  nextAttemptAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  processingLeaseId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  processingLeaseExpiresAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   providerMessageId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  failureCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lastSafeFailureCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   attemptedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   sentAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   retentionExpiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -423,11 +571,17 @@ export type AuthenticationChallengeDeliveryUncheckedUpdateManyInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   challengeId?: Prisma.StringFieldUpdateOperationsInput | string
   method?: Prisma.EnumAuthenticationDeliveryMethodFieldUpdateOperationsInput | $Enums.AuthenticationDeliveryMethod
+  origin?: Prisma.EnumAuthenticationDeliveryOriginFieldUpdateOperationsInput | $Enums.AuthenticationDeliveryOrigin
   status?: Prisma.EnumAuthenticationDeliveryStatusFieldUpdateOperationsInput | $Enums.AuthenticationDeliveryStatus
   recipientSnapshot?: Prisma.StringFieldUpdateOperationsInput | string
   idempotencyKey?: Prisma.StringFieldUpdateOperationsInput | string
+  templateProtocolVersion?: Prisma.IntFieldUpdateOperationsInput | number
+  attemptCount?: Prisma.IntFieldUpdateOperationsInput | number
+  nextAttemptAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  processingLeaseId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  processingLeaseExpiresAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   providerMessageId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  failureCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lastSafeFailureCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   attemptedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   sentAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   retentionExpiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -449,11 +603,17 @@ export type AuthenticationChallengeDeliveryCountOrderByAggregateInput = {
   id?: Prisma.SortOrder
   challengeId?: Prisma.SortOrder
   method?: Prisma.SortOrder
+  origin?: Prisma.SortOrder
   status?: Prisma.SortOrder
   recipientSnapshot?: Prisma.SortOrder
   idempotencyKey?: Prisma.SortOrder
+  templateProtocolVersion?: Prisma.SortOrder
+  attemptCount?: Prisma.SortOrder
+  nextAttemptAt?: Prisma.SortOrder
+  processingLeaseId?: Prisma.SortOrder
+  processingLeaseExpiresAt?: Prisma.SortOrder
   providerMessageId?: Prisma.SortOrder
-  failureCode?: Prisma.SortOrder
+  lastSafeFailureCode?: Prisma.SortOrder
   attemptedAt?: Prisma.SortOrder
   sentAt?: Prisma.SortOrder
   retentionExpiresAt?: Prisma.SortOrder
@@ -461,15 +621,26 @@ export type AuthenticationChallengeDeliveryCountOrderByAggregateInput = {
   updatedAt?: Prisma.SortOrder
 }
 
+export type AuthenticationChallengeDeliveryAvgOrderByAggregateInput = {
+  templateProtocolVersion?: Prisma.SortOrder
+  attemptCount?: Prisma.SortOrder
+}
+
 export type AuthenticationChallengeDeliveryMaxOrderByAggregateInput = {
   id?: Prisma.SortOrder
   challengeId?: Prisma.SortOrder
   method?: Prisma.SortOrder
+  origin?: Prisma.SortOrder
   status?: Prisma.SortOrder
   recipientSnapshot?: Prisma.SortOrder
   idempotencyKey?: Prisma.SortOrder
+  templateProtocolVersion?: Prisma.SortOrder
+  attemptCount?: Prisma.SortOrder
+  nextAttemptAt?: Prisma.SortOrder
+  processingLeaseId?: Prisma.SortOrder
+  processingLeaseExpiresAt?: Prisma.SortOrder
   providerMessageId?: Prisma.SortOrder
-  failureCode?: Prisma.SortOrder
+  lastSafeFailureCode?: Prisma.SortOrder
   attemptedAt?: Prisma.SortOrder
   sentAt?: Prisma.SortOrder
   retentionExpiresAt?: Prisma.SortOrder
@@ -481,16 +652,27 @@ export type AuthenticationChallengeDeliveryMinOrderByAggregateInput = {
   id?: Prisma.SortOrder
   challengeId?: Prisma.SortOrder
   method?: Prisma.SortOrder
+  origin?: Prisma.SortOrder
   status?: Prisma.SortOrder
   recipientSnapshot?: Prisma.SortOrder
   idempotencyKey?: Prisma.SortOrder
+  templateProtocolVersion?: Prisma.SortOrder
+  attemptCount?: Prisma.SortOrder
+  nextAttemptAt?: Prisma.SortOrder
+  processingLeaseId?: Prisma.SortOrder
+  processingLeaseExpiresAt?: Prisma.SortOrder
   providerMessageId?: Prisma.SortOrder
-  failureCode?: Prisma.SortOrder
+  lastSafeFailureCode?: Prisma.SortOrder
   attemptedAt?: Prisma.SortOrder
   sentAt?: Prisma.SortOrder
   retentionExpiresAt?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
+}
+
+export type AuthenticationChallengeDeliverySumOrderByAggregateInput = {
+  templateProtocolVersion?: Prisma.SortOrder
+  attemptCount?: Prisma.SortOrder
 }
 
 export type AuthenticationChallengeDeliveryCreateNestedManyWithoutChallengeInput = {
@@ -539,6 +721,10 @@ export type EnumAuthenticationDeliveryMethodFieldUpdateOperationsInput = {
   set?: $Enums.AuthenticationDeliveryMethod
 }
 
+export type EnumAuthenticationDeliveryOriginFieldUpdateOperationsInput = {
+  set?: $Enums.AuthenticationDeliveryOrigin
+}
+
 export type EnumAuthenticationDeliveryStatusFieldUpdateOperationsInput = {
   set?: $Enums.AuthenticationDeliveryStatus
 }
@@ -546,11 +732,17 @@ export type EnumAuthenticationDeliveryStatusFieldUpdateOperationsInput = {
 export type AuthenticationChallengeDeliveryCreateWithoutChallengeInput = {
   id?: string
   method: $Enums.AuthenticationDeliveryMethod
+  origin: $Enums.AuthenticationDeliveryOrigin
   status?: $Enums.AuthenticationDeliveryStatus
   recipientSnapshot: string
   idempotencyKey: string
+  templateProtocolVersion: number
+  attemptCount?: number
+  nextAttemptAt?: Date | string | null
+  processingLeaseId?: string | null
+  processingLeaseExpiresAt?: Date | string | null
   providerMessageId?: string | null
-  failureCode?: string | null
+  lastSafeFailureCode?: string | null
   attemptedAt?: Date | string | null
   sentAt?: Date | string | null
   retentionExpiresAt: Date | string
@@ -561,11 +753,17 @@ export type AuthenticationChallengeDeliveryCreateWithoutChallengeInput = {
 export type AuthenticationChallengeDeliveryUncheckedCreateWithoutChallengeInput = {
   id?: string
   method: $Enums.AuthenticationDeliveryMethod
+  origin: $Enums.AuthenticationDeliveryOrigin
   status?: $Enums.AuthenticationDeliveryStatus
   recipientSnapshot: string
   idempotencyKey: string
+  templateProtocolVersion: number
+  attemptCount?: number
+  nextAttemptAt?: Date | string | null
+  processingLeaseId?: string | null
+  processingLeaseExpiresAt?: Date | string | null
   providerMessageId?: string | null
-  failureCode?: string | null
+  lastSafeFailureCode?: string | null
   attemptedAt?: Date | string | null
   sentAt?: Date | string | null
   retentionExpiresAt: Date | string
@@ -606,11 +804,17 @@ export type AuthenticationChallengeDeliveryScalarWhereInput = {
   id?: Prisma.StringFilter<"AuthenticationChallengeDelivery"> | string
   challengeId?: Prisma.StringFilter<"AuthenticationChallengeDelivery"> | string
   method?: Prisma.EnumAuthenticationDeliveryMethodFilter<"AuthenticationChallengeDelivery"> | $Enums.AuthenticationDeliveryMethod
+  origin?: Prisma.EnumAuthenticationDeliveryOriginFilter<"AuthenticationChallengeDelivery"> | $Enums.AuthenticationDeliveryOrigin
   status?: Prisma.EnumAuthenticationDeliveryStatusFilter<"AuthenticationChallengeDelivery"> | $Enums.AuthenticationDeliveryStatus
   recipientSnapshot?: Prisma.StringFilter<"AuthenticationChallengeDelivery"> | string
   idempotencyKey?: Prisma.StringFilter<"AuthenticationChallengeDelivery"> | string
+  templateProtocolVersion?: Prisma.IntFilter<"AuthenticationChallengeDelivery"> | number
+  attemptCount?: Prisma.IntFilter<"AuthenticationChallengeDelivery"> | number
+  nextAttemptAt?: Prisma.DateTimeNullableFilter<"AuthenticationChallengeDelivery"> | Date | string | null
+  processingLeaseId?: Prisma.UuidNullableFilter<"AuthenticationChallengeDelivery"> | string | null
+  processingLeaseExpiresAt?: Prisma.DateTimeNullableFilter<"AuthenticationChallengeDelivery"> | Date | string | null
   providerMessageId?: Prisma.StringNullableFilter<"AuthenticationChallengeDelivery"> | string | null
-  failureCode?: Prisma.StringNullableFilter<"AuthenticationChallengeDelivery"> | string | null
+  lastSafeFailureCode?: Prisma.StringNullableFilter<"AuthenticationChallengeDelivery"> | string | null
   attemptedAt?: Prisma.DateTimeNullableFilter<"AuthenticationChallengeDelivery"> | Date | string | null
   sentAt?: Prisma.DateTimeNullableFilter<"AuthenticationChallengeDelivery"> | Date | string | null
   retentionExpiresAt?: Prisma.DateTimeFilter<"AuthenticationChallengeDelivery"> | Date | string
@@ -621,11 +825,17 @@ export type AuthenticationChallengeDeliveryScalarWhereInput = {
 export type AuthenticationChallengeDeliveryCreateManyChallengeInput = {
   id?: string
   method: $Enums.AuthenticationDeliveryMethod
+  origin: $Enums.AuthenticationDeliveryOrigin
   status?: $Enums.AuthenticationDeliveryStatus
   recipientSnapshot: string
   idempotencyKey: string
+  templateProtocolVersion: number
+  attemptCount?: number
+  nextAttemptAt?: Date | string | null
+  processingLeaseId?: string | null
+  processingLeaseExpiresAt?: Date | string | null
   providerMessageId?: string | null
-  failureCode?: string | null
+  lastSafeFailureCode?: string | null
   attemptedAt?: Date | string | null
   sentAt?: Date | string | null
   retentionExpiresAt: Date | string
@@ -636,11 +846,17 @@ export type AuthenticationChallengeDeliveryCreateManyChallengeInput = {
 export type AuthenticationChallengeDeliveryUpdateWithoutChallengeInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   method?: Prisma.EnumAuthenticationDeliveryMethodFieldUpdateOperationsInput | $Enums.AuthenticationDeliveryMethod
+  origin?: Prisma.EnumAuthenticationDeliveryOriginFieldUpdateOperationsInput | $Enums.AuthenticationDeliveryOrigin
   status?: Prisma.EnumAuthenticationDeliveryStatusFieldUpdateOperationsInput | $Enums.AuthenticationDeliveryStatus
   recipientSnapshot?: Prisma.StringFieldUpdateOperationsInput | string
   idempotencyKey?: Prisma.StringFieldUpdateOperationsInput | string
+  templateProtocolVersion?: Prisma.IntFieldUpdateOperationsInput | number
+  attemptCount?: Prisma.IntFieldUpdateOperationsInput | number
+  nextAttemptAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  processingLeaseId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  processingLeaseExpiresAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   providerMessageId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  failureCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lastSafeFailureCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   attemptedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   sentAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   retentionExpiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -651,11 +867,17 @@ export type AuthenticationChallengeDeliveryUpdateWithoutChallengeInput = {
 export type AuthenticationChallengeDeliveryUncheckedUpdateWithoutChallengeInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   method?: Prisma.EnumAuthenticationDeliveryMethodFieldUpdateOperationsInput | $Enums.AuthenticationDeliveryMethod
+  origin?: Prisma.EnumAuthenticationDeliveryOriginFieldUpdateOperationsInput | $Enums.AuthenticationDeliveryOrigin
   status?: Prisma.EnumAuthenticationDeliveryStatusFieldUpdateOperationsInput | $Enums.AuthenticationDeliveryStatus
   recipientSnapshot?: Prisma.StringFieldUpdateOperationsInput | string
   idempotencyKey?: Prisma.StringFieldUpdateOperationsInput | string
+  templateProtocolVersion?: Prisma.IntFieldUpdateOperationsInput | number
+  attemptCount?: Prisma.IntFieldUpdateOperationsInput | number
+  nextAttemptAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  processingLeaseId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  processingLeaseExpiresAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   providerMessageId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  failureCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lastSafeFailureCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   attemptedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   sentAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   retentionExpiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -666,11 +888,17 @@ export type AuthenticationChallengeDeliveryUncheckedUpdateWithoutChallengeInput 
 export type AuthenticationChallengeDeliveryUncheckedUpdateManyWithoutChallengeInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   method?: Prisma.EnumAuthenticationDeliveryMethodFieldUpdateOperationsInput | $Enums.AuthenticationDeliveryMethod
+  origin?: Prisma.EnumAuthenticationDeliveryOriginFieldUpdateOperationsInput | $Enums.AuthenticationDeliveryOrigin
   status?: Prisma.EnumAuthenticationDeliveryStatusFieldUpdateOperationsInput | $Enums.AuthenticationDeliveryStatus
   recipientSnapshot?: Prisma.StringFieldUpdateOperationsInput | string
   idempotencyKey?: Prisma.StringFieldUpdateOperationsInput | string
+  templateProtocolVersion?: Prisma.IntFieldUpdateOperationsInput | number
+  attemptCount?: Prisma.IntFieldUpdateOperationsInput | number
+  nextAttemptAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  processingLeaseId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  processingLeaseExpiresAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   providerMessageId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  failureCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lastSafeFailureCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   attemptedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   sentAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   retentionExpiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -684,11 +912,17 @@ export type AuthenticationChallengeDeliverySelect<ExtArgs extends runtime.Types.
   id?: boolean
   challengeId?: boolean
   method?: boolean
+  origin?: boolean
   status?: boolean
   recipientSnapshot?: boolean
   idempotencyKey?: boolean
+  templateProtocolVersion?: boolean
+  attemptCount?: boolean
+  nextAttemptAt?: boolean
+  processingLeaseId?: boolean
+  processingLeaseExpiresAt?: boolean
   providerMessageId?: boolean
-  failureCode?: boolean
+  lastSafeFailureCode?: boolean
   attemptedAt?: boolean
   sentAt?: boolean
   retentionExpiresAt?: boolean
@@ -701,11 +935,17 @@ export type AuthenticationChallengeDeliverySelectCreateManyAndReturn<ExtArgs ext
   id?: boolean
   challengeId?: boolean
   method?: boolean
+  origin?: boolean
   status?: boolean
   recipientSnapshot?: boolean
   idempotencyKey?: boolean
+  templateProtocolVersion?: boolean
+  attemptCount?: boolean
+  nextAttemptAt?: boolean
+  processingLeaseId?: boolean
+  processingLeaseExpiresAt?: boolean
   providerMessageId?: boolean
-  failureCode?: boolean
+  lastSafeFailureCode?: boolean
   attemptedAt?: boolean
   sentAt?: boolean
   retentionExpiresAt?: boolean
@@ -718,11 +958,17 @@ export type AuthenticationChallengeDeliverySelectUpdateManyAndReturn<ExtArgs ext
   id?: boolean
   challengeId?: boolean
   method?: boolean
+  origin?: boolean
   status?: boolean
   recipientSnapshot?: boolean
   idempotencyKey?: boolean
+  templateProtocolVersion?: boolean
+  attemptCount?: boolean
+  nextAttemptAt?: boolean
+  processingLeaseId?: boolean
+  processingLeaseExpiresAt?: boolean
   providerMessageId?: boolean
-  failureCode?: boolean
+  lastSafeFailureCode?: boolean
   attemptedAt?: boolean
   sentAt?: boolean
   retentionExpiresAt?: boolean
@@ -735,11 +981,17 @@ export type AuthenticationChallengeDeliverySelectScalar = {
   id?: boolean
   challengeId?: boolean
   method?: boolean
+  origin?: boolean
   status?: boolean
   recipientSnapshot?: boolean
   idempotencyKey?: boolean
+  templateProtocolVersion?: boolean
+  attemptCount?: boolean
+  nextAttemptAt?: boolean
+  processingLeaseId?: boolean
+  processingLeaseExpiresAt?: boolean
   providerMessageId?: boolean
-  failureCode?: boolean
+  lastSafeFailureCode?: boolean
   attemptedAt?: boolean
   sentAt?: boolean
   retentionExpiresAt?: boolean
@@ -747,7 +999,7 @@ export type AuthenticationChallengeDeliverySelectScalar = {
   updatedAt?: boolean
 }
 
-export type AuthenticationChallengeDeliveryOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "challengeId" | "method" | "status" | "recipientSnapshot" | "idempotencyKey" | "providerMessageId" | "failureCode" | "attemptedAt" | "sentAt" | "retentionExpiresAt" | "createdAt" | "updatedAt", ExtArgs["result"]["authenticationChallengeDelivery"]>
+export type AuthenticationChallengeDeliveryOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "challengeId" | "method" | "origin" | "status" | "recipientSnapshot" | "idempotencyKey" | "templateProtocolVersion" | "attemptCount" | "nextAttemptAt" | "processingLeaseId" | "processingLeaseExpiresAt" | "providerMessageId" | "lastSafeFailureCode" | "attemptedAt" | "sentAt" | "retentionExpiresAt" | "createdAt" | "updatedAt", ExtArgs["result"]["authenticationChallengeDelivery"]>
 export type AuthenticationChallengeDeliveryInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   challenge?: boolean | Prisma.AuthenticationChallengeDefaultArgs<ExtArgs>
 }
@@ -767,11 +1019,17 @@ export type $AuthenticationChallengeDeliveryPayload<ExtArgs extends runtime.Type
     id: string
     challengeId: string
     method: $Enums.AuthenticationDeliveryMethod
+    origin: $Enums.AuthenticationDeliveryOrigin
     status: $Enums.AuthenticationDeliveryStatus
     recipientSnapshot: string
     idempotencyKey: string
+    templateProtocolVersion: number
+    attemptCount: number
+    nextAttemptAt: Date | null
+    processingLeaseId: string | null
+    processingLeaseExpiresAt: Date | null
     providerMessageId: string | null
-    failureCode: string | null
+    lastSafeFailureCode: string | null
     attemptedAt: Date | null
     sentAt: Date | null
     retentionExpiresAt: Date
@@ -1204,11 +1462,17 @@ export interface AuthenticationChallengeDeliveryFieldRefs {
   readonly id: Prisma.FieldRef<"AuthenticationChallengeDelivery", 'String'>
   readonly challengeId: Prisma.FieldRef<"AuthenticationChallengeDelivery", 'String'>
   readonly method: Prisma.FieldRef<"AuthenticationChallengeDelivery", 'AuthenticationDeliveryMethod'>
+  readonly origin: Prisma.FieldRef<"AuthenticationChallengeDelivery", 'AuthenticationDeliveryOrigin'>
   readonly status: Prisma.FieldRef<"AuthenticationChallengeDelivery", 'AuthenticationDeliveryStatus'>
   readonly recipientSnapshot: Prisma.FieldRef<"AuthenticationChallengeDelivery", 'String'>
   readonly idempotencyKey: Prisma.FieldRef<"AuthenticationChallengeDelivery", 'String'>
+  readonly templateProtocolVersion: Prisma.FieldRef<"AuthenticationChallengeDelivery", 'Int'>
+  readonly attemptCount: Prisma.FieldRef<"AuthenticationChallengeDelivery", 'Int'>
+  readonly nextAttemptAt: Prisma.FieldRef<"AuthenticationChallengeDelivery", 'DateTime'>
+  readonly processingLeaseId: Prisma.FieldRef<"AuthenticationChallengeDelivery", 'String'>
+  readonly processingLeaseExpiresAt: Prisma.FieldRef<"AuthenticationChallengeDelivery", 'DateTime'>
   readonly providerMessageId: Prisma.FieldRef<"AuthenticationChallengeDelivery", 'String'>
-  readonly failureCode: Prisma.FieldRef<"AuthenticationChallengeDelivery", 'String'>
+  readonly lastSafeFailureCode: Prisma.FieldRef<"AuthenticationChallengeDelivery", 'String'>
   readonly attemptedAt: Prisma.FieldRef<"AuthenticationChallengeDelivery", 'DateTime'>
   readonly sentAt: Prisma.FieldRef<"AuthenticationChallengeDelivery", 'DateTime'>
   readonly retentionExpiresAt: Prisma.FieldRef<"AuthenticationChallengeDelivery", 'DateTime'>

@@ -8,6 +8,7 @@ import { AuthenticationChallengeProofFactoryService } from '../src/auth/challeng
 import {
   AuthenticationChallengePurpose,
   AuthenticationDeliveryMethod,
+  AuthenticationDeliveryOrigin,
   AuthenticationIdentityType,
 } from '../src/generated/prisma/enums';
 import {
@@ -90,6 +91,8 @@ describe('Authentication challenge cleanup (e2e)', () => {
           ? {
               create: {
                 method: AuthenticationDeliveryMethod.EMAIL,
+                origin: AuthenticationDeliveryOrigin.INITIAL,
+                templateProtocolVersion: 1,
                 recipientSnapshot: normalizedIdentity,
                 idempotencyKey: randomUUID(),
                 retentionExpiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),

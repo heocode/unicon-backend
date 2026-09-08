@@ -163,6 +163,78 @@ export function validateEnvironment(
       100,
     );
 
+  const deliveryMaxProcessingAttempts = parsePositiveInteger(
+    environment.AUTH_DELIVERY_MAX_PROCESSING_ATTEMPTS,
+    'AUTH_DELIVERY_MAX_PROCESSING_ATTEMPTS',
+  );
+  const deliveryRetryBackoffSeconds = parsePositiveIntegerSequence(
+    environment.AUTH_DELIVERY_RETRY_BACKOFF_SECONDS,
+    'AUTH_DELIVERY_RETRY_BACKOFF_SECONDS',
+  );
+
+  if (
+    deliveryRetryBackoffSeconds.length !==
+    deliveryMaxProcessingAttempts - 1
+  ) {
+    throw new Error(
+      'Environment variable AUTH_DELIVERY_RETRY_BACKOFF_SECONDS must contain exactly one delay for each retryable processing attempt.',
+    );
+  }
+
+  const deliveryHttpTimeoutSeconds = parsePositiveInteger(
+    environment.AUTH_DELIVERY_HTTP_TIMEOUT_SECONDS,
+    'AUTH_DELIVERY_HTTP_TIMEOUT_SECONDS',
+  );
+  const deliveryProcessingLeaseSeconds = parsePositiveInteger(
+    environment.AUTH_DELIVERY_PROCESSING_LEASE_SECONDS,
+    'AUTH_DELIVERY_PROCESSING_LEASE_SECONDS',
+  );
+  const deliveryMinValidityRemainingSeconds = parsePositiveInteger(
+    environment.AUTH_DELIVERY_MIN_VALIDITY_REMAINING_SECONDS,
+    'AUTH_DELIVERY_MIN_VALIDITY_REMAINING_SECONDS',
+  );
+  const deliveryProviderIdempotencyWindowSeconds = parsePositiveInteger(
+    environment.AUTH_DELIVERY_PROVIDER_IDEMPOTENCY_WINDOW_SECONDS,
+    'AUTH_DELIVERY_PROVIDER_IDEMPOTENCY_WINDOW_SECONDS',
+  );
+
+  if (deliveryProcessingLeaseSeconds <= deliveryHttpTimeoutSeconds) {
+    throw new Error(
+      'Environment variable AUTH_DELIVERY_PROCESSING_LEASE_SECONDS must be greater than AUTH_DELIVERY_HTTP_TIMEOUT_SECONDS.',
+    );
+  }
+
+  if (deliveryMinValidityRemainingSeconds >= challengeTtlSeconds) {
+    throw new Error(
+      'Environment variable AUTH_DELIVERY_MIN_VALIDITY_REMAINING_SECONDS must be less than AUTH_CHALLENGE_TTL_SECONDS.',
+    );
+  }
+
+  if (deliveryProviderIdempotencyWindowSeconds < challengeTtlSeconds) {
+    throw new Error(
+      'Environment variable AUTH_DELIVERY_PROVIDER_IDEMPOTENCY_WINDOW_SECONDS must be greater than or equal to AUTH_CHALLENGE_TTL_SECONDS.',
+    );
+  }
+
+  validatedEnvironment.AUTH_DELIVERY_MAX_PROCESSING_ATTEMPTS =
+    deliveryMaxProcessingAttempts;
+  validatedEnvironment.AUTH_DELIVERY_RETRY_BACKOFF_SECONDS =
+    deliveryRetryBackoffSeconds;
+  validatedEnvironment.AUTH_DELIVERY_RETRY_JITTER_PERCENT =
+    parsePositiveIntegerAtMost(
+      environment.AUTH_DELIVERY_RETRY_JITTER_PERCENT,
+      'AUTH_DELIVERY_RETRY_JITTER_PERCENT',
+      99,
+    );
+  validatedEnvironment.AUTH_DELIVERY_HTTP_TIMEOUT_SECONDS =
+    deliveryHttpTimeoutSeconds;
+  validatedEnvironment.AUTH_DELIVERY_PROCESSING_LEASE_SECONDS =
+    deliveryProcessingLeaseSeconds;
+  validatedEnvironment.AUTH_DELIVERY_MIN_VALIDITY_REMAINING_SECONDS =
+    deliveryMinValidityRemainingSeconds;
+  validatedEnvironment.AUTH_DELIVERY_PROVIDER_IDEMPOTENCY_WINDOW_SECONDS =
+    deliveryProviderIdempotencyWindowSeconds;
+
   validatedEnvironment.AUTH_CHALLENGE_HMAC_ACTIVE_KEY_VERSION =
     parsePositiveInteger(
       environment.AUTH_CHALLENGE_HMAC_ACTIVE_KEY_VERSION,
@@ -338,4 +410,25 @@ function parsePositiveIntegerAtMost(
   }
 
   return parsedValue;
+}
+
+function parsePositiveIntegerSequence(value: unknown, key: string): number[] {
+  if (typeof value !== 'string' || value.trim().length === 0) {
+    throw new Error(
+      `Environment variable ${key} must be a comma-separated sequence of positive integers.`,
+    );
+  }
+
+  const sequence = value.split(',').map((part) => Number(part.trim()));
+
+  if (
+    sequence.some((entry) => !Number.isInteger(entry) || entry <= 0) ||
+    sequence.some((entry, index) => index > 0 && entry <= sequence[index - 1])
+  ) {
+    throw new Error(
+      `Environment variable ${key} must be a strictly increasing comma-separated sequence of positive integers.`,
+    );
+  }
+
+  return sequence;
 }

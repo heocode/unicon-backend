@@ -284,11 +284,30 @@ export type EnumAuthenticationDeliveryMethodFilter<$PrismaModel = never> = {
   not?: Prisma.NestedEnumAuthenticationDeliveryMethodFilter<$PrismaModel> | $Enums.AuthenticationDeliveryMethod
 }
 
+export type EnumAuthenticationDeliveryOriginFilter<$PrismaModel = never> = {
+  equals?: $Enums.AuthenticationDeliveryOrigin | Prisma.EnumAuthenticationDeliveryOriginFieldRefInput<$PrismaModel>
+  in?: $Enums.AuthenticationDeliveryOrigin[] | Prisma.ListEnumAuthenticationDeliveryOriginFieldRefInput<$PrismaModel>
+  notIn?: $Enums.AuthenticationDeliveryOrigin[] | Prisma.ListEnumAuthenticationDeliveryOriginFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumAuthenticationDeliveryOriginFilter<$PrismaModel> | $Enums.AuthenticationDeliveryOrigin
+}
+
 export type EnumAuthenticationDeliveryStatusFilter<$PrismaModel = never> = {
   equals?: $Enums.AuthenticationDeliveryStatus | Prisma.EnumAuthenticationDeliveryStatusFieldRefInput<$PrismaModel>
   in?: $Enums.AuthenticationDeliveryStatus[] | Prisma.ListEnumAuthenticationDeliveryStatusFieldRefInput<$PrismaModel>
   notIn?: $Enums.AuthenticationDeliveryStatus[] | Prisma.ListEnumAuthenticationDeliveryStatusFieldRefInput<$PrismaModel>
   not?: Prisma.NestedEnumAuthenticationDeliveryStatusFilter<$PrismaModel> | $Enums.AuthenticationDeliveryStatus
+}
+
+export type UuidNullableFilter<$PrismaModel = never> = {
+  equals?: string | Prisma.StringFieldRefInput<$PrismaModel> | null
+  in?: string[] | Prisma.ListStringFieldRefInput<$PrismaModel> | null
+  notIn?: string[] | Prisma.ListStringFieldRefInput<$PrismaModel> | null
+  lt?: string | Prisma.StringFieldRefInput<$PrismaModel>
+  lte?: string | Prisma.StringFieldRefInput<$PrismaModel>
+  gt?: string | Prisma.StringFieldRefInput<$PrismaModel>
+  gte?: string | Prisma.StringFieldRefInput<$PrismaModel>
+  mode?: Prisma.QueryMode
+  not?: Prisma.NestedUuidNullableFilter<$PrismaModel> | string | null
 }
 
 export type EnumAuthenticationDeliveryMethodWithAggregatesFilter<$PrismaModel = never> = {
@@ -301,6 +320,16 @@ export type EnumAuthenticationDeliveryMethodWithAggregatesFilter<$PrismaModel = 
   _max?: Prisma.NestedEnumAuthenticationDeliveryMethodFilter<$PrismaModel>
 }
 
+export type EnumAuthenticationDeliveryOriginWithAggregatesFilter<$PrismaModel = never> = {
+  equals?: $Enums.AuthenticationDeliveryOrigin | Prisma.EnumAuthenticationDeliveryOriginFieldRefInput<$PrismaModel>
+  in?: $Enums.AuthenticationDeliveryOrigin[] | Prisma.ListEnumAuthenticationDeliveryOriginFieldRefInput<$PrismaModel>
+  notIn?: $Enums.AuthenticationDeliveryOrigin[] | Prisma.ListEnumAuthenticationDeliveryOriginFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumAuthenticationDeliveryOriginWithAggregatesFilter<$PrismaModel> | $Enums.AuthenticationDeliveryOrigin
+  _count?: Prisma.NestedIntFilter<$PrismaModel>
+  _min?: Prisma.NestedEnumAuthenticationDeliveryOriginFilter<$PrismaModel>
+  _max?: Prisma.NestedEnumAuthenticationDeliveryOriginFilter<$PrismaModel>
+}
+
 export type EnumAuthenticationDeliveryStatusWithAggregatesFilter<$PrismaModel = never> = {
   equals?: $Enums.AuthenticationDeliveryStatus | Prisma.EnumAuthenticationDeliveryStatusFieldRefInput<$PrismaModel>
   in?: $Enums.AuthenticationDeliveryStatus[] | Prisma.ListEnumAuthenticationDeliveryStatusFieldRefInput<$PrismaModel>
@@ -309,6 +338,21 @@ export type EnumAuthenticationDeliveryStatusWithAggregatesFilter<$PrismaModel = 
   _count?: Prisma.NestedIntFilter<$PrismaModel>
   _min?: Prisma.NestedEnumAuthenticationDeliveryStatusFilter<$PrismaModel>
   _max?: Prisma.NestedEnumAuthenticationDeliveryStatusFilter<$PrismaModel>
+}
+
+export type UuidNullableWithAggregatesFilter<$PrismaModel = never> = {
+  equals?: string | Prisma.StringFieldRefInput<$PrismaModel> | null
+  in?: string[] | Prisma.ListStringFieldRefInput<$PrismaModel> | null
+  notIn?: string[] | Prisma.ListStringFieldRefInput<$PrismaModel> | null
+  lt?: string | Prisma.StringFieldRefInput<$PrismaModel>
+  lte?: string | Prisma.StringFieldRefInput<$PrismaModel>
+  gt?: string | Prisma.StringFieldRefInput<$PrismaModel>
+  gte?: string | Prisma.StringFieldRefInput<$PrismaModel>
+  mode?: Prisma.QueryMode
+  not?: Prisma.NestedUuidNullableWithAggregatesFilter<$PrismaModel> | string | null
+  _count?: Prisma.NestedIntNullableFilter<$PrismaModel>
+  _min?: Prisma.NestedStringNullableFilter<$PrismaModel>
+  _max?: Prisma.NestedStringNullableFilter<$PrismaModel>
 }
 
 export type EnumSessionPlatformFilter<$PrismaModel = never> = {
@@ -774,11 +818,29 @@ export type NestedEnumAuthenticationDeliveryMethodFilter<$PrismaModel = never> =
   not?: Prisma.NestedEnumAuthenticationDeliveryMethodFilter<$PrismaModel> | $Enums.AuthenticationDeliveryMethod
 }
 
+export type NestedEnumAuthenticationDeliveryOriginFilter<$PrismaModel = never> = {
+  equals?: $Enums.AuthenticationDeliveryOrigin | Prisma.EnumAuthenticationDeliveryOriginFieldRefInput<$PrismaModel>
+  in?: $Enums.AuthenticationDeliveryOrigin[] | Prisma.ListEnumAuthenticationDeliveryOriginFieldRefInput<$PrismaModel>
+  notIn?: $Enums.AuthenticationDeliveryOrigin[] | Prisma.ListEnumAuthenticationDeliveryOriginFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumAuthenticationDeliveryOriginFilter<$PrismaModel> | $Enums.AuthenticationDeliveryOrigin
+}
+
 export type NestedEnumAuthenticationDeliveryStatusFilter<$PrismaModel = never> = {
   equals?: $Enums.AuthenticationDeliveryStatus | Prisma.EnumAuthenticationDeliveryStatusFieldRefInput<$PrismaModel>
   in?: $Enums.AuthenticationDeliveryStatus[] | Prisma.ListEnumAuthenticationDeliveryStatusFieldRefInput<$PrismaModel>
   notIn?: $Enums.AuthenticationDeliveryStatus[] | Prisma.ListEnumAuthenticationDeliveryStatusFieldRefInput<$PrismaModel>
   not?: Prisma.NestedEnumAuthenticationDeliveryStatusFilter<$PrismaModel> | $Enums.AuthenticationDeliveryStatus
+}
+
+export type NestedUuidNullableFilter<$PrismaModel = never> = {
+  equals?: string | Prisma.StringFieldRefInput<$PrismaModel> | null
+  in?: string[] | Prisma.ListStringFieldRefInput<$PrismaModel> | null
+  notIn?: string[] | Prisma.ListStringFieldRefInput<$PrismaModel> | null
+  lt?: string | Prisma.StringFieldRefInput<$PrismaModel>
+  lte?: string | Prisma.StringFieldRefInput<$PrismaModel>
+  gt?: string | Prisma.StringFieldRefInput<$PrismaModel>
+  gte?: string | Prisma.StringFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedUuidNullableFilter<$PrismaModel> | string | null
 }
 
 export type NestedEnumAuthenticationDeliveryMethodWithAggregatesFilter<$PrismaModel = never> = {
@@ -791,6 +853,16 @@ export type NestedEnumAuthenticationDeliveryMethodWithAggregatesFilter<$PrismaMo
   _max?: Prisma.NestedEnumAuthenticationDeliveryMethodFilter<$PrismaModel>
 }
 
+export type NestedEnumAuthenticationDeliveryOriginWithAggregatesFilter<$PrismaModel = never> = {
+  equals?: $Enums.AuthenticationDeliveryOrigin | Prisma.EnumAuthenticationDeliveryOriginFieldRefInput<$PrismaModel>
+  in?: $Enums.AuthenticationDeliveryOrigin[] | Prisma.ListEnumAuthenticationDeliveryOriginFieldRefInput<$PrismaModel>
+  notIn?: $Enums.AuthenticationDeliveryOrigin[] | Prisma.ListEnumAuthenticationDeliveryOriginFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumAuthenticationDeliveryOriginWithAggregatesFilter<$PrismaModel> | $Enums.AuthenticationDeliveryOrigin
+  _count?: Prisma.NestedIntFilter<$PrismaModel>
+  _min?: Prisma.NestedEnumAuthenticationDeliveryOriginFilter<$PrismaModel>
+  _max?: Prisma.NestedEnumAuthenticationDeliveryOriginFilter<$PrismaModel>
+}
+
 export type NestedEnumAuthenticationDeliveryStatusWithAggregatesFilter<$PrismaModel = never> = {
   equals?: $Enums.AuthenticationDeliveryStatus | Prisma.EnumAuthenticationDeliveryStatusFieldRefInput<$PrismaModel>
   in?: $Enums.AuthenticationDeliveryStatus[] | Prisma.ListEnumAuthenticationDeliveryStatusFieldRefInput<$PrismaModel>
@@ -799,6 +871,20 @@ export type NestedEnumAuthenticationDeliveryStatusWithAggregatesFilter<$PrismaMo
   _count?: Prisma.NestedIntFilter<$PrismaModel>
   _min?: Prisma.NestedEnumAuthenticationDeliveryStatusFilter<$PrismaModel>
   _max?: Prisma.NestedEnumAuthenticationDeliveryStatusFilter<$PrismaModel>
+}
+
+export type NestedUuidNullableWithAggregatesFilter<$PrismaModel = never> = {
+  equals?: string | Prisma.StringFieldRefInput<$PrismaModel> | null
+  in?: string[] | Prisma.ListStringFieldRefInput<$PrismaModel> | null
+  notIn?: string[] | Prisma.ListStringFieldRefInput<$PrismaModel> | null
+  lt?: string | Prisma.StringFieldRefInput<$PrismaModel>
+  lte?: string | Prisma.StringFieldRefInput<$PrismaModel>
+  gt?: string | Prisma.StringFieldRefInput<$PrismaModel>
+  gte?: string | Prisma.StringFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedUuidNullableWithAggregatesFilter<$PrismaModel> | string | null
+  _count?: Prisma.NestedIntNullableFilter<$PrismaModel>
+  _min?: Prisma.NestedStringNullableFilter<$PrismaModel>
+  _max?: Prisma.NestedStringNullableFilter<$PrismaModel>
 }
 
 export type NestedEnumSessionPlatformFilter<$PrismaModel = never> = {

@@ -36,6 +36,13 @@ const validEnvironment = {
   AUTH_CHALLENGE_CLEANUP_INTERVAL_SECONDS: '60',
   AUTH_CHALLENGE_CLEANUP_BATCH_SIZE: '100',
   AUTH_CHALLENGE_CLEANUP_MAX_BATCHES_PER_RUN: '10',
+  AUTH_DELIVERY_MAX_PROCESSING_ATTEMPTS: '5',
+  AUTH_DELIVERY_RETRY_BACKOFF_SECONDS: '5,15,30,60',
+  AUTH_DELIVERY_RETRY_JITTER_PERCENT: '20',
+  AUTH_DELIVERY_HTTP_TIMEOUT_SECONDS: '10',
+  AUTH_DELIVERY_PROCESSING_LEASE_SECONDS: '45',
+  AUTH_DELIVERY_MIN_VALIDITY_REMAINING_SECONDS: '120',
+  AUTH_DELIVERY_PROVIDER_IDEMPOTENCY_WINDOW_SECONDS: '86400',
   AUTH_CHALLENGE_HMAC_ACTIVE_KEY_VERSION: '1',
   AUTH_CHALLENGE_HMAC_KEYS: `1:${hmacKey}`,
   AUTH_CHALLENGE_ENCRYPTION_ACTIVE_KEY_VERSION: '1',
@@ -180,6 +187,49 @@ describe('validateEnvironment', () => {
       }),
     ).toThrow(
       'Environment variable AUTH_CHALLENGE_RETENTION_SECONDS must be greater than or equal to AUTH_CHALLENGE_TTL_SECONDS.',
+    );
+  });
+
+  it('parses the authentication delivery retry policy', () => {
+    const environment = validateEnvironment(validEnvironment);
+
+    expect(environment.AUTH_DELIVERY_RETRY_BACKOFF_SECONDS).toEqual([
+      5, 15, 30, 60,
+    ]);
+  });
+
+  it.each([
+    ['5,15,30', 'the wrong number of delays'],
+    ['5,15,15,60', 'a non-increasing delay'],
+    ['5,invalid,30,60', 'a non-integer delay'],
+  ])('rejects delivery backoff with %s', (value) => {
+    expect(() =>
+      validateEnvironment({
+        ...validEnvironment,
+        AUTH_DELIVERY_RETRY_BACKOFF_SECONDS: value,
+      }),
+    ).toThrow('Environment variable AUTH_DELIVERY_RETRY_BACKOFF_SECONDS');
+  });
+
+  it('rejects a processing lease that does not exceed the HTTP timeout', () => {
+    expect(() =>
+      validateEnvironment({
+        ...validEnvironment,
+        AUTH_DELIVERY_PROCESSING_LEASE_SECONDS: '10',
+      }),
+    ).toThrow(
+      'Environment variable AUTH_DELIVERY_PROCESSING_LEASE_SECONDS must be greater than AUTH_DELIVERY_HTTP_TIMEOUT_SECONDS.',
+    );
+  });
+
+  it('rejects a delivery validity floor at least as long as the challenge TTL', () => {
+    expect(() =>
+      validateEnvironment({
+        ...validEnvironment,
+        AUTH_DELIVERY_MIN_VALIDITY_REMAINING_SECONDS: '600',
+      }),
+    ).toThrow(
+      'Environment variable AUTH_DELIVERY_MIN_VALIDITY_REMAINING_SECONDS must be less than AUTH_CHALLENGE_TTL_SECONDS.',
     );
   });
 

@@ -39,6 +39,7 @@ import { AuthenticationChallengeVerificationService } from './challenge/services
 import { AuthenticationChallengeCleanupRepository } from './challenge/repositories/authentication-challenge-cleanup.repository';
 import { AuthenticationChallengeCleanupService } from './challenge/services/authentication-challenge-cleanup.service';
 import { AuthenticationChallengeCleanupSchedulerService } from './challenge/services/authentication-challenge-cleanup-scheduler.service';
+import { AuthenticationDeliveryPolicyService } from './delivery/services/authentication-delivery-policy.service';
 
 @Module({
   imports: [
@@ -74,6 +75,7 @@ import { AuthenticationChallengeCleanupSchedulerService } from './challenge/serv
     AuthenticationChallengeCleanupRepository,
     AuthenticationChallengeCleanupService,
     AuthenticationChallengeCleanupSchedulerService,
+    AuthenticationDeliveryPolicyService,
     RefreshTokenGuard,
   ],
   exports: [AuthService, SessionCreationService],

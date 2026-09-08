@@ -69,10 +69,20 @@ export const AuthenticationDeliveryMethod = {
 export type AuthenticationDeliveryMethod = (typeof AuthenticationDeliveryMethod)[keyof typeof AuthenticationDeliveryMethod]
 
 
+export const AuthenticationDeliveryOrigin = {
+  INITIAL: 'INITIAL',
+  RESEND: 'RESEND'
+} as const
+
+export type AuthenticationDeliveryOrigin = (typeof AuthenticationDeliveryOrigin)[keyof typeof AuthenticationDeliveryOrigin]
+
+
 export const AuthenticationDeliveryStatus = {
   PENDING: 'PENDING',
+  PROCESSING: 'PROCESSING',
   SENT: 'SENT',
-  FAILED: 'FAILED'
+  FAILED: 'FAILED',
+  CANCELLED: 'CANCELLED'
 } as const
 
 export type AuthenticationDeliveryStatus = (typeof AuthenticationDeliveryStatus)[keyof typeof AuthenticationDeliveryStatus]

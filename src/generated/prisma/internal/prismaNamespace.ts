@@ -1518,11 +1518,17 @@ export const AuthenticationChallengeDeliveryScalarFieldEnum = {
   id: 'id',
   challengeId: 'challengeId',
   method: 'method',
+  origin: 'origin',
   status: 'status',
   recipientSnapshot: 'recipientSnapshot',
   idempotencyKey: 'idempotencyKey',
+  templateProtocolVersion: 'templateProtocolVersion',
+  attemptCount: 'attemptCount',
+  nextAttemptAt: 'nextAttemptAt',
+  processingLeaseId: 'processingLeaseId',
+  processingLeaseExpiresAt: 'processingLeaseExpiresAt',
   providerMessageId: 'providerMessageId',
-  failureCode: 'failureCode',
+  lastSafeFailureCode: 'lastSafeFailureCode',
   attemptedAt: 'attemptedAt',
   sentAt: 'sentAt',
   retentionExpiresAt: 'retentionExpiresAt',
@@ -1798,6 +1804,20 @@ export type EnumAuthenticationDeliveryMethodFieldRefInput<$PrismaModel> = FieldR
  * Reference to a field of type 'AuthenticationDeliveryMethod[]'
  */
 export type ListEnumAuthenticationDeliveryMethodFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'AuthenticationDeliveryMethod[]'>
+    
+
+
+/**
+ * Reference to a field of type 'AuthenticationDeliveryOrigin'
+ */
+export type EnumAuthenticationDeliveryOriginFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'AuthenticationDeliveryOrigin'>
+    
+
+
+/**
+ * Reference to a field of type 'AuthenticationDeliveryOrigin[]'
+ */
+export type ListEnumAuthenticationDeliveryOriginFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'AuthenticationDeliveryOrigin[]'>
     
 
 
