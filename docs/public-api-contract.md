@@ -130,9 +130,11 @@ failed attempts, consumption, or lock state.
 
 The new Delivery has `RESEND` origin, a new delivery ID, and a new provider
 idempotency key. Creation atomically supersedes prior non-terminal Deliveries
-for the challenge. A provider request already in flight may still complete, so
-the user may rarely receive two messages; both contain the same proof and fixed
-expiration. This race does not rotate credentials or weaken verification.
+for the challenge and revokes ownership of an old processing worker. That
+worker can no longer finalize or mutate its Delivery. Supersession does not
+physically cancel an already-submitted provider request, so the user may rarely
+receive two messages; both contain the same proof and fixed expiration. This
+race does not rotate credentials or weaken verification.
 
 `SIGN_IN` resend is public and protected by identity/IP/challenge limits.
 `STEP_UP` resend additionally requires the same active access session to which

@@ -360,6 +360,20 @@ MIN_DELIVERY_VALIDITY_REMAINING = 120 seconds
 RESEND_IDEMPOTENCY_WINDOW = 24 hours
 ```
 
+Because `attemptCount` is incremented by claim, retry selection uses this exact
+mapping rather than direct array indexing:
+
+```text
+after processing attemptCount = 1 → retry delay 5 seconds
+after processing attemptCount = 2 → retry delay 15 seconds
+after processing attemptCount = 3 → retry delay 30 seconds
+after processing attemptCount = 4 → retry delay 60 seconds
+after processing attemptCount = 5 → no retry; budget exhausted
+```
+
+This mapping is an explicit protocol rule and requires an exact unit test to
+prevent an off-by-one error.
+
 Jitter applies only to policy backoff, never to the immediate attempt. It is
 computed once while scheduling a retry, uses an injectable random source for
 deterministic tests, and is persisted through `nextAttemptAt`; a later claim
@@ -418,10 +432,15 @@ Delivery. It must recheck delivery ownership and challenge eligibility
 immediately before provider submission, without holding a database lock during
 the network call.
 
-Submission may already be in flight when resend supersedes a processing
-Delivery, so physical cancellation is not guaranteed. The provider may accept
-both the old and new email. Both contain the same challenge proof and fixed
-expiration, making this an accepted UX race rather than a security issue.
+Superseding a processing Delivery guarantees database ownership semantics, not
+cancellation of an external side effect. The transition may set the old row to
+`CANCELLED / SUPERSEDED_BY_RESEND` and revoke its current lease, after which
+the stale worker cannot call `markSent`, `scheduleRetry`, `markFailed`, or
+otherwise mutate that Delivery. A provider request that was already submitted
+cannot necessarily be physically cancelled and may still deliver the old
+email. The provider may therefore accept both the old and new message. Both
+contain the same challenge proof and fixed expiration, making this rare
+duplicate an accepted UX race rather than a security issue.
 
 ### Stage 3 decision log
 

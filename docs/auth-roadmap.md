@@ -254,6 +254,19 @@ MIN_DELIVERY_VALIDITY_REMAINING = 120s
 RESEND_IDEMPOTENCY_WINDOW = 24h
 ```
 
+Because claim increments `attemptCount`, backoff uses an explicit mapping:
+
+```text
+attemptCount 1 after processing → 5s retry delay
+attemptCount 2 after processing → 15s retry delay
+attemptCount 3 after processing → 30s retry delay
+attemptCount 4 after processing → 60s retry delay
+attemptCount 5 after processing → no retry; budget exhausted
+```
+
+The policy service must cover this exact mapping with a unit test and must not
+rely on implicit array indexing.
+
 Jitter is computed once at retry scheduling with injectable randomness, stored
 in `nextAttemptAt`, and never recomputed by claim. Effective retry time is the
 later of jittered policy backoff and provider `Retry-After`; provider delay is
@@ -266,7 +279,9 @@ idempotency window.
 Manual resend preserves the challenge, proof, expiration, and attempt state,
 creates a new `RESEND` Delivery and idempotency key, and atomically cancels
 prior non-terminal Deliveries as `SUPERSEDED_BY_RESEND`. A superseded worker
-loses mutation ownership. An already in-flight provider request may still
+loses mutation ownership and cannot mark sent, schedule retry, mark failed, or
+perform another Delivery mutation. This guarantees database ownership, not
+physical cancellation: an already-submitted provider request may still
 complete, so two messages containing the same proof are an accepted UX race.
 
 Email requirements:
