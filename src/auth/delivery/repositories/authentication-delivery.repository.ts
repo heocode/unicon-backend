@@ -1,0 +1,422 @@
+import { randomUUID } from 'crypto';
+
+// NestJS
+import { Injectable } from '@nestjs/common';
+
+// Prisma
+import { Prisma } from '../../../generated/prisma/client';
+import {
+  AuthenticationDeliveryMethod,
+  AuthenticationDeliveryOrigin,
+  AuthenticationDeliveryStatus,
+} from '../../../generated/prisma/enums';
+import { PrismaService } from '../../../prisma/prisma.service';
+
+// Internal services
+import { AuthenticationDeliveryPolicyService } from '../services/authentication-delivery-policy.service';
+
+// Internal types
+import {
+  AUTHENTICATION_DELIVERY_PROCESSING_ATTEMPTS_EXHAUSTED,
+  AuthenticationDeliveryCancellationReason,
+  AuthenticationDeliveryClaimKind,
+  AuthenticationDeliveryTransitionOutcome,
+  type ClaimedAuthenticationDelivery,
+  type CreatedAuthenticationDelivery,
+  type CreateInitialAuthenticationDeliveryInput,
+  type CreateResendAuthenticationDeliveryInput,
+  type CreateResendAuthenticationDeliveryResult,
+} from '../types/authentication-delivery.type';
+
+type OperationTimestampRow = {
+  operationNow: Date;
+};
+
+type ResendChallengeRow = {
+  id: string;
+  normalizedIdentity: string;
+  expiresAt: Date;
+  failedAttemptCount: number;
+  maxAttempts: number;
+  consumedAt: Date | null;
+  lockedAt: Date | null;
+  encryptedProof: Uint8Array | null;
+  proofEncryptionIv: Uint8Array | null;
+  proofEncryptionTag: Uint8Array | null;
+};
+
+type ClaimedDeliveryRow = Omit<
+  ClaimedAuthenticationDelivery,
+  'leaseId' | 'leaseExpiresAt' | 'claimKind'
+> & {
+  processingLeaseId: string;
+  processingLeaseExpiresAt: Date;
+  claimKind: AuthenticationDeliveryClaimKind;
+};
+
+@Injectable()
+export class AuthenticationDeliveryRepository {
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly policy: AuthenticationDeliveryPolicyService,
+  ) {}
+
+  async createInitialDelivery(
+    transaction: Prisma.TransactionClient,
+    input: CreateInitialAuthenticationDeliveryInput,
+  ): Promise<CreatedAuthenticationDelivery> {
+    return this.createDelivery(
+      transaction,
+      input,
+      AuthenticationDeliveryOrigin.INITIAL,
+    );
+  }
+
+  createResendDelivery(
+    input: CreateResendAuthenticationDeliveryInput,
+  ): Promise<CreateResendAuthenticationDeliveryResult> {
+    return this.prisma.$transaction(async (transaction) => {
+      const operationNow = await this.getOperationTimestamp(transaction);
+      const challenge = await this.lockChallengeForResend(
+        transaction,
+        input.challengeId,
+      );
+
+      if (!this.isChallengeAvailableForResend(challenge, operationNow)) {
+        return { outcome: 'CHALLENGE_UNAVAILABLE' };
+      }
+
+      const superseded =
+        await transaction.authenticationChallengeDelivery.updateMany({
+          where: {
+            challengeId: input.challengeId,
+            status: {
+              in: [
+                AuthenticationDeliveryStatus.PENDING,
+                AuthenticationDeliveryStatus.PROCESSING,
+              ],
+            },
+          },
+          data: {
+            status: AuthenticationDeliveryStatus.CANCELLED,
+            lastSafeFailureCode:
+              AuthenticationDeliveryCancellationReason.SUPERSEDED_BY_RESEND,
+            nextAttemptAt: null,
+            processingLeaseId: null,
+            processingLeaseExpiresAt: null,
+            updatedAt: operationNow,
+          },
+        });
+      const delivery = await this.createDelivery(
+        transaction,
+        {
+          ...input,
+          recipientSnapshot: challenge.normalizedIdentity,
+        },
+        AuthenticationDeliveryOrigin.RESEND,
+      );
+
+      return {
+        outcome: 'CREATED',
+        delivery,
+        supersededDeliveryCount: superseded.count,
+      };
+    });
+  }
+
+  claimNextDelivery(): Promise<ClaimedAuthenticationDelivery | null> {
+    return this.prisma.$transaction(async (transaction) => {
+      const operationNow = await this.getOperationTimestamp(transaction);
+      const leaseId = randomUUID();
+      const leaseExpiresAt = new Date(
+        operationNow.getTime() + this.policy.processingLeaseSeconds * 1_000,
+      );
+      const rows = await transaction.$queryRaw<ClaimedDeliveryRow[]>(Prisma.sql`
+        WITH "candidate" AS (
+          SELECT
+            "delivery"."id",
+            "delivery"."status" AS "previousStatus"
+          FROM "AuthenticationChallengeDelivery" AS "delivery"
+          INNER JOIN "AuthenticationChallenge" AS "challenge"
+            ON "challenge"."id" = "delivery"."challengeId"
+          WHERE
+            (
+              (
+                "delivery"."status" = 'PENDING'
+                AND (
+                  "delivery"."nextAttemptAt" IS NULL
+                  OR "delivery"."nextAttemptAt" <= ${operationNow}
+                )
+              )
+              OR
+              (
+                "delivery"."status" = 'PROCESSING'
+                AND "delivery"."processingLeaseExpiresAt" <= ${operationNow}
+              )
+            )
+            AND "delivery"."attemptCount" < ${this.policy.maxProcessingAttempts}
+            AND "challenge"."consumedAt" IS NULL
+            AND "challenge"."lockedAt" IS NULL
+            AND "challenge"."expiresAt" > ${operationNow}
+            AND "challenge"."failedAttemptCount" < "challenge"."maxAttempts"
+            AND "challenge"."encryptedProof" IS NOT NULL
+            AND "challenge"."proofEncryptionIv" IS NOT NULL
+            AND "challenge"."proofEncryptionTag" IS NOT NULL
+          ORDER BY
+            COALESCE("delivery"."nextAttemptAt", "delivery"."createdAt") ASC,
+            "delivery"."id" ASC
+          FOR UPDATE OF "delivery" SKIP LOCKED
+          LIMIT 1
+        )
+        UPDATE "AuthenticationChallengeDelivery" AS "delivery"
+        SET
+          "status" = 'PROCESSING',
+          "attemptCount" = "delivery"."attemptCount" + 1,
+          "nextAttemptAt" = NULL,
+          "processingLeaseId" = ${leaseId}::uuid,
+          "processingLeaseExpiresAt" = ${leaseExpiresAt},
+          "attemptedAt" = ${operationNow},
+          "updatedAt" = ${operationNow}
+        FROM "candidate"
+        WHERE "delivery"."id" = "candidate"."id"
+        RETURNING
+          "delivery"."id",
+          "delivery"."challengeId",
+          "delivery"."method",
+          "delivery"."origin",
+          "delivery"."recipientSnapshot",
+          "delivery"."idempotencyKey",
+          "delivery"."templateProtocolVersion",
+          "delivery"."attemptCount",
+          "delivery"."processingLeaseId",
+          "delivery"."processingLeaseExpiresAt",
+          CASE
+            WHEN "candidate"."previousStatus" = 'PROCESSING'
+              THEN 'EXPIRED_LEASE_RECLAIM'
+            ELSE 'NORMAL'
+          END AS "claimKind"
+      `);
+      const claimed = rows[0];
+
+      if (!claimed) {
+        return null;
+      }
+
+      return {
+        id: claimed.id,
+        challengeId: claimed.challengeId,
+        method: claimed.method,
+        origin: claimed.origin,
+        recipientSnapshot: claimed.recipientSnapshot,
+        idempotencyKey: claimed.idempotencyKey,
+        templateProtocolVersion: claimed.templateProtocolVersion,
+        attemptCount: claimed.attemptCount,
+        leaseId: claimed.processingLeaseId,
+        leaseExpiresAt: claimed.processingLeaseExpiresAt,
+        claimKind: claimed.claimKind,
+      };
+    });
+  }
+
+  terminalizeExpiredExhaustedLeases(batchSize: number): Promise<number> {
+    return this.prisma.$transaction(async (transaction) => {
+      const operationNow = await this.getOperationTimestamp(transaction);
+      const rows = await transaction.$queryRaw<{ id: string }[]>(Prisma.sql`
+        WITH "candidates" AS (
+          SELECT "id"
+          FROM "AuthenticationChallengeDelivery"
+          WHERE
+            "status" = 'PROCESSING'
+            AND "processingLeaseExpiresAt" <= ${operationNow}
+            AND "attemptCount" >= ${this.policy.maxProcessingAttempts}
+          ORDER BY "processingLeaseExpiresAt" ASC, "id" ASC
+          FOR UPDATE SKIP LOCKED
+          LIMIT ${batchSize}
+        )
+        UPDATE "AuthenticationChallengeDelivery" AS "delivery"
+        SET
+          "status" = 'FAILED',
+          "lastSafeFailureCode" = ${AUTHENTICATION_DELIVERY_PROCESSING_ATTEMPTS_EXHAUSTED},
+          "nextAttemptAt" = NULL,
+          "processingLeaseId" = NULL,
+          "processingLeaseExpiresAt" = NULL,
+          "updatedAt" = ${operationNow}
+        FROM "candidates"
+        WHERE "delivery"."id" = "candidates"."id"
+        RETURNING "delivery"."id"
+      `);
+
+      return rows.length;
+    });
+  }
+
+  markSent(
+    deliveryId: string,
+    leaseId: string,
+    providerMessageId?: string,
+  ): Promise<AuthenticationDeliveryTransitionOutcome> {
+    return this.applyOwnedTransition(deliveryId, leaseId, (operationNow) => ({
+      status: AuthenticationDeliveryStatus.SENT,
+      providerMessageId: providerMessageId ?? null,
+      sentAt: operationNow,
+      lastSafeFailureCode: null,
+      nextAttemptAt: null,
+      processingLeaseId: null,
+      processingLeaseExpiresAt: null,
+      updatedAt: operationNow,
+    }));
+  }
+
+  scheduleRetry(
+    deliveryId: string,
+    leaseId: string,
+    nextAttemptAt: Date,
+    safeFailureCode: string,
+  ): Promise<AuthenticationDeliveryTransitionOutcome> {
+    return this.applyOwnedTransition(deliveryId, leaseId, (operationNow) => ({
+      status: AuthenticationDeliveryStatus.PENDING,
+      nextAttemptAt,
+      lastSafeFailureCode: safeFailureCode,
+      processingLeaseId: null,
+      processingLeaseExpiresAt: null,
+      updatedAt: operationNow,
+    }));
+  }
+
+  markFailed(
+    deliveryId: string,
+    leaseId: string,
+    safeFailureCode: string,
+  ): Promise<AuthenticationDeliveryTransitionOutcome> {
+    return this.applyOwnedTransition(deliveryId, leaseId, (operationNow) => ({
+      status: AuthenticationDeliveryStatus.FAILED,
+      lastSafeFailureCode: safeFailureCode,
+      nextAttemptAt: null,
+      processingLeaseId: null,
+      processingLeaseExpiresAt: null,
+      updatedAt: operationNow,
+    }));
+  }
+
+  cancelOwnedDelivery(
+    deliveryId: string,
+    leaseId: string,
+    safeReason: AuthenticationDeliveryCancellationReason,
+  ): Promise<AuthenticationDeliveryTransitionOutcome> {
+    return this.applyOwnedTransition(deliveryId, leaseId, (operationNow) => ({
+      status: AuthenticationDeliveryStatus.CANCELLED,
+      lastSafeFailureCode: safeReason,
+      nextAttemptAt: null,
+      processingLeaseId: null,
+      processingLeaseExpiresAt: null,
+      updatedAt: operationNow,
+    }));
+  }
+
+  private async createDelivery(
+    transaction: Prisma.TransactionClient,
+    input: CreateInitialAuthenticationDeliveryInput,
+    origin: AuthenticationDeliveryOrigin,
+  ): Promise<CreatedAuthenticationDelivery> {
+    return transaction.authenticationChallengeDelivery.create({
+      data: {
+        challengeId: input.challengeId,
+        method: AuthenticationDeliveryMethod.EMAIL,
+        origin,
+        recipientSnapshot: input.recipientSnapshot,
+        idempotencyKey: input.idempotencyKey,
+        templateProtocolVersion: input.templateProtocolVersion,
+        retentionExpiresAt: input.retentionExpiresAt,
+      },
+      select: {
+        id: true,
+        challengeId: true,
+        method: true,
+        origin: true,
+        idempotencyKey: true,
+      },
+    });
+  }
+
+  private async lockChallengeForResend(
+    transaction: Prisma.TransactionClient,
+    challengeId: string,
+  ): Promise<ResendChallengeRow | null> {
+    const rows = await transaction.$queryRaw<ResendChallengeRow[]>(Prisma.sql`
+      SELECT
+        "id",
+        "normalizedIdentity",
+        "expiresAt",
+        "failedAttemptCount",
+        "maxAttempts",
+        "consumedAt",
+        "lockedAt",
+        "encryptedProof",
+        "proofEncryptionIv",
+        "proofEncryptionTag"
+      FROM "AuthenticationChallenge"
+      WHERE "id" = ${challengeId}
+      FOR UPDATE
+    `);
+
+    return rows[0] ?? null;
+  }
+
+  private isChallengeAvailableForResend(
+    challenge: ResendChallengeRow | null,
+    operationNow: Date,
+  ): challenge is ResendChallengeRow {
+    return (
+      challenge !== null &&
+      challenge.consumedAt === null &&
+      challenge.lockedAt === null &&
+      challenge.expiresAt > operationNow &&
+      challenge.failedAttemptCount < challenge.maxAttempts &&
+      challenge.encryptedProof !== null &&
+      challenge.proofEncryptionIv !== null &&
+      challenge.proofEncryptionTag !== null
+    );
+  }
+
+  private async applyOwnedTransition(
+    deliveryId: string,
+    leaseId: string,
+    createData: (
+      operationNow: Date,
+    ) => Prisma.AuthenticationChallengeDeliveryUpdateManyMutationInput,
+  ): Promise<AuthenticationDeliveryTransitionOutcome> {
+    return this.prisma.$transaction(async (transaction) => {
+      const operationNow = await this.getOperationTimestamp(transaction);
+      const result =
+        await transaction.authenticationChallengeDelivery.updateMany({
+          where: {
+            id: deliveryId,
+            status: AuthenticationDeliveryStatus.PROCESSING,
+            processingLeaseId: leaseId,
+          },
+          data: createData(operationNow),
+        });
+
+      return result.count === 1
+        ? AuthenticationDeliveryTransitionOutcome.APPLIED
+        : AuthenticationDeliveryTransitionOutcome.LEASE_LOST;
+    });
+  }
+
+  private async getOperationTimestamp(
+    transaction: Prisma.TransactionClient,
+  ): Promise<Date> {
+    const rows = await transaction.$queryRaw<OperationTimestampRow[]>(
+      Prisma.sql`SELECT clock_timestamp() AS "operationNow"`,
+    );
+    const operationNow = rows[0]?.operationNow;
+
+    if (!operationNow) {
+      throw new Error(
+        'Authentication delivery operation timestamp is unavailable.',
+      );
+    }
+
+    return operationNow;
+  }
+}
