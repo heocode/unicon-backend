@@ -128,6 +128,12 @@ Resend has no body. It creates a new EMAIL Delivery containing the same OTP and
 magic link. It does not create a new challenge or change proof, expiration,
 failed attempts, consumption, or lock state.
 
+The new Delivery has `RESEND` origin, a new delivery ID, and a new provider
+idempotency key. Creation atomically supersedes prior non-terminal Deliveries
+for the challenge. A provider request already in flight may still complete, so
+the user may rarely receive two messages; both contain the same proof and fixed
+expiration. This race does not rotate credentials or weaken verification.
+
 `SIGN_IN` resend is public and protected by identity/IP/challenge limits.
 `STEP_UP` resend additionally requires the same active access session to which
 the challenge is bound.
@@ -189,8 +195,33 @@ Session metadata headers are accepted. Success and session semantics are
 identical to OTP verification. OTP and magic link share one consumption state;
 using either makes both unusable.
 
-An HTTPS `GET` from an email opens the native app or fallback page but never
-consumes the challenge or creates a session.
+The canonical email link is:
+
+```text
+https://uniconnection.app/auth/verify?challengeId=<canonical UUID>&token=<canonical magic-link token>
+```
+
+`uniconnection.app` is a client-neutral public origin for iOS, Android, and
+future web authentication. `GET /auth/verify` opens the native app or safe
+fallback page but never verifies proof, consumes the challenge, creates a user,
+or creates a session. The client submits the proof through the POST endpoint
+above, then chooses its destination from the challenge purpose and returned
+state. The auth route has no analytics, prevents referrer leakage, and removes
+the token from the browser URL as early as possible.
+
+The fallback document has no third-party resources, validates both canonical
+parameters, retains the token only in memory, and immediately removes the
+query string with `history.replaceState` before rendering normal UI. Loading
+the document does not submit proof; verification requires a separate explicit
+POST action. A reload after URL cleanup does not restore the token.
+
+The fallback response uses `Referrer-Policy: no-referrer`, `Cache-Control:
+no-store`, a restrictive Content Security Policy, and search-engine exclusion.
+Infrastructure and application logging must redact the `token` query value and
+must not capture the full URL in analytics, error reporting, crash reporting,
+or session replay. The origin exposes the required iOS and Android association
+files under `/.well-known/`, scoped to the authentication route. Client-side
+validation does not replace the endpoint's canonical UUID and token validation.
 
 ### Deletion-scheduled result
 
@@ -247,17 +278,17 @@ CancelAccountDeletionDto
 
 ## Authentication error codes
 
-| Code                         | HTTP | Meaning |
-| ---------------------------- | ---: | ------- |
-| `EMAIL_DOMAIN_NOT_ALLOWED`   |  400 | The normalized domain is not currently eligible. |
-| `AUTH_CHALLENGE_INVALID`     |  400 | The challenge is missing, consumed, superseded, wrong-purpose, or otherwise unusable. |
-| `AUTH_CHALLENGE_EXPIRED`     |  400 | The fixed challenge lifetime elapsed; request a new challenge. |
-| `AUTH_CODE_INVALID`          |  400 | The OTP is incorrect and attempts remain. |
-| `AUTH_CHALLENGE_LOCKED`      |  400 | The challenge reached its failed-attempt limit and cannot be reused. |
-| `AUTH_DELIVERY_COOLDOWN`     |  429 | Another delivery is not yet allowed. |
-| `AUTH_EMAIL_UNAVAILABLE`     |  503 | Required email delivery could not be accepted. |
-| `RECENT_AUTHENTICATION_REQUIRED` | 403 | A sensitive operation requires a fresh proof. |
-| `AUTH_CONTINUATION_INVALID`  |  400 | A purpose-bound continuation is invalid, expired, consumed, or wrong-purpose. |
+| Code                             | HTTP | Meaning                                                                               |
+| -------------------------------- | ---: | ------------------------------------------------------------------------------------- |
+| `EMAIL_DOMAIN_NOT_ALLOWED`       |  400 | The normalized domain is not currently eligible.                                      |
+| `AUTH_CHALLENGE_INVALID`         |  400 | The challenge is missing, consumed, superseded, wrong-purpose, or otherwise unusable. |
+| `AUTH_CHALLENGE_EXPIRED`         |  400 | The fixed challenge lifetime elapsed; request a new challenge.                        |
+| `AUTH_CODE_INVALID`              |  400 | The OTP is incorrect and attempts remain.                                             |
+| `AUTH_CHALLENGE_LOCKED`          |  400 | The challenge reached its failed-attempt limit and cannot be reused.                  |
+| `AUTH_DELIVERY_COOLDOWN`         |  429 | Another delivery is not yet allowed.                                                  |
+| `AUTH_EMAIL_UNAVAILABLE`         |  503 | Required email delivery could not be accepted.                                        |
+| `RECENT_AUTHENTICATION_REQUIRED` |  403 | A sensitive operation requires a fresh proof.                                         |
+| `AUTH_CONTINUATION_INVALID`      |  400 | A purpose-bound continuation is invalid, expired, consumed, or wrong-purpose.         |
 
 `AUTH_CODE_INVALID` never returns attempts remaining. Exposing that counter is
 not necessary for the client and helps attackers optimize guesses.
@@ -268,8 +299,8 @@ proof.
 
 ## Rate limiting
 
-| Code                  | HTTP | Meaning |
-| --------------------- | ---: | ------- |
+| Code                  | HTTP | Meaning                                                                        |
+| --------------------- | ---: | ------------------------------------------------------------------------------ |
 | `RATE_LIMIT_EXCEEDED` |  429 | An identity, IP, device, verification, or provider pressure limit was reached. |
 
 All 429 responses contain `details.retryAfterSeconds` and `Retry-After`.
@@ -278,15 +309,15 @@ All 429 responses contain `details.retryAfterSeconds` and `Retry-After`.
 
 ## Access and refresh tokens
 
-| Code                     | HTTP | Meaning |
-| ------------------------ | ---: | ------- |
-| `ACCESS_TOKEN_REQUIRED`  |  401 | An access bearer token was not supplied. |
+| Code                     | HTTP | Meaning                                                        |
+| ------------------------ | ---: | -------------------------------------------------------------- |
+| `ACCESS_TOKEN_REQUIRED`  |  401 | An access bearer token was not supplied.                       |
 | `ACCESS_TOKEN_INVALID`   |  401 | The access token is malformed, invalid, or has the wrong type. |
-| `ACCESS_TOKEN_EXPIRED`   |  401 | The access JWT expired and may be refreshed. |
-| `REFRESH_TOKEN_REQUIRED` |  401 | A refresh bearer token was not supplied. |
-| `REFRESH_TOKEN_INVALID`  |  401 | The refresh credential or session cannot refresh. |
-| `REFRESH_TOKEN_EXPIRED`  |  401 | The refresh JWT or server-side session expired. |
-| `REFRESH_TOKEN_REUSED`   |  401 | A previously rotated refresh token was presented. |
+| `ACCESS_TOKEN_EXPIRED`   |  401 | The access JWT expired and may be refreshed.                   |
+| `REFRESH_TOKEN_REQUIRED` |  401 | A refresh bearer token was not supplied.                       |
+| `REFRESH_TOKEN_INVALID`  |  401 | The refresh credential or session cannot refresh.              |
+| `REFRESH_TOKEN_EXPIRED`  |  401 | The refresh JWT or server-side session expired.                |
+| `REFRESH_TOKEN_REUSED`   |  401 | A previously rotated refresh token was presented.              |
 
 Except for `ACCESS_TOKEN_EXPIRED`, clients clear affected local authentication
 state and start a new email challenge. Refresh requests for one session are
@@ -294,12 +325,12 @@ serialized client-side; successful rotation atomically replaces both tokens.
 
 ## Session errors
 
-| Code                    | HTTP | Meaning |
-| ----------------------- | ---: | ------- |
+| Code                    | HTTP | Meaning                                                              |
+| ----------------------- | ---: | -------------------------------------------------------------------- |
 | `SESSION_UNAVAILABLE`   |  401 | The authenticated session is missing, revoked, expired, or inactive. |
-| `SESSION_NOT_FOUND`     |  404 | An owned active target session was not found. |
-| `SESSION_TOO_FRESH`     |  403 | The current session cannot yet manage other sessions. |
-| `SESSION_LIMIT_REACHED` |  409 | A new active session would exceed the configured limit. |
+| `SESSION_NOT_FOUND`     |  404 | An owned active target session was not found.                        |
+| `SESSION_TOO_FRESH`     |  403 | The current session cannot yet manage other sessions.                |
+| `SESSION_LIMIT_REACHED` |  409 | A new active session would exceed the configured limit.              |
 
 `SESSION_TOO_FRESH` retains `managementAvailableAt` and
 `retryAfterSeconds`.
@@ -325,15 +356,15 @@ session-recovery endpoint.
 
 ## Account and profile state errors
 
-| Code                                    | HTTP | Meaning |
-| --------------------------------------- | ---: | ------- |
-| `ACCOUNT_UNAVAILABLE`                   |  403 | A proven account cannot perform the requested flow. |
-| `ACCOUNT_STATE_CHANGED`                 |  409 | A concurrent account transition invalidated the operation. |
+| Code                                    | HTTP | Meaning                                                                     |
+| --------------------------------------- | ---: | --------------------------------------------------------------------------- |
+| `ACCOUNT_UNAVAILABLE`                   |  403 | A proven account cannot perform the requested flow.                         |
+| `ACCOUNT_STATE_CHANGED`                 |  409 | A concurrent account transition invalidated the operation.                  |
 | `ACCOUNT_DELETION_SCHEDULED`            |  409 | Proven account deletion is scheduled and may require explicit cancellation. |
-| `ACCOUNT_DELETION_GRACE_PERIOD_EXPIRED` |  409 | The cancellation deadline passed. |
-| `ACCOUNT_DELETION_ALREADY_CANCELLED`    |  409 | A concurrent or prior request already restored the account. |
-| `PROFILE_UNAVAILABLE`                   |  409 | The authorized profile became unavailable. |
-| `RESOURCE_NOT_FOUND`                    |  404 | No public route or resource matches the request. |
+| `ACCOUNT_DELETION_GRACE_PERIOD_EXPIRED` |  409 | The cancellation deadline passed.                                           |
+| `ACCOUNT_DELETION_ALREADY_CANCELLED`    |  409 | A concurrent or prior request already restored the account.                 |
+| `PROFILE_UNAVAILABLE`                   |  409 | The authorized profile became unavailable.                                  |
+| `RESOURCE_NOT_FOUND`                    |  404 | No public route or resource matches the request.                            |
 
 ## Account deletion contract
 
@@ -426,24 +457,24 @@ No old session or token becomes valid again.
 
 ## Endpoint inventory
 
-| Endpoint | Request DTO | Success DTO | Status | Authentication / headers |
-| -------- | ----------- | ----------- | -----: | ------------------------ |
-| `POST /auth/challenges` | `RequestAuthenticationChallengeDto` | `AuthenticationChallengeResponseDto` | 202 | Public request IP and informational metadata |
-| `POST /auth/challenges/:challengeId/resend` | `ChallengeParamsDto` | `AuthenticationChallengeResponseDto` | 202 | Public request IP and informational metadata |
-| `POST /auth/challenges/:challengeId/verify-otp` | params + `VerifyOtpDto` | `AuthTokensResponseDto` | 201 | Session metadata headers |
-| `POST /auth/challenges/:challengeId/verify-link` | params + `VerifyMagicLinkDto` | `AuthTokensResponseDto` | 201 | Session metadata headers |
-| `POST /auth/step-up/challenges` | none | `AuthenticationChallengeResponseDto` | 202 | Access bearer token |
-| `POST /auth/step-up/challenges/:challengeId/verify-otp` | params + `VerifyOtpDto` | `RecentAuthenticationResponseDto` | 200 | Bound access bearer token |
-| `POST /auth/step-up/challenges/:challengeId/verify-link` | params + `VerifyMagicLinkDto` | `RecentAuthenticationResponseDto` | 200 | Bound access bearer token |
-| `POST /auth/refresh` | none | `AuthTokensResponseDto` | 201 | Refresh bearer token |
-| `POST /auth/logout` | none | none | 204 | Access bearer token |
-| `GET /auth/sessions` | none | `SessionsResponseDto` | 200 | Access bearer token |
-| `PATCH /auth/sessions/:sessionId` | params + `UpdateSessionDto` | `UpdateSessionResponseDto` | 200 | Access bearer token |
-| `DELETE /auth/sessions/others` | none | `RevokeOtherSessionsResponseDto` | 200 | Access bearer token |
-| `DELETE /auth/sessions/:sessionId` | params | none | 204 | Access bearer token |
-| `POST /account/deletion` | none | `AccountDeletionResponseDto` | 202 | Access bearer plus recent authentication |
-| `POST /account/deletion/cancel` | `CancelAccountDeletionDto` | `AccountDeletionCancelledResponseDto` | 200 | Purpose-bound continuation; session metadata headers |
-| `GET /profile/me` | none | `ProfileResponseDto` | 200 | Access bearer token |
+| Endpoint                                                 | Request DTO                         | Success DTO                           | Status | Authentication / headers                             |
+| -------------------------------------------------------- | ----------------------------------- | ------------------------------------- | -----: | ---------------------------------------------------- |
+| `POST /auth/challenges`                                  | `RequestAuthenticationChallengeDto` | `AuthenticationChallengeResponseDto`  |    202 | Public request IP and informational metadata         |
+| `POST /auth/challenges/:challengeId/resend`              | `ChallengeParamsDto`                | `AuthenticationChallengeResponseDto`  |    202 | Public request IP and informational metadata         |
+| `POST /auth/challenges/:challengeId/verify-otp`          | params + `VerifyOtpDto`             | `AuthTokensResponseDto`               |    201 | Session metadata headers                             |
+| `POST /auth/challenges/:challengeId/verify-link`         | params + `VerifyMagicLinkDto`       | `AuthTokensResponseDto`               |    201 | Session metadata headers                             |
+| `POST /auth/step-up/challenges`                          | none                                | `AuthenticationChallengeResponseDto`  |    202 | Access bearer token                                  |
+| `POST /auth/step-up/challenges/:challengeId/verify-otp`  | params + `VerifyOtpDto`             | `RecentAuthenticationResponseDto`     |    200 | Bound access bearer token                            |
+| `POST /auth/step-up/challenges/:challengeId/verify-link` | params + `VerifyMagicLinkDto`       | `RecentAuthenticationResponseDto`     |    200 | Bound access bearer token                            |
+| `POST /auth/refresh`                                     | none                                | `AuthTokensResponseDto`               |    201 | Refresh bearer token                                 |
+| `POST /auth/logout`                                      | none                                | none                                  |    204 | Access bearer token                                  |
+| `GET /auth/sessions`                                     | none                                | `SessionsResponseDto`                 |    200 | Access bearer token                                  |
+| `PATCH /auth/sessions/:sessionId`                        | params + `UpdateSessionDto`         | `UpdateSessionResponseDto`            |    200 | Access bearer token                                  |
+| `DELETE /auth/sessions/others`                           | none                                | `RevokeOtherSessionsResponseDto`      |    200 | Access bearer token                                  |
+| `DELETE /auth/sessions/:sessionId`                       | params                              | none                                  |    204 | Access bearer token                                  |
+| `POST /account/deletion`                                 | none                                | `AccountDeletionResponseDto`          |    202 | Access bearer plus recent authentication             |
+| `POST /account/deletion/cancel`                          | `CancelAccountDeletionDto`          | `AccountDeletionCancelledResponseDto` |    200 | Purpose-bound continuation; session metadata headers |
+| `GET /profile/me`                                        | none                                | `ProfileResponseDto`                  |    200 | Access bearer token                                  |
 
 The following endpoints do not exist in the target v1 contract:
 

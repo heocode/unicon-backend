@@ -168,7 +168,34 @@ wrong purpose, expiry, fifth-attempt lock, replay, and concurrent consumption.
 
 ## Stage 3: Delivery abstraction and email
 
-Implement provider-neutral challenge delivery:
+Stage 3 produces an internal, provider-neutral delivery capability for an
+already-created challenge. Public challenge and resend endpoints remain in
+Stage 5. Implementation is split into these independently verifiable
+iterations:
+
+1. freeze the Delivery state machine, persistence constraints, origin,
+   ownership lease, attempt accounting, idempotency window, and retention
+   contract; add an additive migration where required;
+2. implement atomic create, claim/reclaim, sent, retry, and failed repository
+   or cancelled repository transitions with UUID lease ownership,
+   supersession, processing-budget exhaustion, and database-backed stale-worker
+   tests;
+3. implement the approved client-neutral canonical magic-link URL, Universal
+   Link/App Link, non-consuming GET, referrer-safe token handling, and HTTPS
+   fallback contract;
+4. implement the provider-neutral email port and provider adapter with safe,
+   ambiguous, accepted, and terminal result normalization;
+5. implement responsive HTML and plain-text Unicon email templates using the
+   approved sender/subject contract and Figma visual reference;
+6. orchestrate claim, challenge eligibility, transient decrypt, link building,
+   render, provider submission outside the transaction, and lease-owned state
+   transition;
+7. implement bounded retry workers, lease recovery, graceful shutdown, and
+   Delivery retention cleanup;
+8. complete unit and database-backed end-to-end coverage for the entire
+   delivery protocol.
+
+The resulting internal flow is:
 
 ```text
 challenge proof
@@ -178,12 +205,73 @@ challenge proof
 ```
 
 One challenge keeps one OTP and link. Initial request and every resend create a
-new Delivery containing the same proof. Provider retries reuse one delivery and
-its idempotency key.
+new Delivery referencing the same proof, with explicit `INITIAL` or `RESEND`
+origin and a new idempotency key. A provider retry reuses the same Delivery,
+delivery ID, and idempotency key. It never becomes a resend.
+
+`PENDING → PROCESSING` claim creates a UUID lease and expiry and increments an
+operational fail-safe work counter. `markSent`, `scheduleRetry`, `markFailed`,
+and `markCancelled` must match that lease. Expired processing may be reclaimed
+with a new lease while the counter is below five; at the limit it is atomically
+terminalized and cannot receive a sixth claim. The stale worker loses mutation
+authority. Selection and claim occur in one short transaction using
+`FOR UPDATE SKIP LOCKED`; network calls never occur inside a database
+transaction.
+
+Provider retry results distinguish `SAFE_RETRY` from `AMBIGUOUS_RETRY` and may
+carry a bounded normalized retry hint. Ambiguous retry always reuses the same
+idempotency key and must stop before the provider's documented idempotency
+window ends. Only allowlisted failure codes are persisted.
+
+Immediately before delivery, the lease owner rechecks challenge consumption,
+lock, expiration, attempt exhaustion, and complete-envelope state. An in-flight
+email may still complete if challenge state changes after that check; proof
+remains unusable because verification rechecks state. Partial encrypted
+envelopes violate a database invariant and are internal corruption, not an
+ordinary failed Delivery.
+
+`FAILED` represents terminal provider, request, or configuration failure.
+`CANCELLED` means proof should no longer be sent, initially for
+`DELIVERY_WINDOW_CLOSED`, `CHALLENGE_UNAVAILABLE`, or
+`SUPERSEDED_BY_RESEND`. Consumed, locked, and expired challenges cancel their
+non-terminal Deliveries. Partial envelopes enter neither ordinary terminal
+path.
+
+Every Delivery persists `templateProtocolVersion`. Provider retries must
+reproduce a byte-equivalent recipient, From, subject, HTML, text, magic-link
+URL, headers, and request options through that immutable renderer version.
+Deploying a new template version cannot change an existing Delivery payload.
+
+The approved V1 retry policy is:
+
+```text
+MAX_DELIVERY_PROCESSING_ATTEMPTS = 5
+BACKOFF = immediate, then 5s, 15s, 30s, 60s after completion
+JITTER = uniform [0.8, 1.2], policy delay only
+HTTP_TIMEOUT = 10s
+PROCESSING_LEASE_TIMEOUT = 45s
+MIN_DELIVERY_VALIDITY_REMAINING = 120s
+RESEND_IDEMPOTENCY_WINDOW = 24h
+```
+
+Jitter is computed once at retry scheduling with injectable randomness, stored
+in `nextAttemptAt`, and never recomputed by claim. Effective retry time is the
+later of jittered policy backoff and provider `Retry-After`; provider delay is
+never shortened. Both scheduling and provider submission enforce 120 seconds
+of remaining challenge validity. Safe and ambiguous retries share the same
+five-claim budget. Ambiguous retry additionally requires the same Delivery,
+idempotency key, byte-equivalent payload, active challenge, and provider
+idempotency window.
+
+Manual resend preserves the challenge, proof, expiration, and attempt state,
+creates a new `RESEND` Delivery and idempotency key, and atomically cancels
+prior non-terminal Deliveries as `SUPERSEDED_BY_RESEND`. A superseded worker
+loses mutation ownership. An already in-flight provider request may still
+complete, so two messages containing the same proof are an accepted UX race.
 
 Email requirements:
 
-- code prominently in subject and body for mobile notification/AutoFill UX;
+- code prominently in the body for mobile copy, paste, and AutoFill UX;
 - magic-link Universal Link/App Link plus HTTPS fallback;
 - no account-state disclosure;
 - no raw proof in application logs or persisted provider errors;
@@ -191,8 +279,69 @@ Email requirements:
 - failure recorded without consuming, resetting, unlocking, or extending the
   challenge.
 
-Required tests cover successful delivery, synchronous failure, provider retry,
-user resend, idempotency, stable proof across deliveries, and retention.
+Required tests cover initial delivery versus resend, stable proof across
+deliveries, provider idempotency reuse, concurrent claims, lease expiry and
+stale workers, safe and ambiguous retry, retry hints and idempotency-window
+cutoff, successful and terminal delivery, process failure around provider
+submission, terminal challenge races, proof non-persistence, bounded workers,
+and retention.
+
+Stage 3 decision 1 is approved:
+
+```text
+https://uniconnection.app/auth/verify?challengeId=<canonical UUID>&token=<canonical magic-link token>
+```
+
+`uniconnection.app` is a client-neutral public origin that can support iOS,
+Android, and future web authentication. `GET /auth/verify` expresses auth
+intent but never verifies or consumes proof. The separate POST flow performs
+verification, after which the client chooses a destination based on purpose
+and returned state. Referrer protection, an analytics-free route, early
+browser-URL token removal, and fallback behavior belong to Iteration 3.
+
+Iteration 3 must also deliver and verify:
+
+- a minimal first-party fallback with no third-party resources, tracking,
+  analytics, or session replay;
+- canonical UUID and magic-token parsing before POST construction, with the
+  backend independently validating both values;
+- in-memory-only token handling followed immediately by
+  `history.replaceState`, before normal UI or integrations execute;
+- no verification without a separate explicit POST action;
+- `Referrer-Policy: no-referrer`, `Cache-Control: no-store`, restrictive CSP,
+  and search-engine exclusion on the fallback response;
+- token-query redaction across CDN, proxy, server, application, error, and
+  crash logs;
+- `/.well-known/apple-app-site-association` and
+  `/.well-known/assetlinks.json`, scoped to the required authentication route.
+
+Stage 3 decision 2 is approved. Delivery uses:
+
+```text
+From: Unicon <noreply@uniconnection.app>
+Subject: 482731 — Your Unicon sign-in code
+```
+
+The generated six-digit OTP replaces the example and is also prominent in the
+body. Showing it in the subject intentionally favors passwordless notification-
+preview UX; the accepted security trade-off is bounded by fixed challenge TTL,
+attempt limits, atomic single use, and replay protection. Hidden notification
+previews must not make the body unusable.
+
+The email is OTP-friendly, while actual AutoFill remains a separate mobile
+enhancement. Native inputs use appropriate iOS and Android hints, and behavior
+is tested on real devices with representative Apple Mail, Gmail, and Outlook
+clients. Stage 3 does not promise successful OS extraction. The magic link
+remains an alternative proof requiring no manual code entry.
+
+Stage 3 decision 3 is approved: Figma file `DzXnzo9NGRISTJtlRXb8T0`, frame
+`130:173`, is the authoritative V1 visual reference, adapted only as required
+for responsive HTML, plain text, dark mode, blocked assets, and email-client
+compatibility.
+
+Stage 3 decision 4 is approved as the retry policy and semantics above. All
+four Stage 3 product and architecture decisions are closed; there are no
+remaining open decisions before Iteration 1.
 
 ## Stage 4: Database-backed abuse protection
 

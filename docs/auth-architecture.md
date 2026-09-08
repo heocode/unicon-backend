@@ -234,13 +234,20 @@ AuthenticationChallengeDelivery
 ├── id
 ├── challengeId
 ├── method
+├── origin
 ├── status
 ├── recipientSnapshot
 ├── idempotencyKey
+├── templateProtocolVersion
+├── attemptCount
+├── nextAttemptAt?
+├── processingLeaseId?
+├── processingLeaseExpiresAt?
 ├── providerMessageId?
-├── failureCode?
+├── lastSafeFailureCode?
 ├── attemptedAt?
 ├── sentAt?
+├── retentionExpiresAt
 ├── createdAt
 └── updatedAt
 ```
@@ -257,13 +264,253 @@ Resend preserves:
 - `consumedAt` and `lockedAt`;
 - challenge, identity, IP, and delivery rate-limit state.
 
-Each delivery has a unique idempotency key. Retrying one provider call reuses
-that delivery; a user-requested resend creates a different delivery. Failed
-delivery attempts count toward abuse limits. The user-visible resend cooldown
-starts after the provider accepts a delivery, while repeated synchronous
-failures remain bounded by request rate limits.
+Delivery origin is explicit: an initial request creates an `INITIAL` Delivery
+and a user-requested resend creates a `RESEND` Delivery. Each has a different
+delivery ID and idempotency key. Retrying the provider for either one is not a
+new Delivery and always reuses its original delivery ID and idempotency key.
+Failed delivery attempts count toward abuse limits. The user-visible resend
+cooldown starts after the provider accepts a delivery, while repeated
+synchronous failures remain bounded by request rate limits.
+
+Delivery processing has five states:
+
+```text
+PENDING
+  → PROCESSING
+
+PROCESSING
+  → SENT
+  → PENDING for a scheduled retry
+  → FAILED
+  → CANCELLED
+  → PROCESSING under a new lease after the previous lease expires
+
+SENT, FAILED, and CANCELLED are terminal
+```
+
+Claiming a Delivery atomically creates a unique UUID `processingLeaseId`, sets
+`processingLeaseExpiresAt`, and increments `attemptCount`. The counter is an
+operational fail-safe work budget for processing claims and reclaims, not a
+claim that the provider received each request. Every worker-owned sent, retry,
+failed, or cancelled transition from processing must match both
+`status = PROCESSING` and the supplied lease ID. A serialized challenge
+lifecycle transition such as resend supersession may instead revoke the lease
+atomically without pretending to own it. In either case, a stale worker cannot
+overwrite the later state. Lease fields are present only while processing and
+are cleared by a successful state transition.
+
+The provider call is never made inside a database transaction. Before each
+submission the current lease owner checks that the challenge exists, remains
+unconsumed and unlocked, has not expired or exhausted its OTP attempts, and
+still owns a complete encrypted envelope. It then decrypts and renders proof
+only in bounded memory before calling the provider. If the challenge becomes
+terminal after this check, the in-flight email may still be accepted; its OTP
+and link remain unusable because verification rechecks challenge state. No
+distributed transaction between PostgreSQL and the provider is attempted.
+
+The database all-present-or-all-null envelope constraint remains authoritative.
+A partial envelope is an internal data-integrity failure: delivery does not
+repair it, treat it as a normal provider failure, or silently mark it failed.
+
+Provider adapters normalize results as accepted, retryable, or terminal.
+Retryable results distinguish `SAFE_RETRY`, where the adapter knows the
+provider did not accept the request, from `AMBIGUOUS_RETRY`, where acceptance
+is unknown after a timeout or connection loss. A bounded provider retry hint
+may set `nextAttemptAt`. Raw provider errors and responses are never persisted;
+only an allowlisted safe failure code may be stored. `FAILED` means a terminal
+provider, request, or configuration failure. `CANCELLED` means proof must no
+longer be delivered; initial safe cancellation reasons include
+`DELIVERY_WINDOW_CLOSED`, `CHALLENGE_UNAVAILABLE`, and
+`SUPERSEDED_BY_RESEND`. A partial envelope remains an internal data-integrity
+failure and does not enter either ordinary terminal flow.
+
+`attemptedAt` records the first provider submission and is not moved by
+retries. Ambiguous retries are allowed only while reuse of the same
+idempotency key remains inside the provider's documented idempotency window.
+If that window would be exceeded, delivery becomes terminal rather than risk a
+duplicate send. Maximum attempts, backoff, challenge expiry, and the provider
+window all independently bound retries.
+
+One Delivery also fixes an immutable `templateProtocolVersion`. Every retry
+must reproduce a byte-equivalent provider payload: recipient, From, subject,
+HTML, plain text, magic-link URL, headers, and provider request options do not
+change. Rendering uses the persisted template protocol rather than the current
+deployment default and contains no render-time clock values, random IDs,
+tracking parameters, unstable whitespace, or other dynamic input. Changing a
+template defines a new protocol version; it never changes an existing
+Delivery's payload.
+
+### V1 delivery retry policy
+
+The approved V1 policy is:
+
+```text
+MAX_DELIVERY_PROCESSING_ATTEMPTS = 5
+
+attempt 1: immediately
+attempt 2: 5 seconds after the previous attempt completes
+attempt 3: 15 seconds after the previous attempt completes
+attempt 4: 30 seconds after the previous attempt completes
+attempt 5: 60 seconds after the previous attempt completes
+
+JITTER = uniform [0.8, 1.2]
+HTTP_TIMEOUT = 10 seconds
+PROCESSING_LEASE_TIMEOUT = 45 seconds
+MIN_DELIVERY_VALIDITY_REMAINING = 120 seconds
+RESEND_IDEMPOTENCY_WINDOW = 24 hours
+```
+
+Jitter applies only to policy backoff, never to the immediate attempt. It is
+computed once while scheduling a retry, uses an injectable random source for
+deterministic tests, and is persisted through `nextAttemptAt`; a later claim
+never recalculates it. Retry delay begins after completion of the preceding
+processing attempt.
+
+A normalized provider `Retry-After` produces:
+
+```text
+effectiveNotBefore = max(
+  operationNow + jitteredPolicyDelay,
+  operationNow + providerRetryAfter
+)
+```
+
+The provider delay is never shortened by an application upper bound. If it
+would move submission outside the delivery window, retry is cancelled rather
+than sent early. Scheduling requires
+`expiresAt - nextAttemptAt >= 120 seconds`; submission independently rechecks
+`expiresAt - operationNow >= 120 seconds`.
+
+`SAFE_RETRY` and `AMBIGUOUS_RETRY` share the same five-processing-attempt
+budget. An ambiguous retry additionally requires the same Delivery,
+idempotency key, byte-equivalent payload, active challenge, and provider
+idempotency window. `attemptedAt` fixes the first provider-submission time used
+for the 24-hour window. A permanent recipient rejection, invalid provider
+request, provider configuration error, or API authentication error fails
+without retry and produces an internal operational alert where appropriate.
+
+An expired processing lease with `attemptCount < 5` may be reclaimed with a
+new lease and incremented count. At `attemptCount >= 5`, it is atomically made
+terminal and its lease is cleared instead of granting a sixth claim. If proof
+is already unavailable it becomes `CANCELLED`; otherwise it becomes `FAILED`
+with the allowlisted `PROCESSING_ATTEMPTS_EXHAUSTED` reason.
+
+Workers claim due or expired-lease deliveries in short PostgreSQL transactions
+using `FOR UPDATE SKIP LOCKED`. Processing is bounded per run, non-overlapping
+inside one process, safe across replicas, and allowed to finish during graceful
+shutdown. Delivery retention uses bounded cleanup independent from provider
+processing.
 
 Delivery failure never consumes, unlocks, resets, or extends the challenge.
+
+### Manual resend and supersession
+
+A manual resend never creates or rotates an `AuthenticationChallenge`. It
+preserves the same OTP, magic-link token, `expiresAt`, failed-attempt count,
+consumption, and lock state, while creating a new `RESEND` Delivery with a new
+delivery ID and idempotency key. Only a new sign-in request after the prior
+flow finishes or expires may create a new challenge under Stage 5 rules.
+
+Creating a `RESEND` Delivery atomically cancels previous non-terminal
+Deliveries for that challenge with `SUPERSEDED_BY_RESEND` and clears their
+leases. An old worker therefore loses ownership and cannot later finalize its
+Delivery. It must recheck delivery ownership and challenge eligibility
+immediately before provider submission, without holding a database lock during
+the network call.
+
+Submission may already be in flight when resend supersedes a processing
+Delivery, so physical cancellation is not guaranteed. The provider may accept
+both the old and new email. Both contain the same challenge proof and fixed
+expiration, making this an accepted UX race rather than a security issue.
+
+### Stage 3 decision log
+
+Decision 1 is approved. `https://uniconnection.app` is the client-neutral
+public origin for authentication links. It is not a mobile-specific auth
+domain and the same route may naturally support web authentication later. The
+canonical email link is:
+
+```text
+https://uniconnection.app/auth/verify?challengeId=<canonical UUID>&token=<canonical magic-link token>
+```
+
+`/auth/verify` expresses authentication intent rather than an application
+destination. Mobile registers it as an iOS Universal Link and Android App
+Link. Its `GET` handler only opens a native client or safe HTTPS fallback; it
+never verifies proof, consumes the challenge, creates a user, or creates a
+session. Proof is submitted through the separate POST verification flow. After
+that response, the client chooses its destination from purpose and returned
+state, such as Profile, Onboarding, or a step-up continuation. Backend auth
+core remains independent from whether the client is iOS, Android, or web.
+
+Referrer protection, an analytics-free auth route, removal of the token from a
+browser URL, and fallback behavior are technical requirements of Stage 3
+Iteration 3 rather than additional product decisions.
+
+The browser fallback is a minimal first-party document with no analytics,
+tracking pixels, third-party fonts, scripts, images, or other subresources that
+could receive the original URL. It validates the challenge ID as a canonical
+UUID and the token as a canonical magic-link token, keeps the token only in
+memory, and calls `history.replaceState` to remove the query string before
+rendering normal UI or invoking integrations. A reload after replacement does
+not recover the token. Verification still requires an explicit client action
+that submits the separate POST request; loading the fallback document alone is
+never authentication.
+
+Responses for `/auth/verify` use at least `Referrer-Policy: no-referrer`,
+`Cache-Control: no-store`, a restrictive Content Security Policy, and search-
+engine exclusion such as `X-Robots-Tag: noindex, nofollow, noarchive`. CDN,
+load-balancer, reverse-proxy, web-server, application, error-reporting, and
+crash-reporting configuration must redact the `token` query value and must not
+record the full sensitive URL. The route loads no generic analytics or session-
+replay SDK before URL cleanup.
+
+The public origin serves the iOS association file at
+`/.well-known/apple-app-site-association` and the Android association file at
+`/.well-known/assetlinks.json`. Their application identifiers, signing
+identities, and path scope are deployment configuration; authorization should
+be limited to the required authentication route rather than unrelated site
+paths. Native and fallback clients validate canonical inputs before constructing
+the POST request, while the backend independently repeats all validation and
+never treats client validation as a security boundary.
+
+Decision 2 is approved. The six-digit OTP appears directly in the email
+subject so notification previews can support fast manual entry without opening
+the message. The canonical sender and subject format are:
+
+```text
+From: Unicon <noreply@uniconnection.app>
+Subject: 482731 — Your Unicon sign-in code
+```
+
+The generated OTP replaces `482731` without spacing or reformatting. This
+knowingly exposes a short-lived notification preview to anyone who can see the
+device screen. The product accepts that trade-off because the OTP is a
+single-use proof bound to a challenge with a fixed lifetime, database-backed
+attempt limits, atomic consumption, and replay protection. The email body must
+remain fully usable when notification previews are hidden.
+
+OTP AutoFill is a separate mobile-integration enhancement, not a guaranteed
+property of email delivery. The template remains OTP-friendly and native OTP
+inputs use the appropriate iOS and Android autofill hints, but extraction
+behavior must be tested separately with real devices and representative Apple
+Mail, Gmail, and Outlook clients. Stage 3 must not claim that an operating
+system will always extract the code. The magic link remains an equal
+passwordless proof option that requires no manual OTP entry.
+
+Decision 3 is approved. The `Email` frame `130:173` in the Unicon Figma file
+`DzXnzo9NGRISTJtlRXb8T0` is the authoritative visual reference for the V1
+template. It defines the Unicon logo treatment, hierarchy, code block, primary
+magic-link action, expiry copy, and security footer. Production HTML adapts the
+reference to email-client constraints, responsive layout, system font
+fallbacks, dark mode, blocked images, Outlook-compatible actions, and an
+equivalent plain-text version without changing its visual direction.
+
+Decision 4 is approved as the V1 delivery retry policy defined above: five
+processing attempts, 5/15/30/60-second backoff with uniform 20-percent jitter,
+a 10-second HTTP timeout, a 45-second processing lease, a 120-second minimum
+remaining validity window, and Resend's 24-hour idempotency window. All four
+Stage 3 product and architecture decisions are closed.
 
 ## Proof security
 
@@ -322,14 +569,15 @@ limit.
 
 The link contains an independent 256-bit random secret. Its verification
 representation is a keyed hash, while its recoverable delivery representation
-exists only inside the shared encrypted proof envelope. The URL is an iOS
-Universal Link and Android App Link with an HTTPS fallback.
+exists only inside the shared encrypted proof envelope. Its canonical URL uses
+the approved client-neutral `https://uniconnection.app/auth/verify` route and
+is an iOS Universal Link and Android App Link with an HTTPS fallback.
 
 Opening a `GET` link never consumes proof or creates a session. Email scanners
 and preview services may follow links automatically. The app or fallback page
 must exchange the secret through an explicit `POST` verification request.
 Tokens must not enter analytics, referrers, application logs, or provider
-error records.
+error records and must be removed from the browser URL as early as possible.
 
 ## Request, resend, and verification concurrency
 
@@ -424,11 +672,14 @@ and risk context but is never identity proof.
 
 ## Email and mobile behavior
 
-Each v1 email contains the six-digit code prominently, preferably in the
-subject and at the beginning of the body, followed by the magic-link action.
-The code wording and layout must support iOS one-time-code AutoFill and normal
-Android keyboard, notification, copy, and paste behavior. The app must not ask
-for mailbox or notification access merely to read OTPs.
+Each v1 email is sent as `Unicon <noreply@uniconnection.app>`, places the
+six-digit code at the beginning of the subject in the approved
+`482731 — Your Unicon sign-in code` format, and repeats it prominently near the
+beginning of the body before the magic-link action. The wording and layout are
+OTP-friendly for iOS and Android input, notification, copy, and paste behavior,
+but email delivery does not guarantee operating-system AutoFill. The app must
+not ask for mailbox or notification access merely to read OTPs. Magic-link use
+requires no manual code entry.
 
 The mobile client stores the opaque challenge ID and submits it with the code.
 The challenge ID is a selector, not a secret. The code alone or the challenge
