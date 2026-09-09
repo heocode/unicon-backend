@@ -195,6 +195,15 @@ iterations:
 8. complete unit and database-backed end-to-end coverage for the entire
    delivery protocol.
 
+Iteration 3 first freezes the backend construction contract with the exact
+`AUTH_MAGIC_LINK_PUBLIC_URL=https://uniconnection.app/auth/verify` setting,
+shared canonical UUID/token validators, and deterministic URL test vectors.
+The setting is not silently normalized. Mobile association files and the safe
+fallback document remain deployment/client integration work within the same
+Stage 3 contract; neither may turn `GET /auth/verify` into proof verification.
+That client-neutral GET never consumes a challenge, creates a user, or creates
+a session. Only the separate POST verification flow may do so.
+
 The resulting internal flow is:
 
 ```text

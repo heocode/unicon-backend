@@ -203,6 +203,11 @@ The canonical email link is:
 https://uniconnection.app/auth/verify?challengeId=<canonical UUID>&token=<canonical magic-link token>
 ```
 
+The backend source URL is configured with the exact value
+`AUTH_MAGIC_LINK_PUBLIC_URL=https://uniconnection.app/auth/verify`. Alternate
+schemes, hosts, paths (including a trailing slash), query parameters, and
+fragments are invalid configuration and are not silently normalized.
+
 `uniconnection.app` is a client-neutral public origin for iOS, Android, and
 future web authentication. `GET /auth/verify` opens the native app or safe
 fallback page but never verifies proof, consumes the challenge, creates a user,
@@ -224,6 +229,10 @@ must not capture the full URL in analytics, error reporting, crash reporting,
 or session replay. The origin exposes the required iOS and Android association
 files under `/.well-known/`, scoped to the authentication route. Client-side
 validation does not replace the endpoint's canonical UUID and token validation.
+
+Normal application logs contain structured identifiers and outcomes rather
+than a full magic-link URL. URL redaction is defense in depth for exceptional
+boundaries, not the ordinary observability path.
 
 ### Deletion-scheduled result
 

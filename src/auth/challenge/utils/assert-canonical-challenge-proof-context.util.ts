@@ -1,16 +1,13 @@
 import { AuthenticationChallengePurpose } from '../../../generated/prisma/enums';
 
-import type { ChallengeProofContext } from '../types/challenge-proof.type';
+import { assertCanonicalUuid } from '../../../common/utils/assert-canonical-uuid.util';
 
-const CANONICAL_UUID_PATTERN =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+import type { ChallengeProofContext } from '../types/challenge-proof.type';
 
 export function assertCanonicalChallengeProofContext(
   context: ChallengeProofContext,
 ): void {
-  if (!CANONICAL_UUID_PATTERN.test(context.challengeId)) {
-    throw new TypeError('Challenge ID must use its canonical representation.');
-  }
+  assertCanonicalUuid(context.challengeId);
 
   if (
     context.normalizedIdentity.length === 0 ||

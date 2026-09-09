@@ -453,6 +453,12 @@ canonical email link is:
 https://uniconnection.app/auth/verify?challengeId=<canonical UUID>&token=<canonical magic-link token>
 ```
 
+Backend configuration exposes this route as
+`AUTH_MAGIC_LINK_PUBLIC_URL=https://uniconnection.app/auth/verify`. The value
+is an exact protocol constant: variants such as `/auth/verify/`, another host
+or scheme, or a URL containing query or fragment data fail startup validation.
+The backend does not silently normalize this value.
+
 `/auth/verify` expresses authentication intent rather than an application
 destination. Mobile registers it as an iOS Universal Link and Android App
 Link. Its `GET` handler only opens a native client or safe HTTPS fallback; it
@@ -483,6 +489,12 @@ load-balancer, reverse-proxy, web-server, application, error-reporting, and
 crash-reporting configuration must redact the `token` query value and must not
 record the full sensitive URL. The route loads no generic analytics or session-
 replay SDK before URL cleanup.
+
+Application observability normally records only structured non-proof metadata,
+such as `challengeId`, `deliveryId`, `templateProtocolVersion`, and normalized
+provider outcome. A redaction helper is a defensive fallback at an exceptional
+boundary; it is not permission to treat the full magic-link URL as a normal
+logging value.
 
 The public origin serves the iOS association file at
 `/.well-known/apple-app-site-association` and the Android association file at

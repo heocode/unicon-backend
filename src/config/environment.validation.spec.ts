@@ -43,6 +43,7 @@ const validEnvironment = {
   AUTH_DELIVERY_PROCESSING_LEASE_SECONDS: '45',
   AUTH_DELIVERY_MIN_VALIDITY_REMAINING_SECONDS: '120',
   AUTH_DELIVERY_PROVIDER_IDEMPOTENCY_WINDOW_SECONDS: '86400',
+  AUTH_MAGIC_LINK_PUBLIC_URL: 'https://uniconnection.app/auth/verify',
   AUTH_CHALLENGE_HMAC_ACTIVE_KEY_VERSION: '1',
   AUTH_CHALLENGE_HMAC_KEYS: `1:${hmacKey}`,
   AUTH_CHALLENGE_ENCRYPTION_ACTIVE_KEY_VERSION: '1',
@@ -219,6 +220,23 @@ describe('validateEnvironment', () => {
       }),
     ).toThrow(
       'Environment variable AUTH_DELIVERY_PROCESSING_LEASE_SECONDS must be greater than AUTH_DELIVERY_HTTP_TIMEOUT_SECONDS.',
+    );
+  });
+
+  it.each([
+    'https://uniconnection.app/auth/verify/',
+    'http://uniconnection.app/auth/verify',
+    'https://www.uniconnection.app/auth/verify',
+    'https://uniconnection.app/auth/verify?source=app',
+    'https://uniconnection.app/auth/verify#auth',
+  ])('rejects non-canonical magic-link public URL %s', (value) => {
+    expect(() =>
+      validateEnvironment({
+        ...validEnvironment,
+        AUTH_MAGIC_LINK_PUBLIC_URL: value,
+      }),
+    ).toThrow(
+      'Environment variable AUTH_MAGIC_LINK_PUBLIC_URL must equal the canonical authentication intent URL.',
     );
   });
 

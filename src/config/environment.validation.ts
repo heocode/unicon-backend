@@ -1,4 +1,5 @@
 import { parseAuthenticationChallengeKeyring } from './utils/parse-authentication-challenge-keyring.util';
+import { AUTHENTICATION_MAGIC_LINK_PUBLIC_URL } from './constants/authentication-magic-link.constants';
 
 const REQUIRED_ENVIRONMENT_VARIABLES = [
   'DATABASE_URL',
@@ -11,6 +12,7 @@ const REQUIRED_ENVIRONMENT_VARIABLES = [
   'ACCOUNT_DELETION_CANCEL_RATE_LIMIT_SECRET',
   'AUTH_CHALLENGE_HMAC_KEYS',
   'AUTH_CHALLENGE_ENCRYPTION_KEYS',
+  'AUTH_MAGIC_LINK_PUBLIC_URL',
 ] as const;
 
 export function validateEnvironment(
@@ -30,6 +32,9 @@ export function validateEnvironment(
     'http:',
     'https:',
   ]);
+  assertCanonicalMagicLinkPublicUrl(
+    validatedEnvironment.AUTH_MAGIC_LINK_PUBLIC_URL,
+  );
 
   validatedEnvironment.JWT_ACCESS_TTL_SECONDS = parsePositiveInteger(
     environment.JWT_ACCESS_TTL_SECONDS,
@@ -366,6 +371,14 @@ function validateUrl(value: unknown, key: string, protocols: string[]): void {
   if (!protocols.includes(url.protocol)) {
     throw new Error(
       `Environment variable ${key} must use one of these protocols: ${protocols.join(', ')}.`,
+    );
+  }
+}
+
+function assertCanonicalMagicLinkPublicUrl(value: unknown): void {
+  if (value !== AUTHENTICATION_MAGIC_LINK_PUBLIC_URL) {
+    throw new Error(
+      'Environment variable AUTH_MAGIC_LINK_PUBLIC_URL must equal the canonical authentication intent URL.',
     );
   }
 }
