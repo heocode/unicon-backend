@@ -1,4 +1,5 @@
 import { parseAuthenticationChallengeKeyring } from './utils/parse-authentication-challenge-keyring.util';
+import { AUTHENTICATION_EMAIL_FROM } from './constants/authentication-email.constants';
 import { AUTHENTICATION_MAGIC_LINK_PUBLIC_URL } from './constants/authentication-magic-link.constants';
 
 const REQUIRED_ENVIRONMENT_VARIABLES = [
@@ -13,6 +14,7 @@ const REQUIRED_ENVIRONMENT_VARIABLES = [
   'AUTH_CHALLENGE_HMAC_KEYS',
   'AUTH_CHALLENGE_ENCRYPTION_KEYS',
   'AUTH_MAGIC_LINK_PUBLIC_URL',
+  'AUTH_EMAIL_FROM',
 ] as const;
 
 export function validateEnvironment(
@@ -35,6 +37,7 @@ export function validateEnvironment(
   assertCanonicalMagicLinkPublicUrl(
     validatedEnvironment.AUTH_MAGIC_LINK_PUBLIC_URL,
   );
+  assertCanonicalAuthenticationEmailFrom(validatedEnvironment.AUTH_EMAIL_FROM);
 
   validatedEnvironment.JWT_ACCESS_TTL_SECONDS = parsePositiveInteger(
     environment.JWT_ACCESS_TTL_SECONDS,
@@ -379,6 +382,14 @@ function assertCanonicalMagicLinkPublicUrl(value: unknown): void {
   if (value !== AUTHENTICATION_MAGIC_LINK_PUBLIC_URL) {
     throw new Error(
       'Environment variable AUTH_MAGIC_LINK_PUBLIC_URL must equal the canonical authentication intent URL.',
+    );
+  }
+}
+
+function assertCanonicalAuthenticationEmailFrom(value: unknown): void {
+  if (value !== AUTHENTICATION_EMAIL_FROM) {
+    throw new Error(
+      'Environment variable AUTH_EMAIL_FROM must equal the canonical authentication sender.',
     );
   }
 }

@@ -44,6 +44,7 @@ const validEnvironment = {
   AUTH_DELIVERY_MIN_VALIDITY_REMAINING_SECONDS: '120',
   AUTH_DELIVERY_PROVIDER_IDEMPOTENCY_WINDOW_SECONDS: '86400',
   AUTH_MAGIC_LINK_PUBLIC_URL: 'https://uniconnection.app/auth/verify',
+  AUTH_EMAIL_FROM: 'Unicon <noreply@uniconnection.app>',
   AUTH_CHALLENGE_HMAC_ACTIVE_KEY_VERSION: '1',
   AUTH_CHALLENGE_HMAC_KEYS: `1:${hmacKey}`,
   AUTH_CHALLENGE_ENCRYPTION_ACTIVE_KEY_VERSION: '1',
@@ -237,6 +238,21 @@ describe('validateEnvironment', () => {
       }),
     ).toThrow(
       'Environment variable AUTH_MAGIC_LINK_PUBLIC_URL must equal the canonical authentication intent URL.',
+    );
+  });
+
+  it.each([
+    'noreply@uniconnection.app',
+    'Unicon <no-reply@uniconnection.app>',
+    'Unicon <noreply@example.com>',
+  ])('rejects non-canonical authentication sender %s', (value) => {
+    expect(() =>
+      validateEnvironment({
+        ...validEnvironment,
+        AUTH_EMAIL_FROM: value,
+      }),
+    ).toThrow(
+      'Environment variable AUTH_EMAIL_FROM must equal the canonical authentication sender.',
     );
   });
 

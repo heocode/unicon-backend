@@ -228,7 +228,9 @@ authority. Selection and claim occur in one short transaction using
 transaction.
 
 Provider retry results distinguish `SAFE_RETRY` from `AMBIGUOUS_RETRY` and may
-carry a bounded normalized retry hint. Ambiguous retry always reuses the same
+carry a normalized HTTP `Retry-After` hint in delta-seconds or HTTP-date form.
+Only an explicit rate-limit rejection is classified safe in V1; unknown
+outcomes and 5xx responses are ambiguous. Ambiguous retry always reuses the same
 idempotency key and must stop before the provider's documented idempotency
 window ends. Only allowlisted failure codes are persisted.
 
@@ -246,9 +248,11 @@ ordinary failed Delivery.
 non-terminal Deliveries. Partial envelopes enter neither ordinary terminal
 path.
 
-Every Delivery persists `templateProtocolVersion`. Provider retries must
-reproduce a byte-equivalent recipient, From, subject, HTML, text, magic-link
-URL, headers, and request options through that immutable renderer version.
+Every Delivery persists `templateProtocolVersion`. Immutable recipient, From,
+subject, HTML, and text content is separate from operational `deliveryId`,
+`idempotencyKey`, and template-version context. V1 has no generic provider
+request-options bag. Provider retries must reproduce byte-equivalent content
+through that immutable renderer version and reuse the same idempotency key.
 Deploying a new template version cannot change an existing Delivery payload.
 
 The approved V1 retry policy is:
@@ -345,6 +349,9 @@ Stage 3 decision 2 is approved. Delivery uses:
 From: Unicon <noreply@uniconnection.app>
 Subject: 482731 — Your Unicon sign-in code
 ```
+
+`AUTH_EMAIL_FROM=Unicon <noreply@uniconnection.app>` is an exact validated
+backend setting. The adapter rejects a mismatched sender before network I/O.
 
 The generated six-digit OTP replaces the example and is also prominent in the
 body. Showing it in the subject intentionally favors passwordless notification-

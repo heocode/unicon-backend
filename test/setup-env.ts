@@ -43,6 +43,7 @@ process.env.AUTH_DELIVERY_MIN_VALIDITY_REMAINING_SECONDS ??= '120';
 process.env.AUTH_DELIVERY_PROVIDER_IDEMPOTENCY_WINDOW_SECONDS ??= '86400';
 process.env.AUTH_MAGIC_LINK_PUBLIC_URL ??=
   'https://uniconnection.app/auth/verify';
+process.env.AUTH_EMAIL_FROM ??= 'Unicon <noreply@uniconnection.app>';
 process.env.AUTH_CHALLENGE_HMAC_ACTIVE_KEY_VERSION ??= '1';
 process.env.AUTH_CHALLENGE_HMAC_KEYS ??=
   '1:AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE=';

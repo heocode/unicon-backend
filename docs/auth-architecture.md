@@ -315,8 +315,10 @@ repair it, treat it as a normal provider failure, or silently mark it failed.
 Provider adapters normalize results as accepted, retryable, or terminal.
 Retryable results distinguish `SAFE_RETRY`, where the adapter knows the
 provider did not accept the request, from `AMBIGUOUS_RETRY`, where acceptance
-is unknown after a timeout or connection loss. A bounded provider retry hint
-may set `nextAttemptAt`. Raw provider errors and responses are never persisted;
+is unknown after a timeout, connection loss, unknown response, or Resend 5xx.
+V1 treats only an explicit rate-limit rejection as proven `SAFE_RETRY`; it does
+not assume that every 5xx means the provider rejected submission. A provider
+retry hint may influence `nextAttemptAt`. Raw provider errors and responses are never persisted;
 only an allowlisted safe failure code may be stored. `FAILED` means a terminal
 provider, request, or configuration failure. `CANCELLED` means proof must no
 longer be delivered; initial safe cancellation reasons include
@@ -331,10 +333,13 @@ If that window would be exceeded, delivery becomes terminal rather than risk a
 duplicate send. Maximum attempts, backoff, challenge expiry, and the provider
 window all independently bound retries.
 
-One Delivery also fixes an immutable `templateProtocolVersion`. Every retry
-must reproduce a byte-equivalent provider payload: recipient, From, subject,
-HTML, plain text, magic-link URL, headers, and provider request options do not
-change. Rendering uses the persisted template protocol rather than the current
+One Delivery also fixes an immutable `templateProtocolVersion`. Immutable
+email content consists only of recipient, From, subject, HTML, and plain text.
+Operational submission context separately carries `deliveryId`,
+`idempotencyKey`, and `templateProtocolVersion`; these fields are not email
+body or provider payload fields. No generic provider request-options bag is
+part of the V1 contract. Every retry reproduces byte-equivalent email content
+and the same idempotency key. Rendering uses the persisted template protocol rather than the current
 deployment default and contains no render-time clock values, random IDs,
 tracking parameters, unstable whitespace, or other dynamic input. Changing a
 template defines a new protocol version; it never changes an existing
@@ -388,6 +393,10 @@ effectiveNotBefore = max(
   operationNow + providerRetryAfter
 )
 ```
+
+The Resend adapter parses only the HTTP `Retry-After` contract exposed in its
+response headers: integer delta-seconds or an IMF-fixdate HTTP-date. Malformed
+values are ignored. The adapter never shortens a valid provider delay.
 
 The provider delay is never shortened by an application upper bound. If it
 would move submission outside the delivery window, retry is cancelled rather
@@ -513,6 +522,10 @@ the message. The canonical sender and subject format are:
 From: Unicon <noreply@uniconnection.app>
 Subject: 482731 — Your Unicon sign-in code
 ```
+
+`AUTH_EMAIL_FROM` must equal the canonical From value above exactly. Startup
+rejects alternate display names or addresses, and the provider adapter rejects
+a submission whose immutable content does not match the validated sender.
 
 The generated OTP replaces `482731` without spacing or reformatting. This
 knowingly exposes a short-lived notification preview to anyone who can see the
