@@ -44,6 +44,12 @@ export class ResendAuthenticationEmailTransportService {
         subject: content.subject,
         html: content.html,
         text: content.text,
+        attachments: content.inlineAttachments.map((attachment) => ({
+          content: Buffer.from(attachment.content).toString('base64'),
+          filename: attachment.filename,
+          content_type: attachment.contentType,
+          content_id: attachment.contentId,
+        })),
       }),
       signal,
     });

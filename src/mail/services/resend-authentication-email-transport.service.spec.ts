@@ -11,6 +11,14 @@ describe('ResendAuthenticationEmailTransportService', () => {
       subject: '482731 — Your Unicon sign-in code',
       html: '<p>html</p>',
       text: 'text',
+      inlineAttachments: [
+        {
+          contentId: 'unicon-logo-v1',
+          filename: 'unicon-logo-v1.png',
+          contentType: 'image/png',
+          content: Uint8Array.from([0, 1, 2, 255]),
+        },
+      ],
     },
     deliveryId: 'internal-delivery-id',
     idempotencyKey: 'stable-idempotency-key',
@@ -61,6 +69,14 @@ describe('ResendAuthenticationEmailTransportService', () => {
         subject: submission.content.subject,
         html: submission.content.html,
         text: submission.content.text,
+        attachments: [
+          {
+            content: 'AAEC/w==',
+            filename: 'unicon-logo-v1.png',
+            content_type: 'image/png',
+            content_id: 'unicon-logo-v1',
+          },
+        ],
       }),
       signal: abortController.signal,
     });

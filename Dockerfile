@@ -7,6 +7,7 @@ RUN npm ci
 
 COPY nest-cli.json tsconfig.json tsconfig.build.json ./
 COPY src ./src
+COPY assets ./assets
 
 RUN npm run build
 RUN npm prune --omit=dev
@@ -18,6 +19,7 @@ WORKDIR /app
 
 COPY --from=build --chown=node:node /app/node_modules ./node_modules
 COPY --from=build --chown=node:node /app/dist ./dist
+COPY --from=build --chown=node:node /app/assets ./assets
 
 USER node
 

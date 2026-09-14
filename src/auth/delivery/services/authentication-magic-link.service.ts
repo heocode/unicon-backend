@@ -36,4 +36,23 @@ export class AuthenticationMagicLinkService {
 
     return url.toString();
   }
+
+  assertCanonicalVerificationUrl(value: string): void {
+    try {
+      const url = new URL(value);
+      const challengeId = url.searchParams.get('challengeId');
+      const linkToken = url.searchParams.get('token');
+
+      if (
+        challengeId === null ||
+        linkToken === null ||
+        [...url.searchParams].length !== 2 ||
+        this.buildVerificationUrl({ challengeId, linkToken }) !== value
+      ) {
+        throw new Error();
+      }
+    } catch {
+      throw new Error('Authentication magic-link URL is not canonical.');
+    }
+  }
 }

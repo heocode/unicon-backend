@@ -109,4 +109,23 @@ describe('AuthenticationMagicLinkService', () => {
       'AUTH_MAGIC_LINK_PUBLIC_URL',
     );
   });
+
+  it('accepts only the exact canonical verification URL', () => {
+    const service = new AuthenticationMagicLinkService(
+      configService as unknown as ConfigService,
+    );
+    const canonical = service.buildVerificationUrl({ challengeId, linkToken });
+
+    expect(() =>
+      service.assertCanonicalVerificationUrl(canonical),
+    ).not.toThrow();
+    expect(() =>
+      service.assertCanonicalVerificationUrl(`${canonical}&source=email`),
+    ).toThrow('Authentication magic-link URL is not canonical.');
+    expect(() =>
+      service.assertCanonicalVerificationUrl(
+        canonical.replace('&token=', '&token=%'),
+      ),
+    ).toThrow('Authentication magic-link URL is not canonical.');
+  });
 });

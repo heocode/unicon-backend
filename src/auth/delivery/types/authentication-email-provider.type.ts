@@ -1,9 +1,17 @@
+export type AuthenticationEmailInlineAttachment = Readonly<{
+  contentId: string;
+  filename: string;
+  contentType: 'image/png';
+  content: Uint8Array;
+}>;
+
 export type AuthenticationEmailContent = Readonly<{
   recipient: string;
   from: string;
   subject: string;
   html: string;
   text: string;
+  inlineAttachments: readonly AuthenticationEmailInlineAttachment[];
 }>;
 
 export type AuthenticationEmailSubmission = Readonly<{
