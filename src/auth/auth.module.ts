@@ -43,6 +43,8 @@ import { AuthenticationDeliveryPolicyService } from './delivery/services/authent
 import { AuthenticationDeliveryRepository } from './delivery/repositories/authentication-delivery.repository';
 import { AuthenticationMagicLinkService } from './delivery/services/authentication-magic-link.service';
 import { AuthenticationEmailTemplateService } from './delivery/services/authentication-email-template.service';
+import { AuthenticationDeliveryOrchestrationService } from './delivery/services/authentication-delivery-orchestration.service';
+import { AuthenticationDeliveryRandomSourceService } from './delivery/services/authentication-delivery-random-source.service';
 
 @Module({
   imports: [
@@ -82,6 +84,8 @@ import { AuthenticationEmailTemplateService } from './delivery/services/authenti
     AuthenticationDeliveryRepository,
     AuthenticationMagicLinkService,
     AuthenticationEmailTemplateService,
+    AuthenticationDeliveryOrchestrationService,
+    AuthenticationDeliveryRandomSourceService,
     RefreshTokenGuard,
   ],
   exports: [AuthService, SessionCreationService],

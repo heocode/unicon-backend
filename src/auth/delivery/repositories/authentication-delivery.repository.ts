@@ -6,6 +6,7 @@ import { Injectable } from '@nestjs/common';
 // Prisma
 import { Prisma } from '../../../generated/prisma/client';
 import {
+  AuthenticationChallengePurpose,
   AuthenticationDeliveryMethod,
   AuthenticationDeliveryOrigin,
   AuthenticationDeliveryStatus,
@@ -18,6 +19,7 @@ import { AuthenticationDeliveryPolicyService } from '../services/authentication-
 // Internal types
 import {
   AUTHENTICATION_DELIVERY_PROCESSING_ATTEMPTS_EXHAUSTED,
+  AUTHENTICATION_DELIVERY_INTERNAL_INVARIANT_FAILURE,
   AuthenticationDeliveryCancellationReason,
   AuthenticationDeliveryClaimKind,
   AuthenticationDeliveryTransitionOutcome,
@@ -26,6 +28,7 @@ import {
   type CreateInitialAuthenticationDeliveryInput,
   type CreateResendAuthenticationDeliveryInput,
   type CreateResendAuthenticationDeliveryResult,
+  type OwnedAuthenticationDeliveryChallengeResult,
 } from '../types/authentication-delivery.type';
 
 type OperationTimestampRow = {
@@ -52,6 +55,23 @@ type ClaimedDeliveryRow = Omit<
   processingLeaseId: string;
   processingLeaseExpiresAt: Date;
   claimKind: AuthenticationDeliveryClaimKind;
+};
+
+type OwnedDeliveryChallengeRow = {
+  operationNow: Date;
+  id: string;
+  normalizedIdentity: string;
+  purpose: AuthenticationChallengePurpose;
+  expiresAt: Date;
+  failedAttemptCount: number;
+  maxAttempts: number;
+  consumedAt: Date | null;
+  lockedAt: Date | null;
+  encryptedProof: Uint8Array | null;
+  proofEncryptionIv: Uint8Array | null;
+  proofEncryptionTag: Uint8Array | null;
+  encryptionProtocolVersion: number;
+  encryptionKeyVersion: number;
 };
 
 @Injectable()
@@ -218,6 +238,85 @@ export class AuthenticationDeliveryRepository {
     });
   }
 
+  async getOwnedChallengeState(
+    deliveryId: string,
+    leaseId: string,
+    challengeId: string,
+  ): Promise<OwnedAuthenticationDeliveryChallengeResult> {
+    const rows = await this.prisma.$queryRaw<OwnedDeliveryChallengeRow[]>(
+      Prisma.sql`
+        SELECT
+          clock_timestamp() AS "operationNow",
+          "challenge"."id",
+          "challenge"."normalizedIdentity",
+          "challenge"."purpose",
+          "challenge"."expiresAt",
+          "challenge"."failedAttemptCount",
+          "challenge"."maxAttempts",
+          "challenge"."consumedAt",
+          "challenge"."lockedAt",
+          "challenge"."encryptedProof",
+          "challenge"."proofEncryptionIv",
+          "challenge"."proofEncryptionTag",
+          "challenge"."encryptionProtocolVersion",
+          "challenge"."encryptionKeyVersion"
+        FROM "AuthenticationChallengeDelivery" AS "delivery"
+        INNER JOIN "AuthenticationChallenge" AS "challenge"
+          ON "challenge"."id" = "delivery"."challengeId"
+        WHERE
+          "delivery"."id" = ${deliveryId}
+          AND "delivery"."challengeId" = ${challengeId}
+          AND "delivery"."status" = 'PROCESSING'
+          AND "delivery"."processingLeaseId" = ${leaseId}::uuid
+          AND "delivery"."processingLeaseExpiresAt" > clock_timestamp()
+      `,
+    );
+    const row = rows[0];
+
+    if (!row) {
+      return { outcome: 'LEASE_LOST' };
+    }
+
+    return {
+      outcome: 'AVAILABLE',
+      operationNow: row.operationNow,
+      challenge: {
+        id: row.id,
+        normalizedIdentity: row.normalizedIdentity,
+        purpose: row.purpose,
+        expiresAt: row.expiresAt,
+        failedAttemptCount: row.failedAttemptCount,
+        maxAttempts: row.maxAttempts,
+        consumedAt: row.consumedAt,
+        lockedAt: row.lockedAt,
+        encryptedProof: row.encryptedProof,
+        proofEncryptionIv: row.proofEncryptionIv,
+        proofEncryptionTag: row.proofEncryptionTag,
+        encryptionProtocolVersion: row.encryptionProtocolVersion,
+        encryptionKeyVersion: row.encryptionKeyVersion,
+      },
+    };
+  }
+
+  async getOwnedOperationTimestamp(
+    deliveryId: string,
+    leaseId: string,
+  ): Promise<Date | null> {
+    const rows = await this.prisma.$queryRaw<
+      OperationTimestampRow[]
+    >(Prisma.sql`
+      SELECT clock_timestamp() AS "operationNow"
+      FROM "AuthenticationChallengeDelivery"
+      WHERE
+        "id" = ${deliveryId}
+        AND "status" = 'PROCESSING'
+        AND "processingLeaseId" = ${leaseId}::uuid
+        AND "processingLeaseExpiresAt" > clock_timestamp()
+    `);
+
+    return rows[0]?.operationNow ?? null;
+  }
+
   terminalizeExpiredExhaustedLeases(batchSize: number): Promise<number> {
     return this.prisma.$transaction(async (transaction) => {
       const operationNow = await this.getOperationTimestamp(transaction);
@@ -283,6 +382,26 @@ export class AuthenticationDeliveryRepository {
     }));
   }
 
+  scheduleRetryAfter(
+    deliveryId: string,
+    leaseId: string,
+    delaySeconds: number,
+    safeFailureCode: string,
+  ): Promise<AuthenticationDeliveryTransitionOutcome> {
+    if (!Number.isFinite(delaySeconds) || delaySeconds < 0) {
+      throw new Error('Authentication delivery retry delay is invalid.');
+    }
+
+    return this.applyOwnedTransition(deliveryId, leaseId, (operationNow) => ({
+      status: AuthenticationDeliveryStatus.PENDING,
+      nextAttemptAt: new Date(operationNow.getTime() + delaySeconds * 1_000),
+      lastSafeFailureCode: safeFailureCode,
+      processingLeaseId: null,
+      processingLeaseExpiresAt: null,
+      updatedAt: operationNow,
+    }));
+  }
+
   markFailed(
     deliveryId: string,
     leaseId: string,
@@ -296,6 +415,17 @@ export class AuthenticationDeliveryRepository {
       processingLeaseExpiresAt: null,
       updatedAt: operationNow,
     }));
+  }
+
+  markInternalFailure(
+    deliveryId: string,
+    leaseId: string,
+  ): Promise<AuthenticationDeliveryTransitionOutcome> {
+    return this.markFailed(
+      deliveryId,
+      leaseId,
+      AUTHENTICATION_DELIVERY_INTERNAL_INVARIANT_FAILURE,
+    );
   }
 
   cancelOwnedDelivery(
@@ -393,6 +523,7 @@ export class AuthenticationDeliveryRepository {
             id: deliveryId,
             status: AuthenticationDeliveryStatus.PROCESSING,
             processingLeaseId: leaseId,
+            processingLeaseExpiresAt: { gt: operationNow },
           },
           data: createData(operationNow),
         });
