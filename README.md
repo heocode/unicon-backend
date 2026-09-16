@@ -100,8 +100,10 @@ secrets, rate-limit secrets, credentials, or raw authentication tokens.
 docker compose up -d postgres
 ```
 
-The default Compose service exposes PostgreSQL at `localhost:5432` with the
-development database `unicon`.
+This passwordless workspace exposes its own development PostgreSQL at
+`localhost:5434` with the database `unicon_passwordless`. Its container and
+volume are separate from the legacy auth workspace on `localhost:5432`. The
+example application port is `3001`, so both backends can run simultaneously.
 
 The e2e suite uses a physically separate PostgreSQL 17 container and volume.
 Start it only when database-backed tests are needed:
