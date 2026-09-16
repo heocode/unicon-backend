@@ -5,11 +5,13 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { AppModule } from '../src/app.module';
 import { AuthenticationChallengeProofFactoryService } from '../src/auth/challenge/services/authentication-challenge-proof-factory.service';
 import { AuthenticationDeliveryRepository } from '../src/auth/delivery/repositories/authentication-delivery.repository';
+import { AuthenticationDeliveryCleanupRepository } from '../src/auth/delivery/repositories/authentication-delivery-cleanup.repository';
 import {
   AUTHENTICATION_DELIVERY_PROCESSING_ATTEMPTS_EXHAUSTED,
   AuthenticationDeliveryCancellationReason,
   AuthenticationDeliveryClaimKind,
   AuthenticationDeliveryTransitionOutcome,
+  type ClaimedAuthenticationDelivery,
 } from '../src/auth/delivery/types/authentication-delivery.type';
 import {
   AuthenticationChallengePurpose,
@@ -27,6 +29,7 @@ describe('Authentication delivery persistence (e2e)', () => {
   let prisma: PrismaService;
   let proofFactory: AuthenticationChallengeProofFactoryService;
   let repository: AuthenticationDeliveryRepository;
+  let cleanupRepository: AuthenticationDeliveryCleanupRepository;
   let challengeId: string;
   let recipient: string;
 
@@ -39,6 +42,9 @@ describe('Authentication delivery persistence (e2e)', () => {
       AuthenticationChallengeProofFactoryService,
     );
     repository = moduleFixture.get(AuthenticationDeliveryRepository);
+    cleanupRepository = moduleFixture.get(
+      AuthenticationDeliveryCleanupRepository,
+    );
   });
 
   beforeEach(async () => {
@@ -184,6 +190,40 @@ describe('Authentication delivery persistence (e2e)', () => {
       attemptCount: 1,
       claimKind: AuthenticationDeliveryClaimKind.NORMAL,
     });
+  });
+
+  it('claims fairly by oldest eligibility across pending, retry, and expired lease candidates', async () => {
+    const now = Date.now();
+    const pending = (await createDelivery({
+      createdAt: new Date(now - 30_000),
+    })) as { id: string };
+    const retry = (await createDelivery({
+      createdAt: new Date(now - 60_000),
+      nextAttemptAt: new Date(now - 20_000),
+    })) as { id: string };
+    const expiredLease = (await createDelivery({
+      status: AuthenticationDeliveryStatus.PROCESSING,
+      attemptCount: 1,
+      createdAt: new Date(now - 90_000),
+      processingLeaseId: randomUUID(),
+      processingLeaseExpiresAt: new Date(now - 10_000),
+    })) as { id: string };
+
+    const claims: (ClaimedAuthenticationDelivery | null)[] = [];
+    for (let index = 0; index < 3; index++) {
+      const claim = await repository.claimNextDelivery();
+      claims.push(claim);
+      await repository.markSent(claim!.id, claim!.leaseId);
+    }
+
+    expect(claims.map((claim) => claim?.id)).toEqual([
+      pending.id,
+      retry.id,
+      expiredLease.id,
+    ]);
+    expect(claims[2]?.claimKind).toBe(
+      AuthenticationDeliveryClaimKind.EXPIRED_LEASE_RECLAIM,
+    );
   });
 
   it('reclaims an expired lease with a new owner and rejects the stale worker', async () => {
@@ -383,5 +423,40 @@ describe('Authentication delivery persistence (e2e)', () => {
         retentionExpiresAt: new Date(Date.now() + 86_400_000),
       }),
     ).resolves.toEqual({ outcome: 'CHALLENGE_UNAVAILABLE' });
+  });
+
+  it('deletes only retained terminal deliveries in a short cleanup transaction', async () => {
+    const retainedSent = (await createDelivery({
+      status: AuthenticationDeliveryStatus.SENT,
+      sentAt: new Date(Date.now() - 2_000),
+      retentionExpiresAt: new Date(Date.now() - 1_000),
+    })) as { id: string };
+    const retainedPending = (await createDelivery({
+      retentionExpiresAt: new Date(Date.now() - 1_000),
+    })) as { id: string };
+    const futureFailed = (await createDelivery({
+      status: AuthenticationDeliveryStatus.FAILED,
+      lastSafeFailureCode: 'PROVIDER_REJECTED',
+      retentionExpiresAt: new Date(Date.now() + 60_000),
+    })) as { id: string };
+
+    await expect(
+      cleanupRepository.deleteOneRetainedTerminalBatch(100),
+    ).resolves.toBe(1);
+    await expect(
+      prisma.authenticationChallengeDelivery.findUnique({
+        where: { id: retainedSent.id },
+      }),
+    ).resolves.toBeNull();
+    await expect(
+      prisma.authenticationChallengeDelivery.findUnique({
+        where: { id: retainedPending.id },
+      }),
+    ).resolves.not.toBeNull();
+    await expect(
+      prisma.authenticationChallengeDelivery.findUnique({
+        where: { id: futureFailed.id },
+      }),
+    ).resolves.not.toBeNull();
   });
 });

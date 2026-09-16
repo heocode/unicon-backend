@@ -155,7 +155,15 @@ export class AuthenticationDeliveryRepository {
         WITH "candidate" AS (
           SELECT
             "delivery"."id",
-            "delivery"."status" AS "previousStatus"
+            "delivery"."status" AS "previousStatus",
+            CASE
+              WHEN "delivery"."status" = 'PROCESSING'
+                THEN "delivery"."processingLeaseExpiresAt"
+              ELSE COALESCE(
+                "delivery"."nextAttemptAt",
+                "delivery"."createdAt"
+              )
+            END AS "eligibleAt"
           FROM "AuthenticationChallengeDelivery" AS "delivery"
           INNER JOIN "AuthenticationChallenge" AS "challenge"
             ON "challenge"."id" = "delivery"."challengeId"
@@ -183,7 +191,8 @@ export class AuthenticationDeliveryRepository {
             AND "challenge"."proofEncryptionIv" IS NOT NULL
             AND "challenge"."proofEncryptionTag" IS NOT NULL
           ORDER BY
-            COALESCE("delivery"."nextAttemptAt", "delivery"."createdAt") ASC,
+            "eligibleAt" ASC,
+            "delivery"."createdAt" ASC,
             "delivery"."id" ASC
           FOR UPDATE OF "delivery" SKIP LOCKED
           LIMIT 1

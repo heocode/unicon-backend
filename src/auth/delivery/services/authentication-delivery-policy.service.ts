@@ -10,6 +10,10 @@ export class AuthenticationDeliveryPolicyService {
   readonly processingLeaseSeconds: number;
   readonly minValidityRemainingSeconds: number;
   readonly providerIdempotencyWindowSeconds: number;
+  readonly workerIntervalSeconds: number;
+  readonly workerConcurrency: number;
+  readonly workerMaxDeliveriesPerCycle: number;
+  readonly workerExhaustedLeaseBatchSize: number;
 
   private readonly retryBackoffByCompletedAttempt: ReadonlyMap<number, number>;
 
@@ -40,6 +44,18 @@ export class AuthenticationDeliveryPolicyService {
     );
     this.providerIdempotencyWindowSeconds = configService.getOrThrow<number>(
       'AUTH_DELIVERY_PROVIDER_IDEMPOTENCY_WINDOW_SECONDS',
+    );
+    this.workerIntervalSeconds = configService.getOrThrow<number>(
+      'AUTH_DELIVERY_WORKER_INTERVAL_SECONDS',
+    );
+    this.workerConcurrency = configService.getOrThrow<number>(
+      'AUTH_DELIVERY_WORKER_CONCURRENCY',
+    );
+    this.workerMaxDeliveriesPerCycle = configService.getOrThrow<number>(
+      'AUTH_DELIVERY_WORKER_MAX_DELIVERIES_PER_CYCLE',
+    );
+    this.workerExhaustedLeaseBatchSize = configService.getOrThrow<number>(
+      'AUTH_DELIVERY_WORKER_EXHAUSTED_LEASE_BATCH_SIZE',
     );
   }
 

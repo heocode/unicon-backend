@@ -326,20 +326,22 @@ longer be delivered; initial safe cancellation reasons include
 `SUPERSEDED_BY_RESEND`. A partial envelope remains an internal data-integrity
 failure and does not enter either ordinary terminal flow.
 
-`attemptedAt` records the first provider submission and is not moved by
-retries. Ambiguous retries are allowed only while reuse of the same
-idempotency key remains inside the provider's documented idempotency window.
-If that window would be exceeded, delivery becomes terminal rather than risk a
-duplicate send. Maximum attempts, backoff, challenge expiry, and the provider
-window all independently bound retries.
+`attemptedAt` records the latest processing claim; `attemptCount` remains the
+fail-safe claim/reclaim budget rather than an exact HTTP submission count. In
+V1 the ten-minute challenge lifetime is strictly shorter than Resend's
+24-hour idempotency window, so every otherwise eligible ambiguous retry is
+inside that window by construction. Startup configuration enforces this
+assumption; orchestration does not perform a separate runtime window check.
 
 One Delivery also fixes an immutable `templateProtocolVersion`. Immutable
-email content consists only of recipient, From, subject, HTML, and plain text.
+email content consists only of recipient, From, subject, HTML, plain text, and
+versioned CID attachment metadata and bytes.
 Operational submission context separately carries `deliveryId`,
 `idempotencyKey`, and `templateProtocolVersion`; these fields are not email
 body or provider payload fields. No generic provider request-options bag is
-part of the V1 contract. Every retry reproduces byte-equivalent email content
-and the same idempotency key. Rendering uses the persisted template protocol rather than the current
+part of the V1 contract. Every retry reproduces deterministic
+application-level email content and the same idempotency key. Rendering uses
+the persisted template protocol rather than the current
 deployment default and contains no render-time clock values, random IDs,
 tracking parameters, unstable whitespace, or other dynamic input. Changing a
 template defines a new protocol version; it never changes an existing
@@ -406,10 +408,10 @@ than sent early. Scheduling requires
 
 `SAFE_RETRY` and `AMBIGUOUS_RETRY` share the same five-processing-attempt
 budget. An ambiguous retry additionally requires the same Delivery,
-idempotency key, byte-equivalent payload, active challenge, and provider
-idempotency window. `attemptedAt` fixes the first provider-submission time used
-for the 24-hour window. A permanent recipient rejection, invalid provider
-request, provider configuration error, or API authentication error fails
+idempotency key, deterministic application-level payload, and active
+challenge. Final MIME boundaries, Date, Message-ID, and provider-added headers
+are outside the application's deterministic contract. A permanent recipient
+rejection, invalid provider request, provider configuration error, or API authentication error fails
 without retry and produces an internal operational alert where appropriate.
 
 An expired processing lease with `attemptCount < 5` may be reclaimed with a
@@ -419,9 +421,18 @@ is already unavailable it becomes `CANCELLED`; otherwise it becomes `FAILED`
 with the allowlisted `PROCESSING_ATTEMPTS_EXHAUSTED` reason.
 
 Workers claim due or expired-lease deliveries in short PostgreSQL transactions
-using `FOR UPDATE SKIP LOCKED`. Processing is bounded per run, non-overlapping
-inside one process, safe across replicas, and allowed to finish during graceful
-shutdown. Delivery retention uses bounded cleanup independent from provider
+using `FOR UPDATE SKIP LOCKED`. Fair deterministic ordering uses eligibility
+time first: initial pending `createdAt`, scheduled retry `nextAttemptAt`, or
+expired processing `processingLeaseExpiresAt`; ties use `createdAt` and `id`.
+Each free processing lane performs `claim → orchestrate → claim`; workers never
+pre-claim a batch into a local leased queue. V1 uses a one-second interval,
+four lanes per replica, and at most twenty claims per cycle. Effective provider
+concurrency is therefore replica count multiplied by four; deployment must
+respect provider throughput because V1 has no distributed global semaphore.
+Processing is non-overlapping inside one process and allowed to finish during
+graceful shutdown. An exception escaping classified orchestration is unexpected:
+the worker records only safe telemetry and leaves the row to lease-expiry
+recovery. Delivery retention uses bounded cleanup independent from provider
 processing.
 
 Delivery failure never consumes, unlocks, resets, or extends the challenge.

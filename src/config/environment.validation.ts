@@ -242,6 +242,30 @@ export function validateEnvironment(
     deliveryMinValidityRemainingSeconds;
   validatedEnvironment.AUTH_DELIVERY_PROVIDER_IDEMPOTENCY_WINDOW_SECONDS =
     deliveryProviderIdempotencyWindowSeconds;
+  validatedEnvironment.AUTH_DELIVERY_WORKER_INTERVAL_SECONDS =
+    parsePositiveIntegerAtMost(
+      environment.AUTH_DELIVERY_WORKER_INTERVAL_SECONDS,
+      'AUTH_DELIVERY_WORKER_INTERVAL_SECONDS',
+      60,
+    );
+  validatedEnvironment.AUTH_DELIVERY_WORKER_CONCURRENCY =
+    parsePositiveIntegerAtMost(
+      environment.AUTH_DELIVERY_WORKER_CONCURRENCY,
+      'AUTH_DELIVERY_WORKER_CONCURRENCY',
+      32,
+    );
+  validatedEnvironment.AUTH_DELIVERY_WORKER_MAX_DELIVERIES_PER_CYCLE =
+    parsePositiveIntegerAtMost(
+      environment.AUTH_DELIVERY_WORKER_MAX_DELIVERIES_PER_CYCLE,
+      'AUTH_DELIVERY_WORKER_MAX_DELIVERIES_PER_CYCLE',
+      1_000,
+    );
+  validatedEnvironment.AUTH_DELIVERY_WORKER_EXHAUSTED_LEASE_BATCH_SIZE =
+    parsePositiveIntegerAtMost(
+      environment.AUTH_DELIVERY_WORKER_EXHAUSTED_LEASE_BATCH_SIZE,
+      'AUTH_DELIVERY_WORKER_EXHAUSTED_LEASE_BATCH_SIZE',
+      1_000,
+    );
 
   validatedEnvironment.AUTH_CHALLENGE_HMAC_ACTIVE_KEY_VERSION =
     parsePositiveInteger(

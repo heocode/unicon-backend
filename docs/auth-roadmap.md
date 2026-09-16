@@ -241,7 +241,8 @@ remains unusable because verification rechecks state. Partial encrypted
 envelopes violate a database invariant and are internal corruption, not an
 ordinary failed Delivery.
 
-`FAILED` represents terminal provider, request, or configuration failure.
+`FAILED` represents terminal provider, request, configuration, or explicitly
+classified internal invariant failure.
 `CANCELLED` means proof should no longer be sent, initially for
 `DELIVERY_WINDOW_CLOSED`, `CHALLENGE_UNAVAILABLE`, or
 `SUPERSEDED_BY_RESEND`. Consumed, locked, and expired challenges cancel their
@@ -249,7 +250,8 @@ non-terminal Deliveries. Partial envelopes enter neither ordinary terminal
 path.
 
 Every Delivery persists `templateProtocolVersion`. Immutable recipient, From,
-subject, HTML, and text content is separate from operational `deliveryId`,
+subject, HTML, text, and versioned CID attachment metadata and bytes are
+separate from operational `deliveryId`,
 `idempotencyKey`, and template-version context. V1 has no generic provider
 request-options bag. Provider retries must reproduce byte-equivalent content
 through that immutable renderer version and reuse the same idempotency key.
@@ -286,8 +288,19 @@ later of jittered policy backoff and provider `Retry-After`; provider delay is
 never shortened. Both scheduling and provider submission enforce 120 seconds
 of remaining challenge validity. Safe and ambiguous retries share the same
 five-claim budget. Ambiguous retry additionally requires the same Delivery,
-idempotency key, byte-equivalent payload, active challenge, and provider
-idempotency window.
+idempotency key, deterministic application-level payload, and active
+challenge. The ten-minute challenge lifetime is below the enforced 24-hour
+provider idempotency window, so V1 needs no separate runtime cutoff.
+
+The delivery worker runs every second with four processing lanes per replica
+and at most twenty claims per cycle. Effective provider concurrency is
+`replica count × 4`; V1 adds no distributed global semaphore. A lane claims
+only when free and never stores a pre-claimed local queue. SQL claim ordering
+uses the oldest eligibility timestamp across initial pending, scheduled retry,
+and expired-lease reclaim candidates, then `createdAt` and `id`, preventing
+starvation while retaining `FOR UPDATE SKIP LOCKED`. Exceptions escaping the
+classified orchestration contract are unexpected; the worker records safe
+metadata only and leaves recovery to lease expiration.
 
 Manual resend preserves the challenge, proof, expiration, and attempt state,
 creates a new `RESEND` Delivery and idempotency key, and atomically cancels
@@ -309,8 +322,8 @@ Email requirements:
 
 Required tests cover initial delivery versus resend, stable proof across
 deliveries, provider idempotency reuse, concurrent claims, lease expiry and
-stale workers, safe and ambiguous retry, retry hints and idempotency-window
-cutoff, successful and terminal delivery, process failure around provider
+stale workers, safe and ambiguous retry, retry hints and the configured
+idempotency-window invariant, successful and terminal delivery, process failure around provider
 submission, terminal challenge races, proof non-persistence, bounded workers,
 and retention.
 
