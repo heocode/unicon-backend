@@ -193,7 +193,20 @@ iterations:
 7. implement bounded retry workers, lease recovery, graceful shutdown, and
    Delivery retention cleanup;
 8. complete unit and database-backed end-to-end coverage for the entire
-   delivery protocol.
+   delivery protocol. Mandatory integration tests establish reachability of
+   PENDING Deliveries for expired, consumed, and locked challenges through
+   cancellation and retention; compare application-level submissions across
+   two real repository/read/decrypt/build/render/provider attempts; and cover
+   crash, expired lease, reclaim, successful send, and rejection of every late
+   transition under the old lease. An in-flight resend integration test also
+   verifies ownership revocation without pretending to cancel provider I/O.
+
+Iteration 8 integration uses the real PostgreSQL repository and cryptographic
+and rendering services with only the email provider replaced by a fake. No
+real email is sent. Docker image packaging, real email-client rendering,
+production association files, HTTPS fallback deployment, and real provider
+delivery remain separately verified integration/production gates; automated
+backend tests do not establish those external behaviors.
 
 Iteration 3 first freezes the backend construction contract with the exact
 `AUTH_MAGIC_LINK_PUBLIC_URL=https://uniconnection.app/auth/verify` setting,

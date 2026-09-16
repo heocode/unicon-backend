@@ -421,6 +421,14 @@ is already unavailable it becomes `CANCELLED`; otherwise it becomes `FAILED`
 with the allowlisted `PROCESSING_ATTEMPTS_EXHAUSTED` reason.
 
 Workers claim due or expired-lease deliveries in short PostgreSQL transactions
+without filtering out terminal challenges or absent proof envelopes. Fresh
+challenge validation in orchestration is authoritative: unavailable proof
+cancels the owned Delivery, while invalid envelope state is an internal
+invariant failure. Filtering those rows out of claim would strand PENDING
+Deliveries outside terminalization and Delivery retention. Exhausted PENDING
+rows are terminalized by the same bounded maintenance operation as exhausted
+expired leases; neither can receive a sixth claim.
+Workers select candidates
 using `FOR UPDATE SKIP LOCKED`. Fair deterministic ordering uses eligibility
 time first: initial pending `createdAt`, scheduled retry `nextAttemptAt`, or
 expired processing `processingLeaseExpiresAt`; ties use `createdAt` and `id`.

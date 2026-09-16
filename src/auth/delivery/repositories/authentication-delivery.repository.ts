@@ -183,13 +183,6 @@ export class AuthenticationDeliveryRepository {
               )
             )
             AND "delivery"."attemptCount" < ${this.policy.maxProcessingAttempts}
-            AND "challenge"."consumedAt" IS NULL
-            AND "challenge"."lockedAt" IS NULL
-            AND "challenge"."expiresAt" > ${operationNow}
-            AND "challenge"."failedAttemptCount" < "challenge"."maxAttempts"
-            AND "challenge"."encryptedProof" IS NOT NULL
-            AND "challenge"."proofEncryptionIv" IS NOT NULL
-            AND "challenge"."proofEncryptionTag" IS NOT NULL
           ORDER BY
             "eligibleAt" ASC,
             "delivery"."createdAt" ASC,
@@ -331,20 +324,42 @@ export class AuthenticationDeliveryRepository {
       const operationNow = await this.getOperationTimestamp(transaction);
       const rows = await transaction.$queryRaw<{ id: string }[]>(Prisma.sql`
         WITH "candidates" AS (
-          SELECT "id"
-          FROM "AuthenticationChallengeDelivery"
+          SELECT "delivery"."id", CASE
+            WHEN "challenge"."consumedAt" IS NOT NULL
+              OR "challenge"."lockedAt" IS NOT NULL
+              OR "challenge"."expiresAt" <= ${operationNow}
+              OR "challenge"."failedAttemptCount" >= "challenge"."maxAttempts"
+              THEN true
+            ELSE false
+          END AS "challengeUnavailable"
+          FROM "AuthenticationChallengeDelivery" AS "delivery"
+          INNER JOIN "AuthenticationChallenge" AS "challenge"
+            ON "challenge"."id" = "delivery"."challengeId"
           WHERE
-            "status" = 'PROCESSING'
-            AND "processingLeaseExpiresAt" <= ${operationNow}
-            AND "attemptCount" >= ${this.policy.maxProcessingAttempts}
-          ORDER BY "processingLeaseExpiresAt" ASC, "id" ASC
-          FOR UPDATE SKIP LOCKED
+            (
+              "delivery"."status" = 'PENDING'
+              OR (
+                "delivery"."status" = 'PROCESSING'
+                AND "delivery"."processingLeaseExpiresAt" <= ${operationNow}
+              )
+            )
+            AND "delivery"."attemptCount" >= ${this.policy.maxProcessingAttempts}
+          ORDER BY "delivery"."createdAt" ASC, "delivery"."id" ASC
+          FOR UPDATE OF "delivery" SKIP LOCKED
           LIMIT ${batchSize}
         )
         UPDATE "AuthenticationChallengeDelivery" AS "delivery"
         SET
-          "status" = 'FAILED',
-          "lastSafeFailureCode" = ${AUTHENTICATION_DELIVERY_PROCESSING_ATTEMPTS_EXHAUSTED},
+          "status" = CASE
+            WHEN "candidates"."challengeUnavailable"
+              THEN 'CANCELLED'::"AuthenticationDeliveryStatus"
+            ELSE 'FAILED'::"AuthenticationDeliveryStatus"
+          END,
+          "lastSafeFailureCode" = CASE
+            WHEN "candidates"."challengeUnavailable"
+              THEN ${AuthenticationDeliveryCancellationReason.CHALLENGE_UNAVAILABLE}
+            ELSE ${AUTHENTICATION_DELIVERY_PROCESSING_ATTEMPTS_EXHAUSTED}
+          END,
           "nextAttemptAt" = NULL,
           "processingLeaseId" = NULL,
           "processingLeaseExpiresAt" = NULL,

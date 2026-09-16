@@ -3,6 +3,13 @@ import { randomUUID } from 'crypto';
 import { Test, TestingModule } from '@nestjs/testing';
 
 import { AppModule } from '../src/app.module';
+import { AuthenticationEmailProviderPort } from '../src/auth/delivery/ports/authentication-email-provider.port';
+import { AuthenticationDeliveryOrchestrationService } from '../src/auth/delivery/services/authentication-delivery-orchestration.service';
+import {
+  AuthenticationEmailRetryKind,
+  type AuthenticationEmailProviderResult,
+  type AuthenticationEmailSubmission,
+} from '../src/auth/delivery/types/authentication-email-provider.type';
 import { AuthenticationChallengeProofFactoryService } from '../src/auth/challenge/services/authentication-challenge-proof-factory.service';
 import { AuthenticationDeliveryRepository } from '../src/auth/delivery/repositories/authentication-delivery.repository';
 import { AuthenticationDeliveryCleanupRepository } from '../src/auth/delivery/repositories/authentication-delivery-cleanup.repository';
@@ -32,22 +39,37 @@ describe('Authentication delivery persistence (e2e)', () => {
   let cleanupRepository: AuthenticationDeliveryCleanupRepository;
   let challengeId: string;
   let recipient: string;
+  let orchestration: AuthenticationDeliveryOrchestrationService;
+  const provider = {
+    submit: jest.fn<
+      Promise<AuthenticationEmailProviderResult>,
+      [AuthenticationEmailSubmission]
+    >(),
+  };
 
   beforeAll(async () => {
     moduleFixture = await Test.createTestingModule({
       imports: [AppModule],
-    }).compile();
+    })
+      .overrideProvider(AuthenticationEmailProviderPort)
+      .useValue(provider)
+      .compile();
     prisma = moduleFixture.get(PrismaService);
     proofFactory = moduleFixture.get(
       AuthenticationChallengeProofFactoryService,
     );
     repository = moduleFixture.get(AuthenticationDeliveryRepository);
+    orchestration = moduleFixture.get(
+      AuthenticationDeliveryOrchestrationService,
+    );
     cleanupRepository = moduleFixture.get(
       AuthenticationDeliveryCleanupRepository,
     );
   });
 
   beforeEach(async () => {
+    provider.submit.mockReset();
+    provider.submit.mockResolvedValue({ outcome: 'ACCEPTED' });
     await prisma.authenticationChallengeSubject.deleteMany({
       where: { key: { startsWith: subjectPrefix } },
     });
@@ -106,6 +128,122 @@ describe('Authentication delivery persistence (e2e)', () => {
         ...overrides,
       },
     });
+
+  it.each(['expired', 'consumed', 'locked'])(
+    'terminalizes and retains a pending Delivery for a %s challenge',
+    async (state) => {
+      const delivery = (await createDelivery()) as { id: string };
+      await prisma.authenticationChallenge.update({
+        where: { id: challengeId },
+        data: {
+          ...(state === 'expired'
+            ? { expiresAt: new Date(Date.now() - 1_000) }
+            : {}),
+          ...(state === 'consumed' ? { consumedAt: new Date() } : {}),
+          ...(state === 'locked' ? { lockedAt: new Date() } : {}),
+          encryptedProof: null,
+          proofEncryptionIv: null,
+          proofEncryptionTag: null,
+        },
+      });
+      const claim = await repository.claimNextDelivery();
+      expect(claim?.id).toBe(delivery.id);
+      await expect(orchestration.process(claim!)).resolves.toEqual({
+        outcome: 'CANCELLED',
+      });
+      await expect(
+        prisma.authenticationChallengeDelivery.findUniqueOrThrow({
+          where: { id: delivery.id },
+        }),
+      ).resolves.toMatchObject({
+        status: AuthenticationDeliveryStatus.CANCELLED,
+      });
+      expect(provider.submit).not.toHaveBeenCalled();
+      await prisma.authenticationChallengeDelivery.update({
+        where: { id: delivery.id },
+        data: { retentionExpiresAt: new Date(Date.now() - 1_000) },
+      });
+      await expect(
+        cleanupRepository.deleteOneRetainedTerminalBatch(100),
+      ).resolves.toBe(1);
+    },
+  );
+
+  it('reproduces immutable submissions through two real processing attempts', async () => {
+    const delivery = (await createDelivery()) as { id: string };
+    provider.submit.mockResolvedValueOnce({
+      outcome: 'RETRYABLE',
+      retryKind: AuthenticationEmailRetryKind.AMBIGUOUS_RETRY,
+      safeFailureCode: 'RESEND_TRANSPORT_OUTCOME_UNKNOWN',
+    });
+    const first = await repository.claimNextDelivery();
+    await expect(orchestration.process(first!)).resolves.toEqual({
+      outcome: 'RETRY_SCHEDULED',
+    });
+    await prisma.authenticationChallengeDelivery.update({
+      where: { id: delivery.id },
+      data: { nextAttemptAt: new Date(Date.now() - 1_000) },
+    });
+    const second = await repository.claimNextDelivery();
+    expect(second?.attemptCount).toBe(2);
+    await expect(orchestration.process(second!)).resolves.toEqual({
+      outcome: 'SENT',
+    });
+    const firstSubmission = provider.submit.mock.calls[0][0];
+    const secondSubmission = provider.submit.mock.calls[1][0];
+    expect(secondSubmission).toEqual(firstSubmission);
+    expect(firstSubmission.content.inlineAttachments).toHaveLength(1);
+    expect(firstSubmission.content.html).toContain('cid:unicon-logo-v1');
+    expect(firstSubmission.content.subject).toMatch(
+      /^\d{6} — Your Unicon sign-in code$/,
+    );
+  });
+
+  it('recovers a crashed worker and rejects all late transitions from its old lease', async () => {
+    const delivery = (await createDelivery()) as { id: string };
+    const disappearedWorker = await repository.claimNextDelivery();
+    await prisma.authenticationChallengeDelivery.update({
+      where: { id: delivery.id },
+      data: { processingLeaseExpiresAt: new Date(Date.now() - 1_000) },
+    });
+    const recovered = await repository.claimNextDelivery();
+    expect(recovered?.claimKind).toBe(
+      AuthenticationDeliveryClaimKind.EXPIRED_LEASE_RECLAIM,
+    );
+    expect(recovered?.attemptCount).toBe(2);
+    await expect(orchestration.process(recovered!)).resolves.toEqual({
+      outcome: 'SENT',
+    });
+    for (const transition of [
+      repository.markSent(delivery.id, disappearedWorker!.leaseId),
+      repository.markFailed(
+        delivery.id,
+        disappearedWorker!.leaseId,
+        'PROVIDER_REJECTED',
+      ),
+      repository.scheduleRetry(
+        delivery.id,
+        disappearedWorker!.leaseId,
+        new Date(),
+        'PROVIDER_RETRY',
+      ),
+      repository.cancelOwnedDelivery(
+        delivery.id,
+        disappearedWorker!.leaseId,
+        AuthenticationDeliveryCancellationReason.CHALLENGE_UNAVAILABLE,
+      ),
+      repository.markInternalFailure(delivery.id, disappearedWorker!.leaseId),
+    ]) {
+      await expect(transition).resolves.toBe(
+        AuthenticationDeliveryTransitionOutcome.LEASE_LOST,
+      );
+    }
+    await expect(
+      prisma.authenticationChallengeDelivery.findUniqueOrThrow({
+        where: { id: delivery.id },
+      }),
+    ).resolves.toMatchObject({ status: AuthenticationDeliveryStatus.SENT });
+  });
 
   it('accepts representative pending and leased processing states', async () => {
     await expect(createDelivery()).resolves.toMatchObject({
@@ -281,6 +419,87 @@ describe('Authentication delivery persistence (e2e)', () => {
       attemptCount: 5,
       lastSafeFailureCode:
         AUTHENTICATION_DELIVERY_PROCESSING_ATTEMPTS_EXHAUSTED,
+      processingLeaseId: null,
+    });
+  });
+
+  it.each([false, true])(
+    'terminalizes an exhausted pending Delivery (unavailable=%s)',
+    async (unavailable) => {
+      const delivery = (await createDelivery({ attemptCount: 5 })) as {
+        id: string;
+      };
+      if (unavailable) {
+        await prisma.authenticationChallenge.update({
+          where: { id: challengeId },
+          data: {
+            consumedAt: new Date(),
+            encryptedProof: null,
+            proofEncryptionIv: null,
+            proofEncryptionTag: null,
+          },
+        });
+      }
+      await expect(repository.claimNextDelivery()).resolves.toBeNull();
+      await expect(
+        repository.terminalizeExpiredExhaustedLeases(100),
+      ).resolves.toBe(1);
+      await expect(
+        prisma.authenticationChallengeDelivery.findUniqueOrThrow({
+          where: { id: delivery.id },
+        }),
+      ).resolves.toMatchObject({
+        status: unavailable
+          ? AuthenticationDeliveryStatus.CANCELLED
+          : AuthenticationDeliveryStatus.FAILED,
+        attemptCount: 5,
+        lastSafeFailureCode: unavailable
+          ? 'CHALLENGE_UNAVAILABLE'
+          : AUTHENTICATION_DELIVERY_PROCESSING_ATTEMPTS_EXHAUSTED,
+      });
+    },
+  );
+
+  it('preserves resend ownership when the old provider call completes in flight', async () => {
+    await createDelivery();
+    const oldClaim = (await repository.claimNextDelivery())!;
+    let releaseProvider!: () => void;
+    let enteredProvider!: () => void;
+    const entered = new Promise<void>((resolve) => {
+      enteredProvider = resolve;
+    });
+    provider.submit.mockImplementationOnce(async () => {
+      enteredProvider();
+      await new Promise<void>((resolve) => {
+        releaseProvider = resolve;
+      });
+      return { outcome: 'ACCEPTED' };
+    });
+    const processing = orchestration.process(oldClaim);
+    await entered;
+    const resend = await repository.createResendDelivery({
+      challengeId,
+      idempotencyKey: randomUUID(),
+      templateProtocolVersion: 1,
+      retentionExpiresAt: new Date(Date.now() + 86_400_000),
+    });
+    expect(resend.outcome).toBe('CREATED');
+    releaseProvider();
+    await expect(processing).resolves.toEqual({ outcome: 'LEASE_LOST' });
+    const newClaim = (await repository.claimNextDelivery())!;
+    await expect(orchestration.process(newClaim)).resolves.toEqual({
+      outcome: 'SENT',
+    });
+    const oldSubmission = provider.submit.mock.calls[0][0];
+    const newSubmission = provider.submit.mock.calls[1][0];
+    expect(newSubmission.content).toEqual(oldSubmission.content);
+    expect(newSubmission.idempotencyKey).not.toBe(oldSubmission.idempotencyKey);
+    await expect(
+      prisma.authenticationChallengeDelivery.findUniqueOrThrow({
+        where: { id: oldClaim.id },
+      }),
+    ).resolves.toMatchObject({
+      status: AuthenticationDeliveryStatus.CANCELLED,
       processingLeaseId: null,
     });
   });
