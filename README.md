@@ -1,98 +1,327 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# Unicon Backend
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+Backend API for Unicon, a campus community application for verified college
+students.
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+The service is built with NestJS, TypeScript, Prisma, and PostgreSQL. Its
+current MVP surface covers email-based registration and verification,
+credential authentication, rotating sessions, password recovery, profile
+access, security events, and the account-deletion lifecycle.
 
-## Description
+TOTP, passkeys, OAuth, and email-OTP login are intentionally deferred until
+their post-MVP stages are activated.
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+## Technology
 
-## Project setup
+- NestJS 11 and TypeScript
+- Prisma 7 with PostgreSQL 17
+- JWT access and rotating refresh tokens
+- Resend for transactional email
+- MaxMind GeoLite2 City for optional, approximate session location
+- Swagger/OpenAPI
+- Jest, Supertest, and database-backed end-to-end tests
+- Docker Compose for local PostgreSQL and GeoIP database updates
 
-```bash
-$ npm install
-```
+## Documentation
 
-## Compile and run the project
+- [`AGENTS.md`](AGENTS.md) — repository development and security rules
+- [`docs/auth-architecture.md`](docs/auth-architecture.md) — implemented auth,
+  session, notification, and account-deletion architecture
+- [`docs/auth-roadmap.md`](docs/auth-roadmap.md) — completed and future auth
+  stages
+- [`docs/public-api-contract.md`](docs/public-api-contract.md) — stable MVP
+  endpoints, response DTOs, error codes, and mobile-client requirements
+- [`docs/profile-architecture.md`](docs/profile-architecture.md) — accepted
+  Onboarding, Profile, Profile Photo, media, storage, and delivery architecture
+- [`docs/moderation-architecture.md`](docs/moderation-architecture.md) —
+  provider-neutral moderation, `profile-photo-v1` policy, recovery, audit,
+  reuse, visibility, and human-review architecture
 
-```bash
-# development
-$ npm run start
+Read `AGENTS.md` before changing the repository. Auth work must also follow the
+three auth documents above. Profile, media, and moderation work must follow
+their respective architecture documents.
 
-# watch mode
-$ npm run start:dev
+## Local setup
 
-# production mode
-$ npm run start:prod
-```
+### Prerequisites
 
-## Run tests
+- Node.js and npm
+- Docker with Docker Compose
+- A Resend API key and an approved sender for real email flows
+- MaxMind credentials only when local GeoIP lookup is required
 
-```bash
-# unit tests
-$ npm run test
-
-# e2e tests
-$ npm run test:e2e
-
-# test coverage
-$ npm run test:cov
-```
-
-## Deployment
-
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
-
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
+### 1. Install dependencies
 
 ```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
+npm install
 ```
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+### 2. Configure the environment
 
-## Resources
+```bash
+cp .env.example .env
+```
 
-Check out a few resources that may come in handy when working with NestJS:
+Replace every placeholder required by
+[`src/config/environment.validation.ts`](src/config/environment.validation.ts).
+Generate independent secrets rather than reusing one value:
 
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
+```bash
+openssl rand -hex 32
+```
 
-## Support
+At minimum, configure:
 
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
+- `DATABASE_URL`
+- `JWT_ACCESS_SECRET`
+- `JWT_REFRESH_SECRET`
+- `RESEND_API_KEY`
+- `MAIL_FROM`
+- `CLIENT_URL`
+- `PASSWORD_RESET_RATE_LIMIT_SECRET`
+- `ACCOUNT_DELETION_CANCEL_RATE_LIMIT_SECRET`
 
-## Stay in touch
+Durations use positive integer seconds. Never commit `.env`, API keys, JWT
+secrets, rate-limit secrets, credentials, or raw authentication tokens.
 
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
+### 3. Start PostgreSQL
 
-## License
+```bash
+docker compose up -d postgres
+```
 
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+The default Compose service exposes PostgreSQL at `localhost:5432` with the
+development database `unicon`.
+
+### 4. Apply migrations and seed development data
+
+```bash
+npx prisma migrate dev
+npx prisma db seed
+```
+
+The seed is idempotent and creates the current development university and
+allowed-domain records. Review [`prisma/seed.ts`](prisma/seed.ts) before using
+its data outside local development.
+
+### 5. Start the API
+
+```bash
+npm run start:dev
+```
+
+With the default configuration:
+
+- API base URL: `http://localhost:3000`
+- Swagger UI: `http://localhost:3000/api/docs`
+
+The application validates its environment during startup and exits when a
+required setting is absent or malformed.
+
+## Public API contract
+
+Public auth, account, and profile endpoints have explicit success DTOs and
+Swagger responses. Every non-2xx JSON response uses the stable envelope:
+
+```json
+{
+  "code": "INVALID_CREDENTIALS",
+  "message": "Invalid email or password."
+}
+```
+
+Structured context is exposed only when documented:
+
+```json
+{
+  "code": "RATE_LIMIT_EXCEEDED",
+  "message": "Too many requests. Please try again later.",
+  "details": {
+    "retryAfterSeconds": 60
+  }
+}
+```
+
+Clients must branch on `code`, never on the English `message`. Validation
+failures use `VALIDATION_FAILED` with `details.violations`. Rate-limited
+responses also include an authoritative `Retry-After` header.
+
+Access and refresh tokens belong to one server-side session. Refresh rotation
+is atomic, and a refresh token can be successfully used only once. Raw tokens
+and internal Prisma records must never be logged or returned outside their
+documented public DTOs.
+
+See [`docs/public-api-contract.md`](docs/public-api-contract.md) for the full
+endpoint inventory and stable error-code catalog.
+
+## Project structure
+
+```text
+src/
+├── account/       Password change and account-deletion lifecycle
+├── auth/          Registration, verification, login, recovery, and sessions
+├── common/        Shared public HTTP contracts, filters, errors, and utilities
+├── config/        Environment validation
+├── geo-ip/        Optional local MaxMind lookup and hot reload
+├── mail/          Transactional email provider integration
+├── notifications/ Security and account notification coordination
+├── prisma/        Database service and transaction utilities
+├── profile/       Public profile queries and mapping
+├── security/      Risk evaluation and security-event behavior
+├── swagger/       Focused reusable OpenAPI configuration and decorators
+└── generated/     Generated Prisma client; never edit manually
+
+prisma/
+├── migrations/    Ordered database migration history
+├── schema.prisma  Database schema
+└── seed.ts        Idempotent local development seed
+
+test/              HTTP/OpenAPI and real PostgreSQL end-to-end suites
+```
+
+Controllers stay thin. Domain behavior belongs in focused services, external
+input is validated with DTOs at the HTTP boundary, and public responses are
+mapped rather than exposing persistence records directly.
+
+## Testing
+
+### Unit tests
+
+```bash
+npm test -- --runInBand
+```
+
+### End-to-end tests
+
+```bash
+npm run test:e2e -- --runInBand
+```
+
+The e2e command prepares a dedicated PostgreSQL database, applies migrations,
+and runs real HTTP flows through guards, services, and Prisma. It uses
+`TEST_DATABASE_URL` when provided, otherwise it defaults to:
+
+```text
+postgresql://postgres:postgres@localhost:5432/unicon_test
+```
+
+For safety, preparation and destructive cleanup refuse to operate unless the
+database name ends with `_test`. Do not point e2e tests at development,
+staging, or production data.
+
+The suite covers validation and public errors, registration contracts,
+sessions, refresh rotation and reuse, password recovery, profile safety,
+account deletion, rate limits, concurrency, and generated OpenAPI structure.
+
+### Full handoff checks
+
+```bash
+npm run build
+npm run lint -- --no-fix
+npm test -- --runInBand
+npm run test:e2e -- --runInBand
+npx prisma validate
+npx prisma migrate status
+```
+
+## Database workflow
+
+After changing [`prisma/schema.prisma`](prisma/schema.prisma):
+
+```bash
+npx prisma migrate dev --name describe_the_change
+npx prisma generate
+npx prisma validate
+```
+
+Every schema change requires a migration and regenerated client. Never edit
+`src/generated/prisma` manually, and never introduce silent data loss in a
+migration.
+
+Useful inspection commands:
+
+```bash
+npx prisma migrate status
+npx prisma studio
+```
+
+## Account-deletion finalization
+
+An account-deletion request immediately revokes active sessions and starts the
+configured grace period. Cancellation creates a completely new session and
+token pair. Expired requests are finalized by a one-shot command intended for
+an external scheduler:
+
+```bash
+npm run build
+npm run account-deletion:finalize
+```
+
+The command processes configured batches with database locking, anonymizes
+direct identifiers, removes authentication material, and retries completion
+notifications without reversing a completed deletion. Operational details are
+documented in [`docs/auth-architecture.md`](docs/auth-architecture.md).
+
+## GeoIP
+
+GeoIP is optional and best-effort. Authentication continues when the database
+is missing, stale, or cannot be reloaded.
+
+To enable local lookup:
+
+1. Set `MAXMIND_ACCOUNT_ID` and `MAXMIND_LICENSE_KEY` in `.env`.
+2. Download the database with the official MaxMind updater:
+
+   ```bash
+   npm run geoip:update
+   ```
+
+3. Set `GEOIP_ENABLED=true` and keep `GEOIP_DATABASE_PATH` pointed at the
+   downloaded database.
+
+The file is stored at `data/geoip/GeoLite2-City.mmdb` and is excluded from Git
+and the Docker build context. A new database is validated before the active
+reader is swapped; on failure, the previous reader remains active.
+
+Test a local lookup without changing proxy trust:
+
+```bash
+npm run geoip:lookup -- 8.8.8.8
+```
+
+Client IP and device metadata are informational snapshots and must not be
+treated as proof of identity or physical presence.
+
+## Useful commands
+
+| Command                             | Purpose                                          |
+| ----------------------------------- | ------------------------------------------------ |
+| `npm run start:dev`                 | Start NestJS in watch mode                       |
+| `npm run build`                     | Compile the application                          |
+| `npm run start:prod`                | Run the compiled application                     |
+| `npm run lint -- --no-fix`          | Check lint without modifying files               |
+| `npm run format`                    | Format source and tests                          |
+| `npm test -- --runInBand`           | Run unit tests serially                          |
+| `npm run test:e2e -- --runInBand`   | Prepare the test DB and run all e2e tests        |
+| `npm run geoip:update`              | Download GeoLite2 City with the official updater |
+| `npm run geoip:lookup -- <ip>`      | Inspect a local GeoIP result                     |
+| `npm run account-deletion:finalize` | Finalize eligible deletion requests              |
+| `docker compose down`               | Stop local Compose services                      |
+
+## Security notes
+
+- Store refresh tokens only as cryptographic hashes.
+- Never log raw access, refresh, verification, reset, recovery, or challenge
+  tokens.
+- Access authorization checks both the JWT and the referenced session/account
+  state.
+- Session and device metadata may be missing or spoofed and is not a security
+  signal by itself.
+- GeoIP failure must never prevent authentication.
+- Suspicious activity currently creates events and notifications rather than
+  automatically blocking accounts.
+- Production proxy trust must match the deployed topology; do not enable
+  arbitrary proxy trust for local convenience.
+
+Report security-sensitive findings privately rather than opening an issue that
+contains credentials, tokens, personal data, or exploit details.
