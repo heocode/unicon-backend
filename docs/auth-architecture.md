@@ -34,7 +34,7 @@ The approved v1 parameters are:
 OTP format:                    six decimal digits
 challenge lifetime:           600 seconds
 maximum failed OTP attempts:  5
-resend cooldown:              60 seconds
+next-Delivery minimum interval: 60 seconds
 recent-authentication window: 600 seconds
 delivery methods:             EMAIL
 proof methods:                OTP, MAGIC_LINK
@@ -268,9 +268,11 @@ Delivery origin is explicit: an initial request creates an `INITIAL` Delivery
 and a user-requested resend creates a `RESEND` Delivery. Each has a different
 delivery ID and idempotency key. Retrying the provider for either one is not a
 new Delivery and always reuses its original delivery ID and idempotency key.
-Failed delivery attempts count toward abuse limits. The user-visible resend
-cooldown starts after the provider accepts a delivery, while repeated
-synchronous failures remain bounded by request rate limits.
+An admitted Delivery remains charged even if provider processing fails.
+Challenge-scoped cooldown is anchored to successful Delivery admission, not
+provider acceptance; see the accepted next-Delivery minimum interval below.
+Request abuse, Delivery quota, and provider submission accounting remain
+separate costs.
 
 Delivery processing has five states:
 
@@ -453,9 +455,9 @@ consumption, and lock state, while creating a new `RESEND` Delivery with a new
 delivery ID and idempotency key. Only a new sign-in request after the prior
 flow finishes or expires may create a new challenge under Stage 5 rules.
 
-Creating a `RESEND` Delivery atomically cancels previous non-terminal
-Deliveries for that challenge with `SUPERSEDED_BY_RESEND` and clears their
-leases. An old worker therefore loses ownership and cannot later finalize its
+After successful next-Delivery admission, creating a `RESEND` Delivery
+atomically cancels previous `PENDING` and `PROCESSING` Deliveries for that
+challenge with `SUPERSEDED_BY_RESEND` and clears their leases. An old worker therefore loses ownership and cannot later finalize its
 Delivery. It must recheck delivery ownership and challenge eligibility
 immediately before provider submission, without holding a database lock during
 the network call.
@@ -645,8 +647,11 @@ error records and must be removed from the browser URL as early as possible.
 ## Request, resend, and verification concurrency
 
 Only one active `SIGN_IN` challenge is authoritative for a normalized identity.
-Repeated initial requests should reuse the existing challenge and create a new
-delivery when cooldown and rate limits allow, rather than rotate proof.
+Repeated initial requests for the same identity and purpose resolve and return
+the reusable live challenge without automatically creating another Delivery or
+charging Delivery quota/cooldown. Explicit Resend requests the next Delivery.
+Any future path that creates another Delivery must use the same authoritative
+next-Delivery admission boundary.
 
 The implementation must serialize challenge creation and delivery eligibility
 for the identity and purpose. A dedicated subject row, PostgreSQL advisory
@@ -707,6 +712,108 @@ proof remains consumed.
 
 Recovery when all ten authorized devices are inaccessible is explicitly
 deferred to V2, together with additional authenticators and recovery methods.
+
+## Accepted next-Delivery minimum interval
+
+Status: **ACCEPTED / FIXED**. This is a Stage 4 target contract; it is not a
+claim that the current Stage 3 repository already enforces admission policy.
+
+Cooldown is a challenge-scoped auth abuse/admission policy protecting
+user-driven Delivery admission and queue churn:
+
+```text
+policy: AUTH_CHALLENGE_DELIVERY_COOLDOWN
+canonical characteristic: challengeId
+NEXT_DELIVERY_MIN_INTERVAL = 60 seconds (validated V1 configuration)
+```
+
+The interval is between authoritative admission timestamps of two successfully
+committed Delivery admissions of the same AuthenticationChallenge, not between
+commit timestamps. The first Delivery establishes the boundary. Admission uses
+fresh database-authoritative time after necessary serialization waits/locks
+inside the atomic admission transaction:
+
+```text
+count = 1
+windowEndAt = admissionOperationNow + configuredMinimumIntervalSeconds
+```
+
+State takes effect only when the transaction commits. Rollback means no
+Delivery admission, cooldown establishment, or partial persistence of that
+transaction's quota/admission mutations. Sixty seconds is V1 policy, not a
+fundamental passwordless protocol property.
+
+Use the existing AuthenticationRateLimit table with a challenge-scoped opaque
+bucket. This is an admission-anchored minimum interval, not a calendar-aligned
+fixed window. Do not add a cooldown field to AuthenticationChallenge or a
+separate minimum-interval framework/primitive. Bucket derivation must remain
+stable for active cooldown state; key rotation must not bypass it. Cooldown
+must not use Delivery.createdAt, updatedAt, attemptedAt, or sentAt as its
+anchor, depend on a particular Delivery's retention, or be deleted by cleanup
+while still applicable.
+
+When fresh authoritative DB time is less than windowEndAt, deny next-Delivery
+admission without creating or superseding a Delivery, revoking a worker lease,
+changing proof, challenge expiration, or failedAttemptCount, or moving the
+boundary. Repeated denials do not extend cooldown. Return one authoritative
+retryAfterSeconds, calculated as max(1, ceil((windowEndAt - operationNow) /
+1 second)); the HTTP layer does not recalculate it. Independent request-abuse
+policies may account for the request without changing cooldown state. At or
+after windowEndAt, the next permitted, successfully committed admission
+establishes a new boundary.
+
+Cooldown belongs to the challenge, not an HTTP endpoint. Every domain path
+capable of creating its next Delivery must share one serialization/admission
+boundary. Repeated initial requests for the same identity and purpose return
+a reusable live challenge without automatic Delivery creation or Delivery
+quota/cooldown charge; the client can return to the OTP screen and explicitly
+Resend. Returning a challenge does not reset its expiration or cooldown.
+
+Changing email resolves a different identity/challenge context, whose initial
+Delivery may be admitted immediately if other policies permit. It does not
+reset IP/request/global accounting. UI navigation neither cancels the previous
+challenge nor controls server-side challenge lifecycle. Explicit Resend never
+accepts a replacement recipient: use the authoritative identity/recipient of
+the existing challenge and its stable proof. Another email requires another
+identity/challenge flow.
+
+Before Delivery charge, supersession, creation, or cooldown establishment,
+check challenge lifecycle and remaining validity against Stage 3's configured
+minimum validity required for submission (V1: 120 seconds). If remaining
+validity is less than that minimum, deny next-Delivery admission. Closed
+Delivery eligibility does not itself prohibit verification of still-live proof.
+Cooldown never extends challenge lifetime.
+
+For allowed admission, applicable atomic charges, supersession of previous
+PENDING/PROCESSING Deliveries, new Delivery creation, and cooldown establishment
+succeed or roll back together. Checks precede supersession. Two concurrent
+requests cannot both pass the same old cooldown state and create two next
+Deliveries. No provider I/O occurs inside the admission transaction. After
+commit, the new PENDING Delivery is available to the Stage 3 worker without a
+second Resend action.
+
+Preserve Stage 3 supersession semantics: revoke further database ownership,
+not physical cancellation of an already-started provider operation. Old and
+new emails may both arrive with the same stable OTP and magic-link proof.
+Cooldown provides no exactly-once delivery guarantee. Provider acceptance,
+submission, worker claim, SENT state, HTTP arrival, permanent failure, timeout,
+or ambiguous outcome neither starts, resets, nor refunds cooldown.
+
+Passing cooldown only permits consideration of user-driven admission; it does
+not authorize provider submission. New Deliveries and supersession must not
+bypass applicable provider Retry-After or global/provider-pressure restrictions.
+Cross-Delivery enforcement belongs to Stage 4's provider-pressure iteration;
+the current per-Delivery retry schedule alone does not establish that guarantee.
+
+Keep these mechanisms distinct:
+
+- request abuse: request velocity and applicable request-level protection;
+- Delivery window: sufficient remaining challenge validity for submission;
+- Delivery cooldown: minimum interval between successful admission timestamps;
+- Delivery quotas: identity/IP and other accepted Delivery budgets;
+- global admission: aggregate Delivery creation protection;
+- provider pressure/backoff: external submission protection;
+- proof failure: canonical wrong-OTP attempt state.
 
 ## Enumeration and abuse protection
 

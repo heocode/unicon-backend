@@ -101,9 +101,10 @@ POST /auth/challenges
 `AllowedDomain`.
 
 For an allowed email, the response does not reveal whether the identity is new,
-active, blocked, or deletion-scheduled. An existing usable `SIGN_IN` challenge
-is reused; the request may create a new EMAIL Delivery for its stable proof when
-cooldown and rate limits permit.
+active, blocked, or deletion-scheduled. An existing reusable live `SIGN_IN`
+challenge for the same identity and purpose is returned without automatically creating another EMAIL Delivery or charging
+Delivery quota/cooldown. Explicit Resend requests the next Delivery. A newly
+created challenge receives its initial Delivery only when admission permits.
 
 Success is HTTP 202:
 
@@ -116,7 +117,10 @@ Success is HTTP 202:
 ```
 
 `expiresInSeconds` is the remaining challenge lifetime. It is not reset by
-repeated requests or deliveries.
+repeated requests or deliveries. For a reused challenge,
+`resendAvailableInSeconds` reports remaining authoritative cooldown, rather than
+resetting it to 60. Response/error details for closed Delivery eligibility and
+other admission outcomes are finalized in Stage 5.
 
 ### Resend the existing proof
 
@@ -124,8 +128,10 @@ repeated requests or deliveries.
 POST /auth/challenges/:challengeId/resend
 ```
 
-Resend has no body. It creates a new EMAIL Delivery containing the same OTP and
-magic link. It does not create a new challenge or change proof, expiration,
+Resend has no body and never accepts a replacement recipient. The recipient
+comes from authoritative challenge identity state; another email requires a
+different identity/challenge flow. Successful admission creates a new EMAIL
+Delivery containing the same OTP and magic link. It does not create a new challenge or change proof, expiration,
 failed attempts, consumption, or lock state.
 
 The new Delivery has `RESEND` origin, a new delivery ID, and a new provider
@@ -315,7 +321,24 @@ proof.
 | `RATE_LIMIT_EXCEEDED` |  429 | An identity, IP, device, verification, or provider pressure limit was reached. |
 
 All 429 responses contain `details.retryAfterSeconds` and `Retry-After`.
-`AUTH_DELIVERY_COOLDOWN` describes the challenge-local 60-second resend rule;
+`AUTH_DELIVERY_COOLDOWN` describes the challenge-scoped next-Delivery minimum
+interval: 60 seconds between authoritative admission timestamps of successfully
+committed admissions, not between commit timestamps. It applies to every path
+creating the next Delivery; repeated initial requests only return the reusable
+challenge. The first admitted Delivery establishes cooldown. Provider results
+do not start, reset, or refund it. Denial leaves the boundary, existing Delivery,
+lease, proof, expiration, and OTP failure count unchanged. Body and header use
+one DB-authoritative retry-after result.
+
+Next-Delivery admission requires at least the configured Stage 3 minimum
+remaining validity (V1: 120 seconds), checked before charge or supersession;
+proof can remain verifiable after that Delivery window closes. New PENDING
+Deliveries become worker-eligible after commit without another client action,
+but remain subject to provider restrictions. Changing identity does not carry
+over the old challenge's cooldown or reset other abuse accounting; UI navigation
+does not cancel a challenge. See auth-architecture.md's accepted next-Delivery
+minimum interval for the atomic admission and persistence contract.
+
 `RATE_LIMIT_EXCEEDED` describes broader abuse buckets.
 
 ## Access and refresh tokens

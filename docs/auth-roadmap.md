@@ -36,7 +36,7 @@ The backend is ready for mobile integration when:
 OTP:                          6 decimal digits
 challenge TTL:                600 seconds
 maximum failed OTP attempts:  5
-resend cooldown:              60 seconds
+next-Delivery minimum interval: 60 seconds
 recent-authentication window: 600 seconds
 v1 delivery methods:          EMAIL
 v1 proof methods:             OTP, MAGIC_LINK
@@ -226,10 +226,11 @@ challenge proof
 → provider result
 ```
 
-One challenge keeps one OTP and link. Initial request and every resend create a
-new Delivery referencing the same proof, with explicit `INITIAL` or `RESEND`
-origin and a new idempotency key. A provider retry reuses the same Delivery,
-delivery ID, and idempotency key. It never becomes a resend.
+One challenge keeps one OTP and link. A new challenge receives an `INITIAL`
+Delivery; each successfully admitted explicit resend creates a new `RESEND`
+Delivery referencing the same proof with a new idempotency key. Repeated initial
+requests return a reusable live challenge without automatic Delivery creation.
+A provider retry reuses the same Delivery, delivery ID, and idempotency key. It never becomes a resend.
 
 `PENDING → PROCESSING` claim creates a UUID lease and expiry and increments an
 operational fail-safe work counter. `markSent`, `scheduleRetry`, `markFailed`,
@@ -402,22 +403,92 @@ remaining open decisions before Iteration 1.
 
 ## Stage 4: Database-backed abuse protection
 
-Implement keyed, database-backed rate limits before account lookup for:
+Stage 4 delivers layered auth abuse protection before public Stage 5–6 flows.
+Keep HTTP requests, admitted Deliveries, provider submission attempts, and proof
+failures distinct. Apply keyed database-backed protection before account lookup
+where required, with independent identity/IP protection, optional spoofable
+app-install/device signals, verification per challenge/identity/IP, and separate
+global admission and provider pressure. A small enforcement core may accept
+policy identity and canonical characteristics without auth-specific assumptions;
+do not build speculative DSLs or future non-auth policies. Raw email and IP
+bucket inputs are not stored.
 
-- identity delivery requests;
-- IP delivery requests;
-- optional app-install/device bucket;
-- verification per challenge, identity, and IP;
-- resend cooldown;
-- global/provider pressure.
+Initial policy targets remain five admitted Deliveries per identity per hour,
+twenty per IP per hour, and twenty verification attempts per IP per fifteen
+minutes. Five failed canonical OTPs remain separate proof-level protection.
+Other thresholds and policy semantics remain undecided. Fixed windows are the
+preferred V1 quota baseline; exact anchoring is not yet fixed for other policies.
 
-Initial policy targets are five deliveries per identity per hour, twenty per
-IP per hour, and twenty verification attempts per IP per fifteen minutes. The
-per-challenge limit remains five failed OTPs.
+### Accepted cooldown decision
 
-Serializable transactions or equivalent locking must make limits consistent
-across replicas and concurrent requests. Raw email and IP bucket inputs are not
-stored.
+**ACCEPTED / FIXED:** AUTH_CHALLENGE_DELIVERY_COOLDOWN uses challengeId as its
+canonical characteristic and the existing AuthenticationRateLimit table as an
+opaque challenge-scoped bucket. NEXT_DELIVERY_MIN_INTERVAL is 60 seconds of
+validated V1 configuration. The minimum interval is between DB-authoritative
+admission timestamps of successfully committed admissions, not commit
+timestamps. Obtain fresh DB time after necessary waits/locks inside the atomic
+admission transaction; count=1 and windowEndAt=admissionOperationNow plus the
+configured interval take effect only on commit. Rollback preserves no partial
+admission charge, Delivery creation, or cooldown establishment.
+
+Cooldown denial never moves the boundary, creates/supersedes a Delivery, revokes
+a lease, or changes proof, TTL, or failedAttemptCount. Provider results never
+start, reset, or refund it. All next-Delivery creation paths share admission;
+repeated initial requests only return a reusable live challenge. Another identity
+has its own challenge cooldown without resetting other abuse accounting.
+
+Check lifecycle and Stage 3's minimum remaining submission validity (V1: 120
+seconds) before admission mutations. On success, charges, PENDING/PROCESSING
+supersession, creation, and cooldown establishment are atomic. The new PENDING
+Delivery becomes available to the worker after commit without a second action.
+Keep accepted Stage 3 physical-duplicate/ownership semantics. Passing cooldown
+does not bypass provider restrictions. The canonical detailed contract is in
+`auth-architecture.md`, “Accepted next-Delivery minimum interval”.
+
+### Implementation iterations
+
+1. **Policy semantics.** Define only required auth policies: protected resource,
+   canonical characteristics, admission and charge conditions, limits/windows,
+   denial/retry-after, failure semantics, and privacy. Preserve the accepted
+   cooldown contract; do not infer other thresholds from it.
+2. **Secure/extensible bucket derivation and configuration.** Derive opaque keys
+   from policy identity and canonical characteristics using independent auth
+   rate-limit key material. Resolve canonical IP and key-rotation semantics
+   without changing proxy trust. Active cooldown keys must remain stable and
+   cannot be bypassed by rotation. Use existing persistence without a new
+   challenge cooldown field or minimum-interval framework.
+3. **Atomic PostgreSQL limiter.** Use locking or Serializable equivalents,
+   deterministic lock ordering, bounded retries, and fresh DB-authoritative
+   time. Enforce exact multi-replica admission with persisted retry-after.
+   Implement admission-anchored count=1/windowEndAt cooldown, not calendar-aligned
+   1/60s. Distinguish policy denial from infrastructure failure and do not allow
+   auth to proceed without authoritative protection. Test concurrent admission
+   and boundary behavior against PostgreSQL.
+4. **Delivery admission and cooldown.** Introduce the common next-Delivery path
+   and transaction-composable resend persistence. Check lifecycle, Delivery
+   window, cooldown, and applicable policies before mutation. Atomically charge,
+   supersede PENDING/PROCESSING Deliveries, create the new Delivery, and establish
+   cooldown. Denial preserves existing work. Cover initial/resend concurrency,
+   exactly-at-boundary eligibility, rollback, closed Delivery window, and provider
+   results that do not modify cooldown.
+5. **Verification admission.** Compose verification abuse policies separately
+   from proof failure accounting. Ensure failed auth does not accidentally
+   restore durable abuse quota; preserve Stage 2 malformed-proof, OTP failure,
+   atomic consumption, and transaction semantics. HTTP integration stays in
+   Stage 6.
+6. **Global/provider pressure.** Separate aggregate admission of new Deliveries
+   from actual provider submission capacity, including retries. Supersession and
+   a new Delivery/idempotency key must not bypass applicable cross-Delivery
+   Retry-After/global provider-pressure restrictions. Capacity waiting must not
+   silently spend Stage 3 processing attempts, create another Delivery, alter
+   proof, or fabricate provider failure. Preserve leases, idempotency, retry
+   scheduling, and recovery. No distributed semaphore without a separate decision.
+7. **Cleanup and full integration verification.** Preserve active cooldown state
+   until its applicability ends, independently of Delivery retention. Verify
+   multi-replica concurrency, denial immutability, rollback, rotation safety,
+   lifecycle/window boundaries, and cross-Delivery provider restrictions with
+   real PostgreSQL services. Run applicable repository checks; HTTP coverage is
+   completed when Stage 5–6 endpoints are connected.
 
 ## Stage 5: Request and resend endpoints
 
@@ -434,15 +505,23 @@ Requirements:
 - require active `AllowedDomain`;
 - do not create a user;
 - serialize active challenge resolution for identity and purpose;
-- reuse one active challenge rather than rotate proof;
-- create a new Delivery only when policy permits;
+- return a reusable live challenge for the same identity/purpose without
+  automatically creating another Delivery or charging Delivery quota/cooldown;
+- admit a new challenge's initial Delivery and explicit resend only when policy
+  permits; every next-Delivery path uses the shared admission boundary;
+- derive explicit resend recipient from authoritative challenge identity;
 - return remaining, not reset, expiry;
 - preserve identical response shape across new, active, blocked, and
   deletion-scheduled identities;
-- expose authoritative cooldown in body and `Retry-After` on 429.
+- expose enough authoritative state to represent remaining resend cooldown,
+  without resetting it on challenge reuse; use one retry-after value in body and
+  `Retry-After` on 429;
+- finalize HTTP response/error behavior for Delivery-window and admission
+  outcomes without conflating Delivery eligibility and proof lifetime.
 
 Database-backed e2e tests must include simultaneous initial requests and
-simultaneous resends.
+simultaneous resends, repeated initial resolution without extra Deliveries,
+and unchanged cooldown/Delivery state after denial.
 
 ## Stage 6: OTP and magic-link verification
 
