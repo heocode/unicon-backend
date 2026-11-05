@@ -413,11 +413,23 @@ policy identity and canonical characteristics without auth-specific assumptions;
 do not build speculative DSLs or future non-auth policies. Raw email and IP
 bucket inputs are not stored.
 
-Initial policy targets remain five admitted Deliveries per identity per hour,
-twenty per IP per hour, and twenty verification attempts per IP per fifteen
-minutes. Five failed canonical OTPs remain separate proof-level protection.
-Other thresholds and policy semantics remain undecided. Fixed windows are the
-preferred V1 quota baseline; exact anchoring is not yet fixed for other policies.
+The former five-Deliveries/identity/hour target is superseded by the accepted
+Delivery-budget UX capacity requirement in auth-architecture.md: starting with
+unused budgets and no unrelated traffic, cover initial admission plus eight
+Resends through 08:00 of one challenge and one initial Delivery for a replacement
+challenge after lock/expiry. This is a ten-Delivery reference scenario, not a
+final ten/hour policy. Identity Delivery limits and windows remain undecided.
+Review both identity and IP budgets against this scenario and assess shared-IP
+usage and email-bombing exposure before selecting final values.
+
+The initial target of twenty admitted Deliveries per IP per hour remains under
+review. Reassess the former twenty-verification-attempts/IP/15-minute target
+under the accepted failure-only independent identity/IP policies; it is not a
+fixed all-attempts limit. Five failed canonical OTPs remain separate proof-level
+protection. Other thresholds and policy
+semantics remain undecided. GCRA is selected for short-term verification; fixed
+windows remain a candidate for other quota policies, with anchoring not yet
+fixed. Do not apply one algorithm to every policy automatically.
 
 ### Accepted cooldown decision
 
@@ -430,6 +442,19 @@ timestamps. Obtain fresh DB time after necessary waits/locks inside the atomic
 admission transaction; count=1 and windowEndAt=admissionOperationNow plus the
 configured interval take effect only on commit. Rollback preserves no partial
 admission charge, Delivery creation, or cooldown establishment.
+
+**ACCEPTED / FIXED:** also enforce AUTH_IDENTITY_DELIVERY_COOLDOWN with the
+normalized institutional email as its characteristic and an opaque bucket in
+the same persistence. Require at least 60 seconds between admission timestamps
+for that email across all challenges, IPs, clients, and purposes. Initial,
+Resend, and Request new code check it; creating a challenge alone does not set
+it. Replacing a locked/expired challenge preserves the remaining wait: initial
+admission at 00:00 and Request new code at 00:06 means 54 seconds remaining,
+not a new 60-second penalty. If the interval has elapsed, no additional lock
+penalty applies. Replacement challenge + initial Delivery + applicable charges
+and cooldown state commit atomically; denial does not persist a replacement
+flow. Use the later applicable challenge/identity boundary for cooldown
+retry-after. Provider results, denial, and rollback do not move active boundaries.
 
 Cooldown denial never moves the boundary, creates/supersedes a Delivery, revokes
 a lease, or changes proof, TTL, or failedAttemptCount. Provider results never
@@ -445,37 +470,167 @@ Keep accepted Stage 3 physical-duplicate/ownership semantics. Passing cooldown
 does not bypass provider restrictions. The canonical detailed contract is in
 `auth-architecture.md`, “Accepted next-Delivery minimum interval”.
 
+### Accepted verification mitigation boundary
+
+**ACCEPTED / FIXED:** temporary verification-policy mitigation denies only the
+verification operations covered by that policy. It does not itself block
+initial request/Resend/Request new code, change account status, revoke sessions,
+or lock/consume challenges. Independent request/Delivery policies still apply;
+new challenges do not reset applicable verification abuse state. Preserve the
+existing Stage 2 five-wrong-canonical-OTP challenge lock separately.
+
+**ACCEPTED / FIXED:** use independent normalized-identity and IP buckets, not
+only a composite (identity, IP) bucket. Identity aggregates applicable failures
+across challenges and IPs; IP aggregates them across identities. Both must allow
+verification. Select a larger IP budget for legitimate shared-network usage,
+with effective allowances compared over the chosen windows. These policies count
+only unsuccessful checks; successful verification does not consume failure
+budgets, but remains subject to independent request/resource protection.
+
+**ACCEPTED / FIXED:** charge both verification failure budgets only for a
+canonical OTP or magic-link proof mismatch against an eligible challenge with
+correct purpose/binding. Only OTP mismatch additionally increments the Stage 2
+OTP counter. The fifth wrong OTP charges and locks; later requests to the locked
+challenge do not create further mismatches. Malformed proof, missing or terminal
+challenge, purpose/binding rejection, success, policy denial, and infrastructure
+errors do not consume proof-failure budgets. Independent request protection
+must cover excluded traffic; classify domain outcomes rather than HTTP statuses.
+Preserve Stage 2 expiry cleanup and attempt-limit self-heal.
+
+**ACCEPTED / FIXED short-term verification:** use GCRA, replacing fixed-window
+counting, a separate 60-second denial, and full-reset recovery. Identity has
+burst capacity 6 and sustained rate 6 failures per 60 seconds; IP has burst
+capacity 72 and sustained rate 72 per 60 seconds. Capacity returns continuously
+(identity one per ten seconds, IP one per 5/6 second). These are burst-plus-rate
+limits, not strict rolling-window maxima or user concurrency caps.
+
+Store rate debt as theoretical arrival time (TAT). Only committed chargeable
+mismatches advance it; success, excluded outcomes, and denied requests do not.
+Both buckets must allow verification. Denial lasts only until GCRA eligibility
+returns, with one DB-authoritative retry-after from the latest applicable
+eligibility boundary. Do not add a timed penalty or let denied retries extend
+waiting. Preserve exact burst semantics and subsecond internal precision.
+
+New challenges do not reset TAT, rate recovery does not unlock challenges, and
+short-term recovery does not reset independent long-term state. GCRA remains
+PostgreSQL-backed; select its TAT persistence and safe cleanup in Iterations
+2–3 without changing cooldown semantics. Endpoint coverage,
+concurrency/transaction accounting, and remaining recovery details
+are still open. No cross-operation source block is accepted. Test shared-IP
+interference, targeted identity exhaustion, and successful verification not
+spending budgets. Revisit Delivery quota candidates after reviewing the combined
+policies; failure-only controls do not stop bombing without verification.
+
+### Accepted long-term identity verification
+
+**ACCEPTED / FIXED:** independent identity GCRA with full burst capacity 8 and
+sustained rate 12 chargeable failures per 3600 seconds, recovering one allowance
+per 300 seconds. These are initial configurable V1 values for later analytics-
+based tuning, not a strict rolling/fixed-window quota. Burst eight supersedes
+the earlier burst-twelve value; sustained replenishment stays unchanged. For
+risk review only, without the existing OTP lock and with idle budgets/atomic
+enforcement, combined identity policies permit nine guesses in [0, 600) seconds:
+0.0009% random success for one uniform six-digit proof with distinct guesses.
+This is not an aggregate risk bound or approval to remove the existing lock.
+
+Use the same failure categories and normalized identity across IPs/challenges.
+Maintain separate TAT from short-term state; all applicable policies must allow
+verification. Success/denial/excluded outcomes do not charge, and challenge
+replacement or short-term recovery does not reset long-term debt. No separate
+timed penalty or periodic reset. Apply shared GCRA configuration, persistence,
+retry-after, cleanup, and telemetry requirements. Test the combined short/long
+eligibility and state independence in Iterations 3, 5, and 7.
+
+### Accepted long-term IP verification
+
+**ACCEPTED / FIXED:** IP GCRA burst capacity 360 and sustained rate 360
+chargeable failures per 3600 seconds, restoring one allowance per ten seconds.
+These are initial configurable V1 values for analytics-based tuning, not a strict
+360/hour quota or campus concurrency guarantee. Aggregate the same accepted
+mismatch categories across identities/challenges from one canonical source IP.
+
+Keep TAT independent of the other three verification buckets. All four policies
+must permit verification; charge applicable buckets atomically on mismatch and
+use the latest blocking eligibility for retry-after. Success, excluded outcomes,
+and denied requests do not charge. No separate timed penalty, periodic reset, or
+cross-operation block. Challenge/identity changes and short-term recovery do not
+erase IP debt. Preserve short-term burst 72/rate 72 per minute alongside this
+policy. Test sustained multi-identity abuse and shared-IP contention, state
+independence, retry-after composition, and safe configuration/cleanup in
+Iterations 3, 5, and 7.
+
+Existing five-wrong-OTP challenge lock stays in place; any removal requires a
+separate security/UX review. Other unresolved concurrency/accounting semantics
+remain Iteration 1 work; this fixes only the long-term IP policy parameters and
+composition requirements.
+
+### Accepted configuration and analytics requirements
+
+Make thresholds, windows, GCRA rates/burst capacities, and any applicable denial
+durations easy to tune via focused,
+documented, validated configuration through ConfigService, without modifying
+algorithms. A dashboard or live configuration platform is not required. Define
+replica rollout and active-window/TAT-debt/denial behavior before implementation; changing
+configuration must not inadvertently clear protection.
+
+Provide aggregate metrics and a documented analysis view/query for per-policy
+checks, denials, failure charges, verification successes, retry-after waits,
+limiter latency/errors/conflicts, and effective configuration version. Keep
+triggering failures distinct from denied retries and preserve overlapping-denial
+attribution. Use bounded labels without per-identity/IP/bucket identifiers or
+proof/secret material. Backend metrics must preserve the tracking-free fallback
+contract. Denials alone do not prove false positives; tune with success/load
+and support evidence. Telemetry outages do not change enforcement.
+
 ### Implementation iterations
 
 1. **Policy semantics.** Define only required auth policies: protected resource,
    canonical characteristics, admission and charge conditions, limits/windows,
    denial/retry-after, failure semantics, and privacy. Preserve the accepted
-   cooldown contract; do not infer other thresholds from it.
+   cooldown contract and evaluate the accepted ten-Delivery recovery scenario
+   before selecting Delivery limits/windows; do not infer other thresholds from
+   cooldown or treat the reference capacity as a final quota.
 2. **Secure/extensible bucket derivation and configuration.** Derive opaque keys
    from policy identity and canonical characteristics using independent auth
    rate-limit key material. Resolve canonical IP and key-rotation semantics
-   without changing proxy trust. Active cooldown keys must remain stable and
+   without changing proxy trust. Active challenge and identity cooldown keys must remain stable and
    cannot be bypassed by rotation. Use existing persistence without a new
-   challenge cooldown field or minimum-interval framework.
+   challenge cooldown field or minimum-interval framework. Add centralized,
+   validated policy settings/examples, define GCRA TAT persistence, and specify
+   replica rollout and active-state semantics for tuning.
 3. **Atomic PostgreSQL limiter.** Use locking or Serializable equivalents,
    deterministic lock ordering, bounded retries, and fresh DB-authoritative
    time. Enforce exact multi-replica admission with persisted retry-after.
    Implement admission-anchored count=1/windowEndAt cooldown, not calendar-aligned
-   1/60s. Distinguish policy denial from infrastructure failure and do not allow
+   1/60s, including cross-challenge serialization for the same identity.
+   Distinguish policy denial from infrastructure failure and do not allow
    auth to proceed without authoritative protection. Test concurrent admission
-   and boundary behavior against PostgreSQL.
+   and boundary behavior against PostgreSQL. Implement atomic GCRA eligibility
+   and TAT updates with exact burst and subsecond rate arithmetic; keep this
+   separate from admission-anchored cooldown counters.
 4. **Delivery admission and cooldown.** Introduce the common next-Delivery path
    and transaction-composable resend persistence. Check lifecycle, Delivery
    window, cooldown, and applicable policies before mutation. Atomically charge,
    supersede PENDING/PROCESSING Deliveries, create the new Delivery, and establish
    cooldown. Denial preserves existing work. Cover initial/resend concurrency,
    exactly-at-boundary eligibility, rollback, closed Delivery window, and provider
-   results that do not modify cooldown.
+   results that do not modify cooldown. Include lock/expiry replacement with the
+   same email, 00:06 returning 54 seconds after a 00:00 admission, concurrent
+   admissions across different challenges, and atomic replacement rollback.
 5. **Verification admission.** Compose verification abuse policies separately
    from proof failure accounting. Ensure failed auth does not accidentally
    restore durable abuse quota; preserve Stage 2 malformed-proof, OTP failure,
-   atomic consumption, and transaction semantics. HTTP integration stays in
-   Stage 6.
+   atomic consumption, and transaction semantics. Enforce the accepted
+   verification-only mitigation boundary and test that it does not itself deny
+   request/resend or mutate account/challenge state. Verify applicable abuse
+   state survives challenge replacement. Cover the accepted failure/outcome
+   matrix, including fifth-failure charge versus already-terminal rejection and
+   exclusions that still require request protection. HTTP integration stays in
+   Stage 6. Cover GCRA bursts of 6/72, respective sustained rates, idle and
+   partial recovery, exact eligibility, retry-after rounding, concurrency, and
+   success/denial not changing TAT. Verify challenge replacement retains debt,
+   short-term recovery does not unlock challenges/reset long-term state, and
+   cleanup cannot restore burst prematurely.
 6. **Global/provider pressure.** Separate aggregate admission of new Deliveries
    from actual provider submission capacity, including retries. Supersession and
    a new Delivery/idempotency key must not bypass applicable cross-Delivery
@@ -488,7 +643,10 @@ does not bypass provider restrictions. The canonical detailed contract is in
    multi-replica concurrency, denial immutability, rollback, rotation safety,
    lifecycle/window boundaries, and cross-Delivery provider restrictions with
    real PostgreSQL services. Run applicable repository checks; HTTP coverage is
-   completed when Stage 5–6 endpoints are connected.
+   completed when Stage 5–6 endpoints are connected. Deliver operational metrics
+   and documented analysis queries/views, validate safe labels and denial
+   attribution, and verify configuration changes preserve agreed active-state
+   semantics and telemetry failure does not affect enforcement.
 
 ## Stage 5: Request and resend endpoints
 
@@ -509,6 +667,8 @@ Requirements:
   automatically creating another Delivery or charging Delivery quota/cooldown;
 - admit a new challenge's initial Delivery and explicit resend only when policy
   permits; every next-Delivery path uses the shared admission boundary;
+- Request new code after lock/expiry must respect the remaining identity
+  interval rather than start a new wait or bypass it with a new challenge;
 - derive explicit resend recipient from authoritative challenge identity;
 - return remaining, not reset, expiry;
 - preserve identical response shape across new, active, blocked, and

@@ -321,25 +321,106 @@ proof.
 | `RATE_LIMIT_EXCEEDED` |  429 | An identity, IP, device, verification, or provider pressure limit was reached. |
 
 All 429 responses contain `details.retryAfterSeconds` and `Retry-After`.
-`AUTH_DELIVERY_COOLDOWN` describes the challenge-scoped next-Delivery minimum
-interval: 60 seconds between authoritative admission timestamps of successfully
-committed admissions, not between commit timestamps. It applies to every path
+`AUTH_DELIVERY_COOLDOWN` describes the challenge- and identity-scoped Delivery
+minimum intervals: 60 seconds between authoritative admission timestamps of
+successfully committed admissions, not between commit timestamps. It applies to every path
 creating the next Delivery; repeated initial requests only return the reusable
 challenge. The first admitted Delivery establishes cooldown. Provider results
 do not start, reset, or refund it. Denial leaves the boundary, existing Delivery,
 lease, proof, expiration, and OTP failure count unchanged. Body and header use
 one DB-authoritative retry-after result.
 
+For the same normalized email, initial, Resend, and Request new code must also
+respect a shared 60-second admission interval across challenges. A new challenge
+does not reset this boundary. If a Delivery was admitted at 00:00 and the
+challenge locks at 00:05, Request new code at 00:06 returns a cooldown denial
+with 54 seconds remaining, not a fresh 60-second wait. After the interval has
+elapsed, lock/expiry adds no separate waiting penalty. If admission succeeds,
+the replacement challenge and initial Delivery are created atomically with
+applicable charges and cooldown state. Denial does not create a replacement
+flow. The authoritative cooldown retry-after uses the later applicable identity
+or challenge boundary; the response body and header use the same value.
+
 Next-Delivery admission requires at least the configured Stage 3 minimum
 remaining validity (V1: 120 seconds), checked before charge or supersession;
 proof can remain verifiable after that Delivery window closes. New PENDING
 Deliveries become worker-eligible after commit without another client action,
 but remain subject to provider restrictions. Changing identity does not carry
-over the old challenge's cooldown or reset other abuse accounting; UI navigation
+over the old email's cooldown or reset other abuse accounting; returning to
+a previously used email retains its remaining identity interval; UI navigation
 does not cancel a challenge. See auth-architecture.md's accepted next-Delivery
 minimum interval for the atomic admission and persistence contract.
 
 `RATE_LIMIT_EXCEEDED` describes broader abuse buckets.
+
+Temporary verification-policy denial applies only to verification operations
+covered by the policy. It does not itself prohibit initial requests, Resend, or
+Request new code, change account status, revoke sessions, or lock/consume a
+challenge. Those operations retain their independent request/Delivery checks;
+replacing a challenge does not reset applicable verification abuse state. Keep
+this distinct from the existing five-wrong-canonical-OTP challenge lock.
+
+Verification abuse uses independent normalized-identity and IP failure budgets;
+both must permit the operation. Identity aggregates applicable failures across
+challenges and IPs, while IP aggregates failures across identities. Plan larger
+IP capacity for shared networks. Successful verification consumes neither
+failure budget, without exempting the request from separate request/resource
+limits.
+
+Charge failure budgets for canonical OTP or magic-link proof mismatches against
+an eligible challenge with correct purpose/binding. Only OTP mismatch increments
+the challenge OTP counter. The fifth wrong canonical OTP charges and locks;
+requests to an already locked challenge do not add proof failures. Malformed
+proof, missing/expired/consumed challenges, purpose/binding rejection, policy
+denial, and infrastructure errors do not spend these failure budgets, but their
+requests remain subject to separate request protection. These are internal
+accounting distinctions, not permission to expose internal unavailability reasons
+or remaining attempt counts in public responses.
+
+Short-term verification uses GCRA with independent identity and IP buckets:
+identity burst capacity 6 with sustained replenishment of 6 failures per 60
+seconds; IP burst capacity 72 with rate 72 per 60 seconds. These are burst-plus-
+rate limits, not strict maxima in every rolling minute. Only chargeable proof
+mismatches consume capacity; success, excluded outcomes, and policy denials do
+not advance rate debt (TAT).
+
+Insufficient capacity temporarily denies covered verification until eligibility
+returns, without an additional 60-second denial or full-reset timer. Identity
+recovers one allowance per ten seconds; IP one per 5/6 second. The authoritative
+retry-after covers the latest applicable blocking boundary and is rounded up
+for HTTP seconds. Denied retries do not extend waiting. Clients may disable
+submission/input and show “Too many requests” with the remaining wait; backend
+checks remain authoritative. Do not expose internal failure budgets or TAT.
+
+New challenges do not reset identity/IP rate debt. Recovery does not unlock
+old challenges, reset independent long-term state, or override other policies.
+GCRA values are configurable operational settings, not client-side constants.
+Long-term identity verification independently uses GCRA burst capacity 8 with
+sustained rate 12 failures per 3600 seconds (one allowance per 300 seconds).
+It shares the accepted proof-failure classification and aggregates across IPs
+and challenges. Short-term recovery and challenge replacement do not reset its
+TAT. It must permit verification alongside short-term identity/IP policies;
+retry-after reflects the latest applicable blocking eligibility time. Success,
+denial, and excluded outcomes do not charge it. There is no added timed penalty
+or full-reset timer. This is not a strict failures-per-hour quota. Burst eight
+replaces the earlier burst-twelve setting; sustained rate remains 12/hour.
+
+Long-term IP verification independently uses GCRA burst capacity 360 with rate
+360 chargeable failures per 3600 seconds, recovering one allowance per ten
+seconds. Aggregate accepted mismatches across identities and challenges on that
+IP. Preserve short-term IP burst 72/rate 72 per minute; this long-term setting
+is not a strict 360-per-hour quota. Keep all four verification TAT states
+independent. All policies must allow verification, and retry-after reflects the
+latest applicable blocking eligibility. Success, excluded outcomes, and denied
+requests do not advance TAT. Challenge/identity changes and short-term recovery
+do not reset long-term IP debt. No additional timed penalty/reset applies.
+
+These are configurable starting values, not a change to the existing challenge
+lock after five canonical wrong OTPs. Endpoint coverage, concurrent accounting,
+and remaining recovery semantics stay open in Stage 4 Iteration 1.
+Stage 5–6 wiring uses the
+stable 429 envelope and one retry-after value in body/header. Operational metrics
+must not expose proof/identity data or add tracking to the fallback.
 
 ## Access and refresh tokens
 
