@@ -892,8 +892,93 @@ superseding the former twenty/hour target. The former twenty-verification-attemp
 target requires reassessment under the accepted failure-only, independent
 identity/IP policies below; it is not a fixed all-attempts limit. The former
 five-failure challenge lock is superseded in the target by the decision below.
-Exact limits/windows require Stage 4 Iteration 1 review and validated runtime
-configuration.
+The consolidated register below closes Iteration 1 semantics; validated runtime
+configuration and explicitly deferred capacity measurements remain later work.
+
+### Stage 4 Iteration 1 — consolidated policy register
+
+Status: **COMPLETE — policy semantics accepted; runtime implementation pending.**
+This register summarizes the accepted decisions below, not additional policies.
+Identifiers are documentation labels, not new public API codes or prescribed
+code symbols. GCRA burst B means exactly B initial permissions, with independent
+persisted state per policy/subject. Rates are replenishment, not fixed-window
+quotas. PostgreSQL is authoritative across replicas; Redis is not required.
+
+| Policy / protected resource | Canonical subject | Match / admission condition | Charge or occupancy condition | V1 algorithm / parameters | Implementation owner |
+| --- | --- | --- | --- | --- | --- |
+| Public passwordless requests / HTTP processing | Source IP + explicit public auth route group | Each request to the four covered POST routes, before JSON parsing | One per admitted HTTP request, regardless of downstream outcome | GCRA burst 200, rate 600/minute | Iterations 2–3; HTTP Stage 5–6 |
+| Challenge Delivery cooldown / churn | Challenge ID | A genuinely new Delivery for this challenge | Establish boundary only with committed Delivery admission | Admission-anchored minimum interval 60 seconds | Iterations 2–4 |
+| Identity Delivery cooldown / cross-challenge churn | Normalized institutional identity, shared across purposes | New Delivery even if challenge, client, or IP changed | Establish boundary only with committed Delivery admission | Admission-anchored minimum interval 60 seconds | Iterations 2–4 |
+| Identity Delivery budget / email bombing | Normalized institutional email | New initial, RESEND, or replacement-initial Delivery | One per committed new Delivery; no provider-failure refund | GCRA burst 10, rate 7/hour | Iterations 2–4 |
+| IP Delivery budget / source-driven email work | Canonical source IP | Same new-Delivery admissions | One per committed new Delivery | GCRA burst 120, rate 240/hour | Iterations 2–4 |
+| Short identity verification / rapid guessing | Authoritative normalized identity | Eligible, correctly bound live challenge; all four verification policies allow | One per committed canonical OTP/link mismatch only | GCRA burst 6, rate 6/minute | Iterations 2–3 and 5 |
+| Short IP verification / rapid source abuse | Canonical source IP | Same verification eligibility | Same committed mismatch only | GCRA burst 72, rate 72/minute | Iterations 2–3 and 5 |
+| Long identity verification / sustained guessing | Authoritative normalized identity | Same verification eligibility | Same committed mismatch only | GCRA burst 8, rate 12/hour | Iterations 2–3 and 5 |
+| Long IP verification / sustained source abuse | Canonical source IP | Same verification eligibility | Same committed mismatch only | GCRA burst 360, rate 360/hour | Iterations 2–3 and 5 |
+| Global Delivery rate / aggregate creation | Whole auth admission scope | New Delivery creation | One per committed new Delivery | Numerical rate/burst and enforcement parameterization selected from measurements; no invented default | Iterations 6–7 |
+| Auth Delivery backlog / outstanding work | Whole auth Delivery scope | Creation requires one free outstanding-work slot | PENDING + PROCESSING, including retry/capacity waits; terminal states release occupancy | Exact atomic capacity limit; numerical value after measurements | Iterations 4, 6–7 |
+| Shared Resend send gate / provider submission capacity | Configured Resend team shared by all application send callers | Before every provider attempt, including retries and notifications | One granted submission permission; granted permission does not prove HTTP receipt | GCRA burst 1, rate 8/second; minimum spacing 125 ms | Iteration 6 |
+
+#### Shared denial, transaction, and privacy rules
+
+- Request charging commits separately before parsing/domain work; request denial
+  advances no TAT and stops parsing. Malformed JSON charges no domain budgets.
+- Delivery budgets, both cooldowns, global admission, backlog reservation, and
+  creation compose atomically. Denial/confirmed rollback leaves no partial
+  mutations. Resolve existing unfinished work without new admission or charges.
+- Verification locks/validates authoritative challenge and all four buckets,
+  checks eligibility before comparison, and commits canonical mismatch charges
+  together as a normal result. Success, excluded outcomes, and policy denial
+  advance no failure TAT. Technical failures before commit roll back this work.
+- GCRA/cooldown denial has authoritative DB-backed retry-after; combine applicable
+  denying eligibility times without HTTP-layer recalculation. Global outcomes
+  distinguish GLOBAL_RATE_DENIED, DELIVERY_CAPACITY_UNAVAILABLE (unknown release
+  time), and INFRASTRUCTURE_FAILURE. Uncertain commit requires reconciliation or
+  safe idempotent retry, not a claim of rollback or blind duplicate admission.
+- Provider-capacity waiting defers work without a fake provider failure or
+  processing-attempt charge. Preserve Retry-After across Deliveries. Temporary
+  gate exhaustion alone does not deny otherwise admissible new work.
+- Raw email/IP and proof never enter rate-limit bucket persistence. Derive opaque
+  keyed identifiers with policy/domain separation and canonical characteristics;
+  active protection survives key/config changes and safe cleanup. Challenge IDs
+  are internal characteristics, not public telemetry labels. Persist global/team
+  state without leaking secrets; use bounded aggregate metrics. Fail closed on
+  required enforcement failure, independently of optional telemetry availability.
+
+#### Eligibility and lifecycle invariants, not additional quota buckets
+
+Challenge lifetime is 600 seconds with stable OTP/link and shared atomic
+consumption. New Delivery admission requires at least 120 seconds remaining
+validity; submission rechecks eligibility after waits. There is at most one
+PENDING/PROCESSING Delivery per challenge under concurrency. Repeated initial
+resolves a reusable challenge without automatic Delivery; Resend resolves
+unfinished work without supersession, retry/lease changes, new quota charges,
+or cooldown movement. New work after terminal Delivery still passes all checks.
+The accepted removal of the five-failure OTP lock is gated on integrated,
+verified, fail-closed verification enforcement; historical terminal rows are not
+reopened. These are target changes, not claims about current Stage 2/3 runtime.
+
+#### Explicit deferred work — not reopened Iteration 1 questions
+
+| Work | Owner / completion gate |
+| --- | --- |
+| Dedicated key ownership, canonical encoding, rotation preserving active debt, strict IP parser implementation, validated configuration and replica rollout/active-TAT semantics | Iteration 2, before affected enforcement is enabled |
+| GCRA TAT persistence/schema needs, lock order, exact arithmetic, bounded transaction retries and safe expiry | Iterations 2–3, database-backed verification |
+| Transaction-composable Delivery repository, one-unfinished invariant, admission reconciliation/idempotency and concrete operation identity | Iterations 4/6, verified in Iteration 7 |
+| Verification integration, legacy OTP-lock/schema transition | Iteration 5 with Iterations 3/7 checks before lock removal |
+| Global rate algorithm parameterization and numeric rate/burst/backlog values | Iterations 6–7 measurements before production; preserve accepted denial/atomicity contracts |
+| Gate/claim/defer composition, notification deferral, permission/crash accounting, provider daily/monthly quota handling | Iteration 6, integration verification in Iteration 7 |
+| HTTP mappings, source-resolution failures, combined-error precedence, response fields and retry UX | Stages 5–6; no undocumented public fields added here |
+| Exact proxy ranges/header contract, topology and origin-bypass checks | Before staging on selected hosting; preserve accepted direct/proxy-only boundary |
+| Full capacity/fault tests and p99 request-to-acceptance measurements; pilot tuning | Iteration 7 and Stage 5–6 HTTP integration, before production rollout |
+
+The measurement plan below defines bursts 10/50/100/500 and an ambitious
+normal-load p99 below one second to provider acceptance. It does not claim
+subsecond burst completion, mailbox-arrival guarantees, or completed tests.
+No device/install buckets, composite verification buckets, prefix-IP policies,
+CAPTCHA requirement, weighted engine, or future non-auth policies are added by
+this register. Notifications/session-management decisions remain their owning
+later stages and do not expand Stage 4 implementation scope.
 
 ### Accepted verification mitigation boundary
 
@@ -1022,8 +1107,8 @@ representation. Both independent buckets must permit verification. A canonical
 proof mismatch charges both atomically under the agreed verification
 transaction semantics; a successful proof, excluded outcome, or denied request
 must not advance either TAT. Never charge before proof checking and silently
-retain that charge for success. How to compose admission, proof checking, and
-committed charges safely under concurrency is still an Iteration 1 decision.
+retain that charge for success. Compose admission, proof checking, and committed
+charges under the accepted verification transaction boundary below.
 
 If insufficient capacity exists, deny covered verification until eligibility
 returns. Compute one authoritative retry-after from the latest eligibility
@@ -1056,9 +1141,10 @@ that the existing fixed-window counter implementation already supplies GCRA.
 Cleanup must not erase outstanding rate debt before full burst is restored.
 Retained security events/analytics are separate from compact GCRA state.
 
-Preserve cryptographic/single-use/expiry semantics and independent Delivery budgets. Endpoint
-coverage, concurrent admission/charge and commit behavior,
-and remaining recovery details not fixed below stay open in Iteration 1.
+Preserve cryptographic/single-use/expiry semantics and independent Delivery
+budgets. The accepted request scope and verification transaction boundary below
+fix policy behavior; concrete integration and recovery design belong to their
+implementation iterations, as listed in the consolidated register.
 
 #### Accepted V1 long-term identity verification — GCRA
 
@@ -1282,7 +1368,8 @@ Total                                                         10
 This establishes a reference capacity of ten admitted Deliveries, not a chosen
 limit of ten per hour or a guarantee that a second full Resend cycle is covered.
 The email and IP policies below fix Delivery burst/rate parameters for this
-scenario; aggregate/global/provider protection remains open. Account
+scenario; aggregate/global/provider contracts are fixed below, with numerical
+global capacity selection deferred to measurements. Account
 separately for legitimate shared-IP usage and email-bombing exposure.
 
 All Delivery admissions remain subject to challenge lifecycle, cooldown,

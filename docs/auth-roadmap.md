@@ -407,12 +407,21 @@ remaining open decisions before Iteration 1.
 
 ## Stage 4: Database-backed abuse protection
 
+**Iteration 1: COMPLETE — policy semantics accepted; no Stage 4 runtime
+implementation is claimed.** The canonical consolidated register is
+[Stage 4 Iteration 1 — consolidated policy register](auth-architecture.md#stage-4-iteration-1--consolidated-policy-register).
+It records 12 accepted protection rules, shared charge/denial/transaction/privacy
+contracts, lifecycle prerequisites, and explicit deferred owners. The seven
+iterations below are unchanged. Next: Iteration 2 implementation, without another
+policy-design round. Global capacity numbers remain measurement-gated before
+production; deferral is intentional and does not mark them as chosen defaults.
+
 Stage 4 delivers layered auth abuse protection before public Stage 5–6 flows.
 Keep HTTP requests, admitted Deliveries, provider submission attempts, and proof
 failures distinct. Apply keyed database-backed protection before account lookup
-where required, with independent identity/IP protection, optional spoofable
-app-install/device signals, verification per challenge/identity/IP, and separate
-global admission and provider pressure. A small enforcement core may accept
+where required, with independent identity/IP protection, challenge-scoped
+lifecycle/cooldown, and separate global admission/provider pressure. No additional
+device/install or composite verification buckets are selected for V1. A small enforcement core may accept
 policy identity and canonical characteristics without auth-specific assumptions;
 do not build speculative DSLs or future non-auth policies. Raw email and IP
 bucket inputs are not stored.
@@ -430,10 +439,11 @@ IP Delivery GCRA burst 120/rate 240/hour supersedes the former twenty/hour
 target. Reassess the former twenty-verification-attempts/IP/15-minute target
 under the accepted failure-only independent identity/IP policies; it is not a
 fixed all-attempts limit. The existing five-failure runtime lock is superseded
-in the target by the accepted gated removal below. Other thresholds and policy
-semantics remain undecided. GCRA is selected for short-term verification; fixed
-windows remain a candidate for other quota policies, with anchoring not yet
-fixed. Do not apply one algorithm to every policy automatically.
+in the target by the accepted gated removal below. GCRA applies to accepted
+request, Delivery, verification, and shared provider-rate policies; minimum
+interval cooldown remains admission-anchored. Global capacity parameterization
+and numeric values are deferred to Iterations 6–7 measurements. No additional
+fixed-window policies are implied.
 
 ### Accepted cooldown decision
 
@@ -640,7 +650,9 @@ Stage 6 connects the public HTTP/client behavior. Iteration 7 verifies the full
 transition. FailedAttemptCount may remain diagnostic, but cannot gate usability.
 Concrete field-retirement and transaction design remain implementation work.
 
-Other unresolved concurrency/accounting semantics remain Iteration 1 work.
+Verification transaction semantics are accepted below/in auth-architecture.md;
+concrete concurrency, persistence, and recovery work has the owners listed in
+the consolidated register and does not reopen Iteration 1.
 
 ### Accepted public passwordless request policy
 
@@ -867,12 +879,12 @@ and support evidence. Telemetry outages do not change enforcement.
 
 ### Implementation iterations
 
-1. **Policy semantics.** Define only required auth policies: protected resource,
-   canonical characteristics, admission and charge conditions, limits/windows,
-   denial/retry-after, failure semantics, and privacy. Preserve the accepted
-   cooldown and email GCRA contracts; evaluate the accepted ten-Delivery recovery
-   scenario and accepted IP GCRA burst 120/rate 240/hour. Do not infer other
-   thresholds from cooldown or treat the reference capacity as a fixed quota.
+1. **Policy semantics — COMPLETE.** Accepted policies and protected resources,
+   characteristics, admission/charge conditions, algorithms/values,
+   denial/retry-after, failure/transaction semantics, and privacy are consolidated
+   in the architecture register. Measurements and implementation details have
+   explicit later owners. No new policy decisions are required to start
+   Iteration 2; the ten-Delivery reference is not a fixed hourly quota.
 2. **Secure/extensible bucket derivation and configuration.** Derive opaque keys
    from policy identity and canonical characteristics using independent auth
    rate-limit key material. Implement the accepted canonical IP contract and resolve key-rotation semantics
