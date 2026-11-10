@@ -699,9 +699,34 @@ IPv6 prefix policies remain deferred until needed.
 Iteration 2 defines/tests the strict literal contract and opaque characteristic
 encoding; Stage 5–6 connects the resolver before parsing. Test equivalent address
 forms, mapped IPv4, private/loopback, malformed/ambiguous inputs, and fail-closed
-behavior. Exact public errors remain to decide. Proxy addresses/ranges, allowed
-headers, and validated ingress topology are separate decisions before staging;
-no proxy trust or runtime configuration changes are authorized by this entry.
+behavior. Exact public errors remain to decide. Apply the accepted proxy trust
+boundary below; exact addresses/ranges and header mechanism are deployment values
+to choose and validate before staging. No runtime configuration changes are
+made by this entry.
+
+### Accepted deployment proxy trust boundary
+
+**ACCEPTED / FIXED target:** source resolution is explicitly configured as direct
+or proxy-only; header presence never selects trust or mode. Direct uses socket
+peer IP and ignores forwarding headers. Proxy-only requires a trusted immediate
+peer and rejects untrusted access on protected auth endpoints.
+
+For X-Forwarded-For-style chains, traverse from socket peer through trusted hops,
+right to left, to the first untrusted address. A single-IP header mechanism
+requires an ingress contract that authoritatively sets the value and sanitizes
+client input. No automatic fallback between X-Forwarded-For, X-Real-IP,
+CF-Connecting-IP, other headers, or socket IP when the required trusted source
+fails. Missing/malformed/untrustworthy sources fail closed; canonicalization
+stays independent and receives one IP literal. Public error mappings remain open.
+
+Validate required configuration at startup and reject missing/contradictory
+production trust settings, blanket implicit trust, and implicit mode selection.
+Before staging choose exact proxy addresses/ranges and header mechanism; verify
+actual topology, sanitization, trusted-chain behavior, and origin-bypass defense.
+Stage 5–6 HTTP integration tests and staging deployment tests cover spoofed
+headers, direct/untrusted peers, missing/malformed sources, and supported chains.
+Repeat topology validation on hosting/edge changes. No runtime/configuration
+change is made by this documentation decision.
 
 ### Accepted auth Delivery backlog accounting
 
@@ -725,7 +750,29 @@ verifies exact capacity under concurrency, unfinished-work resolution at full
 backlog, terminal transitions, retries/recovery, rollback, and cleanup progress.
 Lease expiry alone does not release capacity; obsolete work must terminalize.
 Preserve submission-validity checks after waits. Numerical backlog/global-rate
-thresholds and denial response/retry-after semantics remain open.
+thresholds remain open. Internal denial semantics are fixed below; HTTP mappings
+and user retry UX remain Stage 5–6 work.
+
+### Accepted Global Delivery Admission denial and commit semantics
+
+**ACCEPTED / FIXED target:** GLOBAL_RATE_DENIED carries authoritative retryAfter
+from persisted limiter state/DB time. DELIVERY_CAPACITY_UNAVAILABLE means full
+backlog with unknown exact release time. INFRASTRUCTURE_FAILURE is technical
+unavailability and must not be masked as policy denial. Reliably established
+denial admits no new work and preserves atomicity: no partial admission charges,
+cooldown, challenge, or Delivery mutations. Separately committed request charges
+remain. Returning existing unfinished work is not new admission.
+
+Connection loss during commit is an uncertain outcome, not confirmed rollback.
+Iterations 4/6 must provide durable operation reconciliation or equivalent safe
+idempotent retry, preventing duplicate Deliveries/admissions and repeated budget
+charges. Provider submission idempotency and the one-unfinished-Delivery invariant
+alone do not resolve this, especially after earlier work becomes terminal. Do
+not refund or invalidate proof based solely on a lost commit acknowledgment.
+Iteration 7 covers failure injection around commit, concurrent retries, and
+terminalization before retry. Concrete persistence/operation identity belongs to
+implementation design; no public field/schema is introduced here. Stage 5–6
+finalizes HTTP mappings/UX. Rate retryAfter is not a promise of overall capacity.
 
 ### Accepted measurement-first global capacity plan
 

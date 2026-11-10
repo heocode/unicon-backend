@@ -358,8 +358,15 @@ policies use the same canonical value with independent budgets. Missing or
 untrustworthy source IP or failed canonicalization fails closed as technical
 failure, not quota denial; exact public mapping remains open. Arbitrary-header
 fallback and address guessing are not supported. IPv6 prefix policies are
-deferred. Concrete pre-parser wiring and deployment proxy/header selection
-remain integration work; this target contract changes no runtime configuration.
+deferred. ACCEPTED / FIXED deployment boundary: direct mode uses socket peer IP
+and ignores forwarding headers. Proxy-only mode requires a trusted immediate
+peer; chain resolution walks trusted hops right to left, while single-IP headers
+require authoritative ingress sanitization. Required-source failure does not
+fall back to other headers or socket IP. Reject missing/contradictory required
+production trust configuration at startup; verify actual topology, sanitization,
+and origin-bypass protection before staging. Exact proxy ranges/header mechanism,
+concrete pre-parser wiring, and public source-failure mappings remain integration
+work; this target contract changes no runtime configuration.
 This group does not implicitly include other product APIs, refresh/protected
 sessions, separate STEP_UP routes, or GET /auth/verify. Request accounting is
 independent of Delivery admissions and proof-failure budgets; denial from one
@@ -514,6 +521,22 @@ and remaining recovery semantics stay open in Stage 4 Iteration 1.
 Stage 5–6 wiring uses the
 stable 429 envelope and one retry-after value in body/header. Operational metrics
 must not expose proof/identity data or add tracking to the fallback.
+
+## Global Delivery Admission outcomes (internal target)
+
+ACCEPTED / FIXED internal outcomes: GLOBAL_RATE_DENIED has authoritative
+retryAfter from persisted global limiter state; DELIVERY_CAPACITY_UNAVAILABLE
+has no known exact backlog-release time; INFRASTRUCTURE_FAILURE is technical
+failure, not a policy denial. HTTP statuses, public error codes, and retry UX
+for these outcomes remain Stage 5–6 work; these names do not add public errors.
+
+Reliably established denial creates no new work and leaves no partial admission
+charges/cooldown/challenge/Delivery changes. Existing unfinished-work resolution
+is not new admission. A lost PostgreSQL commit acknowledgment does not establish
+rollback: reconcile or safely retry without duplicate admission or repeated
+charges, including when earlier admitted work has since completed. Do not claim
+nothing was admitted or refund mutations solely because the connection failed.
+No public idempotency field is introduced by this documentation decision.
 
 ## Access and refresh tokens
 

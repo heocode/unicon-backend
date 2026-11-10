@@ -1458,8 +1458,8 @@ Other groups can reuse the mechanism with their own future policies. Keep V1
 unit cost; no generic weighted-cost framework is required.
 
 Use the accepted source-resolution/canonicalization contract below. Deployment
-proxy trust/header selection, concrete pre-parser integration, and detailed
-technical error mapping remain owning Stage 4 and Stage 5–6 decisions. Configuration/rotation/cleanup must preserve applicable request TAT, and
+values for proxy trust/header selection, concrete pre-parser integration, and
+detailed technical error mapping remain owning Stage 4 and Stage 5–6 work. Configuration/rotation/cleanup must preserve applicable request TAT, and
 analytics must identify this policy separately from domain denials.
 
 Validate these initial settings with concurrency and load tests, including
@@ -1505,15 +1505,52 @@ its exact public mapping remains open.
 
 IPv6 prefix-based limiting is deferred until demonstrated need. Literal
 canonicalization does not prevent address rotation within an IPv6 allocation.
-Concrete trusted proxy addresses/ranges, permitted headers, and topology checks
-remain a separate deployment-boundary decision before staging; this contract
-does not change the current proxy-trust configuration.
+Use the accepted deployment proxy trust boundary below. Concrete proxy
+addresses/ranges and the selected header mechanism remain deployment values to
+choose and verify before staging; current proxy-trust configuration is unchanged.
+
+### Accepted deployment proxy trust boundary
+
+Status: **ACCEPTED / FIXED target; not implemented.** Source resolution follows
+explicit deployment configuration, never the mere presence of HTTP headers.
+V1 distinguishes direct and proxy-only deployments; no implicit mixed mode or
+arbitrary-header detection is introduced.
+
+- Direct mode uses socket peer IP and ignores all forwarding headers.
+- Proxy-only mode first verifies that the immediate socket peer is trusted under
+  the deployment contract. Reject untrusted peers on protected auth endpoints;
+  do not fall back to treating the proxy address as the client address.
+- For a forwarding chain such as X-Forwarded-For, resolve from the socket peer
+  through trusted hops, scanning the header right to left until the first
+  untrusted address. Do not blindly select the first/leftmost value.
+- For a single-IP mechanism such as X-Real-IP or CF-Connecting-IP, the chosen
+  ingress must authoritatively set the value and sanitize client-supplied input.
+  Trust in the immediate peer alone does not prove that it sanitized a header.
+- Use only the selected mechanism. A missing required source, malformed value,
+  or untrustworthy resolution fails closed without switching to another header
+  or socket IP. Unknown proxies never gain forwarding-header authority.
+
+Canonicalization remains independent and accepts only the single IP literal
+produced by source resolution. No change to policy budgets or canonicalization
+semantics is introduced. Source-resolution failures are distinct from quota
+denials; exact public error mapping remains owning Stage 5–6 work.
+
+Production startup must reject missing or contradictory required proxy-trust
+configuration; it must not silently enable blanket trust or an implicit mode.
+Startup checks configuration validity, not the actual network's correctness.
+Before staging, choose exact trusted proxy addresses/ranges and the supported
+header mechanism for the hosting platform, and verify real ingress topology,
+header sanitization, chain traversal, and protection against origin bypass.
+Deployment tests must include spoofed headers, untrusted direct access, missing
+or malformed required sources, and supported multi-proxy paths. Preserve these
+checks when changing hosting or adding an edge proxy. This decision does not
+configure Render/Railway/VPS ranges, enable Express trust proxy, or change runtime.
 
 ### Accepted auth Delivery backlog accounting
 
 Status: **ACCEPTED / FIXED** accounting model; not implemented. The numerical
-backlog limit, global admission rate, denial response, and retry-after semantics
-remain open. A global admission rate bounds incoming new Deliveries; a backlog
+backlog limit and global admission rate remain open. Internal denial semantics
+are fixed below; HTTP mappings and UX remain Stage 5–6 work. A global admission rate bounds incoming new Deliveries; a backlog
 limit bounds outstanding work. Neither replaces the other or the provider gate.
 
 One backlog unit is one admitted AuthenticationChallengeDelivery whose processing
@@ -1548,6 +1585,47 @@ already have arrived or still be in flight, and proof verification retains its
 own lifecycle. Preserve Stage 3 validity checks after any capacity wait before
 submission; backlog size and nominal send rate alone cannot guarantee delivery
 time.
+
+### Accepted Global Delivery Admission outcomes and commit uncertainty
+
+Status: **ACCEPTED / FIXED target; not implemented.** Distinguish these internal
+outcomes without conflating policy decisions and availability failures:
+
+| Internal outcome | Meaning | Retry information |
+| --- | --- | --- |
+| GLOBAL_RATE_DENIED | Persisted global creation-rate state denies new admission | One authoritative retryAfter derived from persisted state and DB-authoritative time |
+| DELIVERY_CAPACITY_UNAVAILABLE | No free auth Delivery backlog capacity | Exact release time is unknown; do not manufacture an authoritative quota retryAfter |
+| INFRASTRUCTURE_FAILURE | Required admission state cannot be read, evaluated, or durably established | Technical failure, never disguised as ordinary policy denial |
+
+A reliably established denial does not admit new work. Preserve atomicity of
+all admission mutations: no partial Delivery/global quota charges, cooldown,
+challenge changes, or Delivery changes. Confirmed rollback leaves those mutations
+absent. Existing committed request-level accounting is separate and is not
+refunded. Initial denial must not leave a new challenge without initial Delivery;
+existing proof and unfinished work retain their lifecycle. Resolving an existing
+unfinished Delivery is not new admission and does not consume global creation
+capacity or another backlog slot, although normal request/lifecycle/ownership
+checks and authoritative access to existing state are still required.
+
+A connection loss while committing is not evidence of rollback. Distinguish
+known committed, confirmed not committed, and unresolved commit outcomes. On an
+unresolved outcome, do not assert that no Delivery/charges/cooldown exist and do
+not blindly repeat admission as a fresh operation. Reconcile against durable
+operation identity/state or use an equivalent safe idempotent retry mechanism
+that cannot create a duplicate admission or charge any admission budget twice.
+Stage 3 provider idempotency alone is insufficient: it protects submission of
+one Delivery, not creation of two Delivery records. The one-unfinished-Delivery
+invariant is necessary but alone does not identify an earlier operation after
+its Delivery becomes terminal. No compensating refund or challenge invalidation
+is justified merely by lost commit acknowledgment.
+
+Iterations 4/6 design transaction-composable admission and durable reconciliation/
+idempotent retry; Iteration 7 tests connection loss around commit, reconciliation,
+concurrent retries, and a previously committed Delivery becoming terminal before
+retry. Do not introduce a new public idempotency field or schema in this decision.
+HTTP mappings and user retry UX are Stage 5–6 work. A rate retryAfter describes
+recovery of the applicable rate budget, not a guarantee that backlog or all other
+conditions will allow a future request.
 
 ### Accepted measurement-first global capacity selection
 
