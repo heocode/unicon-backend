@@ -130,17 +130,18 @@ POST /auth/challenges/:challengeId/resend
 
 Resend has no body and never accepts a replacement recipient. The recipient
 comes from authoritative challenge identity state; another email requires a
-different identity/challenge flow. Successful admission creates a new EMAIL
-Delivery containing the same OTP and magic link. It does not create a new challenge or change proof, expiration,
-failed attempts, consumption, or lock state.
+different identity/challenge flow. ACCEPTED / FIXED V1 target: if an eligible
+challenge already has a PENDING or PROCESSING Delivery, return/resolve that work
+as awaiting/in-progress, without new Delivery, supersession, lease/retry changes,
+Delivery quota charge, or cooldown movement. Request-level accounting remains.
 
-The new Delivery has `RESEND` origin, a new delivery ID, and a new provider
-idempotency key. Creation atomically supersedes prior non-terminal Deliveries
-for the challenge and revokes ownership of an old processing worker. That
-worker can no longer finalize or mutate its Delivery. Supersession does not
-physically cancel an already-submitted provider request, so the user may rarely
-receive two messages; both contain the same proof and fixed expiration. This
-race does not rotate credentials or weaken verification.
+Otherwise, successful admission creates a new EMAIL Delivery with RESEND origin,
+a new ID and provider idempotency key, carrying the same stable proof. Lifecycle,
+delivery window, cooldown, Delivery quotas, global rate, and backlog must allow
+creation. At most one unfinished Delivery may exist per challenge, including
+under concurrent requests. Temporary provider gate exhaustion alone does not
+prohibit admission; it can leave accepted work waiting. Exact response fields
+for existing-work resolution remain Stage 5 HTTP integration work.
 
 `SIGN_IN` resend is public and protected by identity/IP/challenge limits.
 `STEP_UP` resend additionally requires the same active access session to which
@@ -202,6 +203,16 @@ POST /auth/challenges/:challengeId/verify-link
 Session metadata headers are accepted. Success and session semantics are
 identical to OTP verification. OTP and magic link share one consumption state;
 using either makes both unusable.
+
+Repeated clicks on a valid link must not spend verification failure budgets:
+success is uncharged and replay of consumed/expired proof is not a proof
+mismatch. Concurrent valid exchanges create at most one session; losing requests
+do not become wrong-token failures. Clients prevent duplicate in-flight POSTs
+and automatic retry loops; GET/prefetch alone never exchanges proof. HTTP requests
+still remain subject to independent request limits, so unlimited clicking is
+not guaranteed. Repeated canonical wrong tokens for eligible challenges remain
+chargeable failures. Replay does not create another session or expose raw
+previously issued tokens.
 
 The canonical email link is:
 
@@ -300,8 +311,7 @@ CancelAccountDeletionDto
 | `EMAIL_DOMAIN_NOT_ALLOWED`       |  400 | The normalized domain is not currently eligible.                                      |
 | `AUTH_CHALLENGE_INVALID`         |  400 | The challenge is missing, consumed, superseded, wrong-purpose, or otherwise unusable. |
 | `AUTH_CHALLENGE_EXPIRED`         |  400 | The fixed challenge lifetime elapsed; request a new challenge.                        |
-| `AUTH_CODE_INVALID`              |  400 | The OTP is incorrect and attempts remain.                                             |
-| `AUTH_CHALLENGE_LOCKED`          |  400 | The challenge reached its failed-attempt limit and cannot be reused.                  |
+| `AUTH_CODE_INVALID`              |  400 | The OTP is incorrect; retry is subject to verification policies.                                             |
 | `AUTH_DELIVERY_COOLDOWN`         |  429 | Another delivery is not yet allowed.                                                  |
 | `AUTH_EMAIL_UNAVAILABLE`         |  503 | Required email delivery could not be accepted.                                        |
 | `RECENT_AUTHENTICATION_REQUIRED` |  403 | A sensitive operation requires a fresh proof.                                         |
@@ -321,6 +331,40 @@ proof.
 | `RATE_LIMIT_EXCEEDED` |  429 | An identity, IP, device, verification, or provider pressure limit was reached. |
 
 All 429 responses contain `details.retryAfterSeconds` and `Retry-After`.
+
+The public passwordless POST routes (challenge request, resend, verify-otp, and
+verify-link) share one canonical-source-IP request GCRA bucket. Each request
+admitted by that policy costs one before JSON parsing/DTO validation/domain services,
+regardless of the later response. Downstream validation/domain denial or failure
+does not refund request capacity. Request-policy denial returns
+RATE_LIMIT_EXCEEDED (429) without running the domain operation or advancing TAT.
+Body/header use one authoritative retry-after; infrastructure unavailability
+is a fail-closed technical error instead of a fabricated 429.
+
+Initial request GCRA settings are burst 200 and sustained rate 600 requests per
+60 seconds per canonical source IP, recovering one allowance per 100 milliseconds.
+There is no additional timed block/full reset, and these values are not a strict
+600-per-minute quota. Settings are configurable and will be validated under
+load and tuned from pilot/production analytics, not hardcoded by clients.
+ACCEPTED / FIXED V1: malformed JSON consumes only the admitted HTTP request
+capacity, not verification/Delivery budgets, and does not mutate the challenge.
+Request-policy denial stops before JSON parsing. There is no separate malformed
+limiter in V1. Shared-IP clients can consume one another's request allowance;
+this policy does not guarantee per-user fairness. Source selection occurs at the
+HTTP boundary under explicit trusted-proxy configuration; a separate reusable
+canonicalizer strictly validates one IP literal with ipaddr.js, maps IPv4-mapped
+IPv6 to IPv4, normalizes IPv6, and retains private/loopback addresses. All IP
+policies use the same canonical value with independent budgets. Missing or
+untrustworthy source IP or failed canonicalization fails closed as technical
+failure, not quota denial; exact public mapping remains open. Arbitrary-header
+fallback and address guessing are not supported. IPv6 prefix policies are
+deferred. Concrete pre-parser wiring and deployment proxy/header selection
+remain integration work; this target contract changes no runtime configuration.
+This group does not implicitly include other product APIs, refresh/protected
+sessions, separate STEP_UP routes, or GET /auth/verify. Request accounting is
+independent of Delivery admissions and proof-failure budgets; denial from one
+does not imply that their counters share state.
+
 `AUTH_DELIVERY_COOLDOWN` describes the challenge- and identity-scoped Delivery
 minimum intervals: 60 seconds between authoritative admission timestamps of
 successfully committed admissions, not between commit timestamps. It applies to every path
@@ -333,16 +377,17 @@ one DB-authoritative retry-after result.
 For the same normalized email, initial, Resend, and Request new code must also
 respect a shared 60-second admission interval across challenges. A new challenge
 does not reset this boundary. If a Delivery was admitted at 00:00 and the
-challenge locks at 00:05, Request new code at 00:06 returns a cooldown denial
+user submits wrong OTPs at 00:05, Resend at 00:06 returns a cooldown denial
 with 54 seconds remaining, not a fresh 60-second wait. After the interval has
-elapsed, lock/expiry adds no separate waiting penalty. If admission succeeds,
+elapsed, expiry adds no separate waiting penalty. Wrong OTPs do not force a
+new challenge in the target flow. If admission succeeds,
 the replacement challenge and initial Delivery are created atomically with
 applicable charges and cooldown state. Denial does not create a replacement
 flow. The authoritative cooldown retry-after uses the later applicable identity
 or challenge boundary; the response body and header use the same value.
 
 Next-Delivery admission requires at least the configured Stage 3 minimum
-remaining validity (V1: 120 seconds), checked before charge or supersession;
+remaining validity (V1: 120 seconds), checked before charge or creation;
 proof can remain verifiable after that Delivery window closes. New PENDING
 Deliveries become worker-eligible after commit without another client action,
 but remain subject to provider restrictions. Changing identity does not carry
@@ -353,12 +398,43 @@ minimum interval for the atomic admission and persistence contract.
 
 `RATE_LIMIT_EXCEEDED` describes broader abuse buckets.
 
+Email Delivery admission uses GCRA burst capacity 10 with sustained rate 7 per
+3600 seconds, replenishing one allowance per 3600/7 seconds (about 8 minutes
+34.286 seconds). Initial, Resend, and replacement initial Delivery share the
+normalized email budget across challenges/IPs. Each committed new Delivery
+charges one unit; resolution without a Delivery, denial, rollback, and retries
+of an existing Delivery do not. Provider failure does not refund a committed
+admission. This is not a strict seven/hour or ten/hour quota and has no fixed
+hourly reset or extra timed penalty. Parameters remain configurable.
+
+Check this budget alongside the 60-second minimum interval, Delivery validity,
+and other applicable budgets. Charge/cooldown/creation must be
+atomic. Denial leaves existing proof and Delivery unchanged and does not itself
+prohibit verification. New challenges do not reset email rate debt. Round public
+retry-after upward from authoritative state, without recomputing it in the
+client. Combined admission error precedence remains open for the owning
+Stage 4/5 decisions.
+
+IP Delivery admission independently uses GCRA burst capacity 120 and rate 240
+admitted Deliveries per 3600 seconds (one allowance per fifteen seconds), shared
+across emails/challenges/clients from that source IP. Each committed initial,
+Resend, or replacement initial Delivery charges both email and IP budgets by
+one. Both must allow admission; denial or rollback neither partially charges
+these budgets nor supersedes existing work. Provider retries do not charge
+again and later provider failure does not refund. Identity/challenge changes
+do not reset IP TAT. Preserve the independent 60-second email/challenge interval
+and other admission/provider restrictions. This is a configurable burst-plus-rate
+policy, not a strict hourly quota; shared-IP exhaustion denies new Deliveries,
+not verification of existing proof by itself.
+
 Temporary verification-policy denial applies only to verification operations
 covered by the policy. It does not itself prohibit initial requests, Resend, or
 Request new code, change account status, revoke sessions, or lock/consume a
 challenge. Those operations retain their independent request/Delivery checks;
 replacing a challenge does not reset applicable verification abuse state. Keep
-this distinct from the existing five-wrong-canonical-OTP challenge lock.
+this distinct from challenge expiry/consumption. The target no longer
+permanently locks a challenge after five OTP failures; runtime transition is
+gated on implemented verification enforcement.
 
 Verification abuse uses independent normalized-identity and IP failure budgets;
 both must permit the operation. Identity aggregates applicable failures across
@@ -369,8 +445,9 @@ limits.
 
 Charge failure budgets for canonical OTP or magic-link proof mismatches against
 an eligible challenge with correct purpose/binding. Only OTP mismatch increments
-the challenge OTP counter. The fifth wrong canonical OTP charges and locks;
-requests to an already locked challenge do not add proof failures. Malformed
+a diagnostic challenge OTP counter if retained. Fifth and later wrong canonical
+OTPs are accounted for when GCRA permits, without locking the target challenge.
+Requests to historical terminal locked rows do not add proof failures. Malformed
 proof, missing/expired/consumed challenges, purpose/binding rejection, policy
 denial, and infrastructure errors do not spend these failure budgets, but their
 requests remain subject to separate request protection. These are internal
@@ -415,8 +492,24 @@ latest applicable blocking eligibility. Success, excluded outcomes, and denied
 requests do not advance TAT. Challenge/identity changes and short-term recovery
 do not reset long-term IP debt. No additional timed penalty/reset applies.
 
-These are configurable starting values, not a change to the existing challenge
-lock after five canonical wrong OTPs. Endpoint coverage, concurrent accounting,
+**ACCEPTED / FIXED target:** replace the automatic five-wrong-OTP challenge
+lock with GCRA verification admission. Wrong OTPs do not clear proof, invalidate
+magic link, cancel Delivery, or require a new email solely due to failure count.
+On policy denial, return RATE_LIMIT_EXCEEDED (429) and authoritative retry-after;
+clients may disable submission and display the wait. After capacity returns,
+verify the same challenge if still live, correctly bound, and unconsumed. At
+expiry use AUTH_CHALLENGE_EXPIRED and the new-code flow. Do not promise a full
+600 seconds after waiting or Resend. AUTH_CHALLENGE_LOCKED is removed from the
+target error catalog, not from current runtime by documentation alone.
+
+Gate runtime lock removal on integrated, verified GCRA enforcement; never run
+unthrottled proof verification during transition. Authoritative limiter failure
+is fail-closed technical unavailability, not policy denial/429 or a new challenge
+lock. No session is issued when the required admission/charging cannot be
+completed. Preserve the challenge on a technical failure according to atomic
+rollback semantics; exact technical error mapping is finalized in Stage 5–6.
+
+Policy values remain configurable. Endpoint coverage, concurrent accounting,
 and remaining recovery semantics stay open in Stage 4 Iteration 1.
 Stage 5–6 wiring uses the
 stable 429 envelope and one retry-after value in body/header. Operational metrics
@@ -444,11 +537,28 @@ serialized client-side; successful rotation atomically replaces both tokens.
 | ----------------------- | ---: | -------------------------------------------------------------------- |
 | `SESSION_UNAVAILABLE`   |  401 | The authenticated session is missing, revoked, expired, or inactive. |
 | `SESSION_NOT_FOUND`     |  404 | An owned active target session was not found.                        |
-| `SESSION_TOO_FRESH`     |  403 | The current session cannot yet manage other sessions.                |
+| `SESSION_TOO_FRESH`     |  403 | The current session is too new for the requested management action.                |
 | `SESSION_LIMIT_REACHED` |  409 | A new active session would exceed the configured limit.              |
 
 `SESSION_TOO_FRESH` retains `managementAvailableAt` and
 `retryAfterSeconds`.
+
+**ACCEPTED / FIXED target:** DELETE /auth/sessions/:sessionId permits an active
+authorized session within management cooldown to revoke an owned active target
+when target.createdAt is strictly later than actor.createdAt, using persisted
+server timestamps. An equal/earlier target retains SESSION_TOO_FRESH. Self-revoke
+and mature-session behavior are preserved; rename/revoke-others still use their
+existing cooldowns. This ordering exception is not proof that the actor is the
+legitimate owner and accepts the case where an attacker holds the earlier
+session. Backend actor/target checks and mutation must be atomic.
+
+Security-notification actions use this authenticated endpoint and do not grant
+additional authority through a push payload or link. “This was me” only
+acknowledges the notification. New sessions do not wait for notification approval.
+Committed revocation prevents subsequent protected requests and refresh, without
+undoing completed actions. This is target Stage 7/9 integration; the current
+runtime cooldown remains until implementation. The strict session-limit contract
+below is unchanged.
 
 After successful proof, `SESSION_LIMIT_REACHED` contains the active-session
 limit only. The challenge remains consumed, no session is created, and the new
@@ -468,6 +578,24 @@ The user must open an already authorized device, revoke one active session
 through the normal session-management API, and then start sign-in again with a
 new challenge. V1 has no overflow session, automatic eviction, or unauthenticated
 session-recovery endpoint.
+
+## Security notification channels (target)
+
+New-account registration generates no new-session alert. Without resend, its
+only email is the OTP/magic-link email; a separate onboarding welcome message
+appears in the Unicon system conversation after account creation.
+
+Subsequent sign-ins to an existing account generate an in-app new-session
+message in that same conversation and push to eligible previous devices, with
+“This was me” / “This was not me” actions under the session policy above.
+There is no new-session email, including when no previous session/device exists.
+Suspicious activity uses the same conversation plus push and email.
+Account-deletion requested, cancelled, and completed retain email delivery.
+
+In-app messages remain accessible independently of push permissions or delivery.
+Notification failure does not undo authentication. These are Stage 9/11 target
+channels, not claims of current runtime support; no notification HTTP endpoints
+or response fields are introduced by this documentation decision.
 
 ## Account and profile state errors
 
