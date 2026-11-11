@@ -40,6 +40,7 @@ function setup() {
     ),
   };
   const repository = {
+    isolationLevel: jest.fn(() => Promise.resolve('read committed')),
     lockAliases: jest.fn(async (): Promise<void> => {}),
     readAliases: jest.fn(() => Promise.resolve<GcraRateLimit[]>([])),
     operationNowMicros: jest.fn(() => Promise.resolve(1_000_000n)),
@@ -51,7 +52,7 @@ function setup() {
     repository,
     new GcraAdmissionConfigService(config),
   );
-  return { service, prisma, repository, derivation };
+  return { service, prisma, repository, derivation, transaction };
 }
 
 function storedRow(key: string, overrides = {}): GcraRateLimit {
@@ -71,6 +72,139 @@ function storedRow(key: string, overrides = {}): GcraRateLimit {
 }
 
 describe('GcraAdmissionService control flow (unit)', () => {
+  const second = {
+    ...input,
+    policy: { id: 'TEST_GCRA_SECOND', characteristicKind: 'IP' as const },
+  };
+
+  it('locks the full union and uses one DB timestamp for all policy charges', async () => {
+    const { service, repository, derivation } = setup();
+    expect(await service.consumeMany([second, input])).toEqual({
+      allowed: true,
+      operationNowMicros: 1_000_000n,
+    });
+    const allKeys = [input, second].flatMap((item) =>
+      derivation
+        .deriveKeys(item.policy, item.characteristic)
+        .buckets.map((bucket) => bucket.key),
+    );
+    expect(repository.lockAliases).toHaveBeenCalledTimes(1);
+    expect(repository.lockAliases).toHaveBeenCalledWith(
+      expect.anything(),
+      allKeys,
+    );
+    expect(repository.operationNowMicros).toHaveBeenCalledTimes(1);
+    expect(repository.writeAliases).toHaveBeenCalledTimes(2);
+  });
+
+  it('attributes all denials and combines retry-after without any writes', async () => {
+    const { service, repository, derivation } = setup();
+    const firstKey = derivation.deriveKeys(input.policy, input.characteristic)
+      .buckets[0].key;
+    const secondKey = derivation.deriveKeys(
+      second.policy,
+      second.characteristic,
+    ).buckets[0].key;
+    repository.readAliases.mockResolvedValue([
+      storedRow(firstKey),
+      storedRow(secondKey, {
+        policyId: second.policy.id,
+        tatNumerator: new Prisma.Decimal('7201000000'),
+        idleAfterMicros: new Prisma.Decimal('7201000000'),
+      }),
+    ]);
+    expect(await service.consumeMany([second, input])).toEqual({
+      allowed: false,
+      operationNowMicros: 1_000_000n,
+      retryAfterSeconds: 7200n,
+      deniedPolicyIds: [input.policy.id, second.policy.id],
+    });
+    expect(repository.writeAliases).not.toHaveBeenCalled();
+  });
+
+  it('does not mask a later invalid policy as an earlier ordinary denial', async () => {
+    const { service, repository, derivation } = setup();
+    const firstKey = derivation.deriveKeys(input.policy, input.characteristic)
+      .buckets[0].key;
+    const secondKey = derivation.deriveKeys(
+      second.policy,
+      second.characteristic,
+    ).buckets[0].key;
+    repository.readAliases.mockResolvedValue([
+      storedRow(firstKey),
+      storedRow(secondKey, { policyId: second.policy.id, burst: 2n }),
+    ]);
+    await expect(service.consumeMany([input, second])).rejects.toMatchObject({
+      reason: 'INVALID_STATE',
+    });
+    expect(repository.writeAliases).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    { label: 'empty', inputs: [] },
+    { label: 'duplicate', inputs: [input, input] },
+    {
+      label: 'duplicate policy with another subject',
+      inputs: [input, { ...input, characteristic: '192.0.2.2' }],
+    },
+  ])('rejects $label sets before opening a transaction', async ({ inputs }) => {
+    const { service, prisma } = setup();
+    await expect(service.consumeMany(inputs)).rejects.toMatchObject({
+      reason: 'INVALID_INPUT',
+    });
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it('does not create an owned transaction inside the composable method', async () => {
+    const { service, prisma, transaction } = setup();
+    expect(
+      (await service.consumeManyInTransaction(transaction, [input, second]))
+        .allowed,
+    ).toBe(true);
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+    await expect(
+      service.consumeManyInTransaction(transaction, [input]),
+    ).rejects.toMatchObject({ reason: 'INVALID_TRANSACTION' });
+  });
+
+  it('checks isolation before taking any bucket locks', async () => {
+    const { service, transaction, repository } = setup();
+    repository.isolationLevel.mockResolvedValue('repeatable read');
+    await expect(
+      service.consumeManyInTransaction(transaction, [input]),
+    ).rejects.toMatchObject({ reason: 'INVALID_TRANSACTION' });
+    expect(repository.lockAliases).not.toHaveBeenCalled();
+  });
+
+  it('rolls the operation back to its savepoint on write failure without retrying', async () => {
+    const { service, transaction, repository, prisma } = setup();
+    repository.writeAliases.mockRejectedValue(
+      new Error('private write failure'),
+    );
+    await expect(
+      service.consumeManyInTransaction(transaction, [input, second]),
+    ).rejects.toMatchObject({ reason: 'STATE_UNAVAILABLE' });
+    expect(transaction.$executeRaw).toHaveBeenCalledWith(
+      expect.arrayContaining(['ROLLBACK TO SAVEPOINT unicon_gcra_admission']),
+    );
+    expect(repository.writeAliases).toHaveBeenCalledTimes(1);
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it('reports a sanitized confirmed abort to the external owner without retrying it', async () => {
+    const { service, transaction, repository } = setup();
+    repository.writeAliases.mockRejectedValue(
+      new Prisma.PrismaClientKnownRequestError('Conflict.', {
+        code: 'P2034',
+        clientVersion: '7.8.0',
+      }),
+    );
+    await expect(
+      service.consumeManyInTransaction(transaction, [input]),
+    ).rejects.toMatchObject({ reason: 'TRANSACTION_ABORTED' });
+    expect(repository.writeAliases).toHaveBeenCalledTimes(1);
+  });
+
   it('returns admission only after transaction resolution and writes all retained aliases', async () => {
     const { service, prisma, repository, derivation } = setup();
     expect(await service.consume(input)).toEqual({

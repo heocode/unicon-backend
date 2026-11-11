@@ -1,5 +1,7 @@
 import { Prisma } from '../../generated/prisma/client';
 
+import { GcraAdmissionInfrastructureError } from '../errors/gcra-admission-infrastructure.error';
+
 import { isRetryableGcraTransactionError } from './is-retryable-gcra-transaction-error.util';
 
 function adapterError(code: string): Error {
@@ -11,6 +13,23 @@ function adapterError(code: string): Error {
 }
 
 describe('isRetryableGcraTransactionError', () => {
+  it('recognizes the safe composable abort signal only for whole-owner-transaction retry', () => {
+    expect(
+      isRetryableGcraTransactionError(
+        new GcraAdmissionInfrastructureError('TRANSACTION_ABORTED'),
+      ),
+    ).toBe(true);
+    expect(
+      isRetryableGcraTransactionError(
+        new GcraAdmissionInfrastructureError('COMMIT_OUTCOME_UNKNOWN'),
+      ),
+    ).toBe(false);
+    expect(
+      isRetryableGcraTransactionError(
+        new GcraAdmissionInfrastructureError('STATE_UNAVAILABLE'),
+      ),
+    ).toBe(false);
+  });
   it('recognizes the explicit Prisma rollback conflict code', () => {
     expect(
       isRetryableGcraTransactionError(

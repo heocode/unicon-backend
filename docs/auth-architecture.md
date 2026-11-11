@@ -1466,8 +1466,8 @@ one explicitly selected internal policy/characteristic and every retained key
 alias. The first intended consumer is public HTTP request accounting; no HTTP
 middleware or auth domain flow is connected by this block. This method charges
 on admission and must not be used directly for failure-only proof verification.
-It also cannot compose several policies by making several independent calls:
-the later multi-policy path must check/charge its complete set atomically.
+It cannot compose several policies by making several independent calls. The
+multi-policy and externally owned transaction paths are implemented below.
 
 The service captures validated policy inputs and derives all retained keys
 before opening a `READ COMMITTED` transaction. It acquires transaction-level
@@ -1525,10 +1525,73 @@ lock timeout and backend connection loss. Test-only SQL triggers and sequences
 inject aborts; they are removed by each test. These are correctness checks, not
 production capacity measurements or real network-fault coverage around commit.
 
-Cooldown admission, a complete multi-policy lock/check/charge boundary, cleanup
-and coordinated tuning/key-retirement operations, Delivery/verification and
+Cooldown admission, cleanup and coordinated tuning/key-retirement operations, Delivery/verification and
 pre-parser HTTP integration remain later blocks. Iteration 3 is still open and
 the legacy OTP lock remains unchanged.
+
+### Iteration 3 multi-policy and composable GCRA admission
+
+`consumeMany` checks and charges one complete set of distinct internal GCRA
+policies in a single owned transaction. Existing `consume` delegates to this
+path with one policy and preserves its original result shape. Empty sets and
+repeated policy IDs, even with different characteristics or settings, fail as
+`INVALID_INPUT` before an owned transaction starts. V1 admits one characteristic
+per policy per operation; duplicates do not imply weighted cost or multiple
+charges. There is no new policy DSL, schema or environment setting.
+
+All policy inputs are captured before waiting. The service locks the complete
+union of retained aliases once, in the existing actual-advisory-ID order, then
+locks/reads all existing rows and obtains one fresh DB timestamp. Every policy
+is validated and evaluated at that same time before any charge. An incompatible
+later policy is a technical error even when an earlier policy already denies;
+it is not hidden behind a fabricated ordinary denial. On denial, no policy or
+alias is mutated or repaired. The result contains one authoritative retry-after
+(the maximum wait among denying policies) and sorted internal `deniedPolicyIds`
+for consistent overlapping-denial attribution. These IDs are not new public API
+fields. On allowance, every policy is charged once and all its aliases are
+updated. Partial writes roll back as a unit; owned retries repeat the whole set.
+
+`consumeManyInTransaction` applies the same operation to a caller-owned Prisma
+interactive transaction. Its result is provisional until that owner commits.
+It never opens another transaction, commits, or retries. Real interactive scope
+is required; root clients are rejected, and the operation's SAVEPOINT also fails
+closed outside a real transaction. Supported isolation levels are READ COMMITTED
+and SERIALIZABLE. READ COMMITTED sees prior lock-owner commits; SERIALIZABLE
+may abort on an older owner snapshot and requires a fresh whole transaction.
+Unsupported isolation and a second call with the same transaction client fail
+as `INVALID_TRANSACTION`. Supply the complete GCRA set in one call; do not acquire
+policy groups incrementally or issue concurrent commands on that client while
+the call is in progress. The surrounding domain must follow its agreed global
+entity/bucket lock order.
+
+The caller owns finite transaction/connection-wait/DB-lock timeouts, bounded
+whole-transaction retries and commit-outcome handling. The existing
+`GcraAdmissionConfigService` is exported for using the same operational bounds.
+This method does not change the caller's timeout settings. Known aborts are
+sanitized as `TRANSACTION_ABORTED`, recognized by
+`isRetryableGcraTransactionError`; retry only after the outer transaction has
+rolled back, never inside its existing callback. Unknown commit outcomes remain
+the outer owner's responsibility and must not trigger blind replay or refunds.
+
+A reserved `unicon_gcra_admission` savepoint brackets the composable operation.
+On failure, its writes and acquired post-savepoint locks are rolled back before
+the safe error propagates. This prevents partial limiter writes from surviving
+when an owner catches an error and commits earlier unrelated work. On success
+the savepoint is released; a later outer failure still rolls back all charges
+and caller mutations. A denial changes no limiter data, but the owner remains
+responsible for its domain's commit/rollback rules for earlier mutations, such
+as not committing a replacement challenge without initial Delivery. This helper
+does not implement Delivery admission or its operation reconciliation.
+
+PostgreSQL tests cover joint allowance, one or overlapping denials without
+partial charge/repair, latest retry-after, incompatible state after a denial,
+overlapping A+B/B+C policy sets in reversed input orders, all retained aliases,
+time after the full lock union, operation-level savepoint rollback, provisional
+results and caller-owned commit/rollback, invalid transaction usage and
+whole-owner SERIALIZABLE retries. The same suites retain single-policy,
+timeout, failure and persistence coverage with real Prisma services and clients.
+Cooldown, failure-only verification charging, HTTP/domain integration, automatic
+tuning and key retirement remain outside this block. Iteration 3 is not complete.
 
 ### Policy configuration and operational analytics requirements
 

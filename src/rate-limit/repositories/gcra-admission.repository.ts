@@ -7,6 +7,13 @@ import { toGcraPersistenceData } from '../utils/gcra-state-persistence.util';
 
 @Injectable()
 export class GcraAdmissionRepository {
+  async isolationLevel(transaction: Prisma.TransactionClient): Promise<string> {
+    const [row] = await transaction.$queryRaw<{ isolationLevel: string }[]>`
+      SELECT current_setting('transaction_isolation') AS "isolationLevel"
+    `;
+    return row.isolationLevel;
+  }
+
   async lockAliases(
     transaction: Prisma.TransactionClient,
     keys: readonly string[],

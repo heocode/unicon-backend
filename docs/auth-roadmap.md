@@ -951,8 +951,16 @@ and support evidence. Telemetry outages do not change enforcement.
    fresh time after advisory and row waits, denial immutability, rollback,
    confirmed-abort retries and fail-closed infrastructure errors. The exact
    contract and operational settings are in `auth-architecture.md`, “Iteration 3
-   single-policy atomic GCRA admission”. Cooldown and a complete multi-policy
-   atomic boundary remain pending; HTTP/domain enforcement is not connected.
+   single-policy atomic GCRA admission”. The next completed block adds
+   `consumeMany` and caller-owned `consumeManyInTransaction`: all policy aliases
+   are locked/read together, all checks share fresh DB time, denial writes
+   nothing, and successful charges commit or roll back together. Savepoints
+   prevent partial limiter writes even if the caller catches a write error;
+   results remain provisional until outer commit. PostgreSQL tests cover
+   overlapping/reversed policy sets, common retry-after, aliases, isolation and
+   caller commit/rollback/retries. See “Iteration 3 multi-policy and composable
+   GCRA admission” in the architecture. Cooldown remains pending and HTTP/domain
+   enforcement is not connected. Iteration 3 is still in progress.
    Use locking or Serializable equivalents,
    deterministic lock ordering, bounded retries, and fresh DB-authoritative
    time. Enforce exact multi-replica admission with persisted retry-after.

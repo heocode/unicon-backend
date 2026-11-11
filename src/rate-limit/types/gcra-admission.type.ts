@@ -16,3 +16,13 @@ export type GcraAdmissionResult =
       operationNowMicros: bigint;
       retryAfterSeconds: bigint;
     }>;
+
+/** Provisional until commit when returned from consumeManyInTransaction. */
+export type GcraMultiAdmissionResult =
+  | Readonly<{ allowed: true; operationNowMicros: bigint }>
+  | Readonly<{
+      allowed: false;
+      operationNowMicros: bigint;
+      retryAfterSeconds: bigint;
+      deniedPolicyIds: readonly string[];
+    }>;
