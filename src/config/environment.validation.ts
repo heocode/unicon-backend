@@ -17,6 +17,21 @@ const REQUIRED_ENVIRONMENT_VARIABLES = [
   'AUTH_EMAIL_FROM',
 ] as const;
 
+const GCRA_POLICY_ENVIRONMENT_PREFIXES = [
+  'AUTH_DELIVERY_IDENTITY',
+  'AUTH_DELIVERY_IP',
+  'AUTH_VERIFICATION_IDENTITY_SHORT',
+  'AUTH_VERIFICATION_IP_SHORT',
+  'AUTH_VERIFICATION_IDENTITY_LONG',
+  'AUTH_VERIFICATION_IP_LONG',
+  'HTTP_PUBLIC_PASSWORDLESS_REQUEST',
+] as const;
+
+const DELIVERY_COOLDOWN_ENVIRONMENT_KEYS = [
+  'AUTH_CHALLENGE_DELIVERY_COOLDOWN_SECONDS',
+  'AUTH_IDENTITY_DELIVERY_COOLDOWN_SECONDS',
+] as const;
+
 export function validateEnvironment(
   environment: Record<string, unknown>,
 ): Record<string, unknown> {
@@ -153,6 +168,21 @@ export function validateEnvironment(
   validatedEnvironment.AUTH_CHALLENGE_TTL_SECONDS = challengeTtlSeconds;
   validatedEnvironment.AUTH_CHALLENGE_RETENTION_SECONDS =
     challengeRetentionSeconds;
+
+  for (const prefix of GCRA_POLICY_ENVIRONMENT_PREFIXES) {
+    for (const suffix of ['BURST', 'RATE', 'PERIOD_SECONDS']) {
+      const key = `${prefix}_${suffix}`;
+      validatedEnvironment[key] = parsePositiveSafeInteger(
+        environment[key],
+        key,
+      );
+    }
+  }
+
+  for (const key of DELIVERY_COOLDOWN_ENVIRONMENT_KEYS) {
+    validatedEnvironment[key] = parsePositiveSafeInteger(environment[key], key);
+  }
+
   validatedEnvironment.AUTH_CHALLENGE_CLEANUP_INTERVAL_SECONDS =
     parsePositiveInteger(
       environment.AUTH_CHALLENGE_CLEANUP_INTERVAL_SECONDS,
@@ -432,6 +462,25 @@ function parsePort(value: unknown): number {
   }
 
   return port;
+}
+
+function parsePositiveSafeInteger(value: unknown, key: string): number {
+  const parsedValue =
+    typeof value === 'number'
+      ? value
+      : typeof value === 'string' &&
+          value === value.trim() &&
+          /^[1-9]\d*$/.test(value)
+        ? Number(value)
+        : NaN;
+
+  if (!Number.isSafeInteger(parsedValue) || parsedValue <= 0) {
+    throw new Error(
+      `Environment variable ${key} must be a positive safe integer in decimal notation.`,
+    );
+  }
+
+  return parsedValue;
 }
 
 function parsePositiveInteger(value: unknown, key: string): number {

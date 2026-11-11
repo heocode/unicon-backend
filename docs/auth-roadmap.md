@@ -873,6 +873,15 @@ semantics/thresholds remain open.
 
 ### Accepted configuration and analytics requirements
 
+Iteration 2 partial implementation: six domain GCRA policies, two Delivery
+cooldown settings, and the separate public HTTP request GCRA policy now have
+required startup validation and configuration snapshots. `.env.example` records
+the accepted V1 values. The configuration boundary and coordinated replica
+rollout/state-preservation rules are documented in `auth-architecture.md`,
+“Iteration 2 configuration boundary and rollout”. Enforcement, bucket keying,
+key rotation, GCRA persistence and tested active-debt conversion remain pending;
+Iteration 2 is not complete.
+
 Make thresholds, windows, GCRA rates/burst capacities, and any applicable denial
 durations easy to tune via focused,
 documented, validated configuration through ConfigService, without modifying

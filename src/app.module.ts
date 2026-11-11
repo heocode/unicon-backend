@@ -5,6 +5,7 @@ import { AuthModule } from './auth/auth.module';
 import { ProfileModule } from './profile/profile.module';
 import { AccountModule } from './account/account.module';
 import { validateEnvironment } from './config/environment.validation';
+import { HttpRateLimitModule } from './http-rate-limit/http-rate-limit.module';
 
 @Module({
   imports: [
@@ -14,6 +15,7 @@ import { validateEnvironment } from './config/environment.validation';
       validate: validateEnvironment,
     }),
     PrismaModule,
+    HttpRateLimitModule,
     AuthModule,
     ProfileModule,
     AccountModule,

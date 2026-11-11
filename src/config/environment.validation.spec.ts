@@ -1,3 +1,7 @@
+import { ConfigService } from '@nestjs/config';
+
+import { AuthenticationRateLimitConfigService } from '../auth/rate-limit/services/authentication-rate-limit-config.service';
+import { HttpRequestRateLimitConfigService } from '../http-rate-limit/services/http-request-rate-limit-config.service';
 import { validateEnvironment } from './environment.validation';
 
 const hmacKey = Buffer.alloc(32, 1).toString('base64');
@@ -47,6 +51,29 @@ const validEnvironment = {
   AUTH_DELIVERY_WORKER_CONCURRENCY: '4',
   AUTH_DELIVERY_WORKER_MAX_DELIVERIES_PER_CYCLE: '20',
   AUTH_DELIVERY_WORKER_EXHAUSTED_LEASE_BATCH_SIZE: '100',
+  AUTH_CHALLENGE_DELIVERY_COOLDOWN_SECONDS: '60',
+  AUTH_IDENTITY_DELIVERY_COOLDOWN_SECONDS: '60',
+  AUTH_DELIVERY_IDENTITY_BURST: '10',
+  AUTH_DELIVERY_IDENTITY_RATE: '7',
+  AUTH_DELIVERY_IDENTITY_PERIOD_SECONDS: '3600',
+  AUTH_DELIVERY_IP_BURST: '120',
+  AUTH_DELIVERY_IP_RATE: '240',
+  AUTH_DELIVERY_IP_PERIOD_SECONDS: '3600',
+  AUTH_VERIFICATION_IDENTITY_SHORT_BURST: '6',
+  AUTH_VERIFICATION_IDENTITY_SHORT_RATE: '6',
+  AUTH_VERIFICATION_IDENTITY_SHORT_PERIOD_SECONDS: '60',
+  AUTH_VERIFICATION_IP_SHORT_BURST: '72',
+  AUTH_VERIFICATION_IP_SHORT_RATE: '72',
+  AUTH_VERIFICATION_IP_SHORT_PERIOD_SECONDS: '60',
+  AUTH_VERIFICATION_IDENTITY_LONG_BURST: '8',
+  AUTH_VERIFICATION_IDENTITY_LONG_RATE: '12',
+  AUTH_VERIFICATION_IDENTITY_LONG_PERIOD_SECONDS: '3600',
+  AUTH_VERIFICATION_IP_LONG_BURST: '360',
+  AUTH_VERIFICATION_IP_LONG_RATE: '360',
+  AUTH_VERIFICATION_IP_LONG_PERIOD_SECONDS: '3600',
+  HTTP_PUBLIC_PASSWORDLESS_REQUEST_BURST: '200',
+  HTTP_PUBLIC_PASSWORDLESS_REQUEST_RATE: '600',
+  HTTP_PUBLIC_PASSWORDLESS_REQUEST_PERIOD_SECONDS: '60',
   AUTH_MAGIC_LINK_PUBLIC_URL: 'https://uniconnection.app/auth/verify',
   AUTH_EMAIL_FROM: 'Unicon <noreply@uniconnection.app>',
   AUTH_CHALLENGE_HMAC_ACTIVE_KEY_VERSION: '1',
@@ -61,7 +88,158 @@ const validEnvironment = {
   GEOIP_RELOAD_INTERVAL_SECONDS: '60',
 };
 
+const rateLimitEnvironmentKeys = [
+  'AUTH_CHALLENGE_DELIVERY_COOLDOWN_SECONDS',
+  'AUTH_IDENTITY_DELIVERY_COOLDOWN_SECONDS',
+  'AUTH_DELIVERY_IDENTITY_BURST',
+  'AUTH_DELIVERY_IDENTITY_RATE',
+  'AUTH_DELIVERY_IDENTITY_PERIOD_SECONDS',
+  'AUTH_DELIVERY_IP_BURST',
+  'AUTH_DELIVERY_IP_RATE',
+  'AUTH_DELIVERY_IP_PERIOD_SECONDS',
+  'AUTH_VERIFICATION_IDENTITY_SHORT_BURST',
+  'AUTH_VERIFICATION_IDENTITY_SHORT_RATE',
+  'AUTH_VERIFICATION_IDENTITY_SHORT_PERIOD_SECONDS',
+  'AUTH_VERIFICATION_IP_SHORT_BURST',
+  'AUTH_VERIFICATION_IP_SHORT_RATE',
+  'AUTH_VERIFICATION_IP_SHORT_PERIOD_SECONDS',
+  'AUTH_VERIFICATION_IDENTITY_LONG_BURST',
+  'AUTH_VERIFICATION_IDENTITY_LONG_RATE',
+  'AUTH_VERIFICATION_IDENTITY_LONG_PERIOD_SECONDS',
+  'AUTH_VERIFICATION_IP_LONG_BURST',
+  'AUTH_VERIFICATION_IP_LONG_RATE',
+  'AUTH_VERIFICATION_IP_LONG_PERIOD_SECONDS',
+  'HTTP_PUBLIC_PASSWORDLESS_REQUEST_BURST',
+  'HTTP_PUBLIC_PASSWORDLESS_REQUEST_RATE',
+  'HTTP_PUBLIC_PASSWORDLESS_REQUEST_PERIOD_SECONDS',
+] as const;
+
 describe('validateEnvironment', () => {
+  it('parses all Stage 4 policy settings without changing the supplied environment', () => {
+    const environment = validateEnvironment(validEnvironment);
+
+    for (const key of rateLimitEnvironmentKeys) {
+      expect(environment[key]).toBe(Number(validEnvironment[key]));
+      expect(typeof validEnvironment[key]).toBe('string');
+    }
+  });
+
+  it('provides validated snapshots to both domain and HTTP policy configuration', () => {
+    const config = new ConfigService(validateEnvironment(validEnvironment));
+    config.skipProcessEnv = true;
+    const auth = new AuthenticationRateLimitConfigService(config);
+    const http = new HttpRequestRateLimitConfigService(config);
+
+    expect(auth.challengeDeliveryCooldownSeconds).toBe(60);
+    expect(auth.identityDeliveryCooldownSeconds).toBe(60);
+    expect(auth.deliveryIdentity).toEqual({
+      burst: 10,
+      rate: 7,
+      periodSeconds: 3600,
+    });
+    expect(auth.deliveryIp).toEqual({
+      burst: 120,
+      rate: 240,
+      periodSeconds: 3600,
+    });
+    expect(auth.verificationIdentityShortTerm).toEqual({
+      burst: 6,
+      rate: 6,
+      periodSeconds: 60,
+    });
+    expect(auth.verificationIpShortTerm).toEqual({
+      burst: 72,
+      rate: 72,
+      periodSeconds: 60,
+    });
+    expect(auth.verificationIdentityLongTerm).toEqual({
+      burst: 8,
+      rate: 12,
+      periodSeconds: 3600,
+    });
+    expect(auth.verificationIpLongTerm).toEqual({
+      burst: 360,
+      rate: 360,
+      periodSeconds: 3600,
+    });
+    expect(http.publicPasswordless).toEqual({
+      burst: 200,
+      rate: 600,
+      periodSeconds: 60,
+    });
+  });
+
+  describe.each(rateLimitEnvironmentKeys)('%s', (key) => {
+    it.each([
+      undefined,
+      null,
+      true,
+      '0',
+      '-1',
+      '1.5',
+      '9007199254740992',
+      'not-a-number',
+    ])('rejects invalid policy setting %s without echoing it', (value) => {
+      expect(() =>
+        validateEnvironment({ ...validEnvironment, [key]: value }),
+      ).toThrow(
+        `Environment variable ${key} must be a positive safe integer in decimal notation.`,
+      );
+    });
+  });
+
+  it.each([
+    '',
+    ' ',
+    '01',
+    '+1',
+    '1e2',
+    '0x10',
+    '1\n',
+    ' 1',
+    '1 ',
+    'Infinity',
+    NaN,
+    Infinity,
+    0,
+    -1,
+    1.5,
+    Number.MAX_SAFE_INTEGER + 1,
+    [],
+    {},
+  ])('rejects non-decimal or invalid numeric policy input %s', (value) => {
+    expect(() =>
+      validateEnvironment({
+        ...validEnvironment,
+        AUTH_DELIVERY_IDENTITY_RATE: value,
+      }),
+    ).toThrow(
+      'Environment variable AUTH_DELIVERY_IDENTITY_RATE must be a positive safe integer in decimal notation.',
+    );
+  });
+
+  it.each([1, '1', Number.MAX_SAFE_INTEGER, String(Number.MAX_SAFE_INTEGER)])(
+    'accepts the positive safe integer boundary %s for policy inputs',
+    (value) => {
+      const environment = validateEnvironment({
+        ...validEnvironment,
+        AUTH_DELIVERY_IDENTITY_BURST: value,
+        AUTH_DELIVERY_IDENTITY_RATE: value,
+        AUTH_DELIVERY_IDENTITY_PERIOD_SECONDS: value,
+        AUTH_CHALLENGE_DELIVERY_COOLDOWN_SECONDS: value,
+      });
+
+      expect(environment.AUTH_DELIVERY_IDENTITY_BURST).toBe(Number(value));
+      expect(environment.AUTH_DELIVERY_IDENTITY_RATE).toBe(Number(value));
+      expect(environment.AUTH_DELIVERY_IDENTITY_PERIOD_SECONDS).toBe(
+        Number(value),
+      );
+      expect(environment.AUTH_CHALLENGE_DELIVERY_COOLDOWN_SECONDS).toBe(
+        Number(value),
+      );
+    },
+  );
+
   it('parses PORT and preserves validated configuration', () => {
     const environment = validateEnvironment({
       ...validEnvironment,

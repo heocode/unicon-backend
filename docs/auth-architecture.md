@@ -1323,6 +1323,43 @@ become effective across replicas and what happens to active windows, rate debt,
 and denials
 before implementation; a rollout must not accidentally reset protection.
 
+#### Iteration 2 configuration boundary and rollout
+
+The configuration-only implementation snapshots six auth-domain GCRA policies
+and two Delivery cooldown intervals in `AuthenticationRateLimitConfigService`.
+`HttpRequestRateLimitConfigService`, outside Auth, separately snapshots the
+public passwordless request group. This group covers only the four POST routes
+listed under the accepted public request policy; it does not select routes or
+enforce requests yet. All settings are required, validated positive safe
+integers, with public V1 examples in `.env.example`. GCRA retains the exact
+`burst`, `rate`, and `periodSeconds` inputs; no rounded interval is configured.
+There are no additional timed verification penalties, global capacity defaults,
+or provider-gate settings in this boundary.
+
+Values are captured at application startup, not reloaded during a request.
+Deploy the same complete settings to all replicas serving one protection scope.
+Once enforcement is enabled, do not roll out changed parameters while old and
+new replicas simultaneously admit operations. Drain protected admissions and
+in-flight transactions, apply the coordinated configuration/state transition,
+then resume with matching settings on every replica. Ordinary code rollout with
+unchanged policy settings does not require such a policy transition.
+
+Configuration values and deployment/configuration versions must never become
+part of bucket identity or trigger state deletion. Preserve existing cooldown
+`windowEndAt` boundaries; a new interval applies only to a subsequent successful
+admission. GCRA tuning must preserve outstanding debt, without a fresh burst,
+and must not reset independent policy state or shorten waiting merely by
+restarting a replica. The exact active-TAT conversion and its transaction/storage
+format remain a required Iteration 2–3 design and database-test gate before
+enforcement or tuning is enabled. Until that gate is met, changed parameters
+cannot be applied to active enforced GCRA state. Denial still follows persisted
+state and fresh DB time without an extra reset or penalty timer.
+
+This patch prepares validated configuration only. Startup validation and unit
+tests do not establish replica agreement, migrate debt, implement rate limiting,
+or retire the legacy OTP lock. HTTP integration and effective-configuration
+telemetry remain their owning later work.
+
 Provide backend operational metrics to identify which policies affect users:
 
 - checks/allow/denial counts by policy, scope, operation, and short/long tier;
