@@ -3,7 +3,7 @@ import { Injectable, InternalServerErrorException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
 // Internal types
-import type { AuthenticationChallengeKeyring } from '../../../config/types/authentication-challenge-keyring.type';
+import type { VersionedKeyring } from '../../../config/types/versioned-keyring.type';
 
 @Injectable()
 export class AuthenticationChallengeConfigService {
@@ -16,8 +16,8 @@ export class AuthenticationChallengeConfigService {
   readonly activeHmacKeyVersion: number;
   readonly activeEncryptionKeyVersion: number;
 
-  private readonly hmacKeyring: AuthenticationChallengeKeyring;
-  private readonly encryptionKeyring: AuthenticationChallengeKeyring;
+  private readonly hmacKeyring: VersionedKeyring;
+  private readonly encryptionKeyring: VersionedKeyring;
 
   constructor(configService: ConfigService) {
     this.ttlSeconds = configService.getOrThrow<number>(
@@ -44,13 +44,12 @@ export class AuthenticationChallengeConfigService {
     this.activeEncryptionKeyVersion = configService.getOrThrow<number>(
       'AUTH_CHALLENGE_ENCRYPTION_ACTIVE_KEY_VERSION',
     );
-    this.hmacKeyring = configService.getOrThrow<AuthenticationChallengeKeyring>(
+    this.hmacKeyring = configService.getOrThrow<VersionedKeyring>(
       'AUTH_CHALLENGE_HMAC_KEYS',
     );
-    this.encryptionKeyring =
-      configService.getOrThrow<AuthenticationChallengeKeyring>(
-        'AUTH_CHALLENGE_ENCRYPTION_KEYS',
-      );
+    this.encryptionKeyring = configService.getOrThrow<VersionedKeyring>(
+      'AUTH_CHALLENGE_ENCRYPTION_KEYS',
+    );
   }
 
   getHmacKey(version: number): Buffer {
@@ -61,10 +60,7 @@ export class AuthenticationChallengeConfigService {
     return this.getKey(this.encryptionKeyring, version);
   }
 
-  private getKey(
-    keyring: AuthenticationChallengeKeyring,
-    version: number,
-  ): Buffer {
+  private getKey(keyring: VersionedKeyring, version: number): Buffer {
     const key = keyring.get(version);
 
     if (!key) {

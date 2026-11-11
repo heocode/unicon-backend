@@ -2,11 +2,15 @@ import { ConfigService } from '@nestjs/config';
 
 import { AuthenticationRateLimitConfigService } from '../auth/rate-limit/services/authentication-rate-limit-config.service';
 import { HttpRequestRateLimitConfigService } from '../http-rate-limit/services/http-request-rate-limit-config.service';
+import { RateLimitBucketKeyService } from '../rate-limit/services/rate-limit-bucket-key.service';
+import { AUTHENTICATION_RATE_LIMIT_POLICIES } from '../auth/rate-limit/constants/authentication-rate-limit-policies.constants';
 import { validateEnvironment } from './environment.validation';
 
 const hmacKey = Buffer.alloc(32, 1).toString('base64');
 const rotatedHmacKey = Buffer.alloc(32, 2).toString('base64');
 const encryptionKey = Buffer.alloc(32, 3).toString('base64');
+const rateLimitKey = Buffer.alloc(32, 4).toString('base64');
+const rotatedRateLimitKey = Buffer.alloc(32, 5).toString('base64');
 
 const validEnvironment = {
   DATABASE_URL: 'postgresql://postgres:postgres@localhost:5432/unicon',
@@ -80,6 +84,8 @@ const validEnvironment = {
   AUTH_CHALLENGE_HMAC_KEYS: `1:${hmacKey}`,
   AUTH_CHALLENGE_ENCRYPTION_ACTIVE_KEY_VERSION: '1',
   AUTH_CHALLENGE_ENCRYPTION_KEYS: `1:${encryptionKey}`,
+  RATE_LIMIT_HMAC_ACTIVE_KEY_VERSION: '1',
+  RATE_LIMIT_HMAC_KEYS: `1:${rateLimitKey}`,
   RESEND_API_KEY: 'resend-api-key',
   MAIL_FROM: 'noreply@unicon.local',
   CLIENT_URL: 'http://localhost:3001',
@@ -115,6 +121,152 @@ const rateLimitEnvironmentKeys = [
 ] as const;
 
 describe('validateEnvironment', () => {
+  it('parses an independent rate-limit keyring and derives keys through the real configuration boundary', () => {
+    const environment = validateEnvironment({
+      ...validEnvironment,
+      RATE_LIMIT_HMAC_ACTIVE_KEY_VERSION: '2',
+      RATE_LIMIT_HMAC_KEYS: `2:${rotatedRateLimitKey},1:${rateLimitKey}`,
+    });
+    const config = new ConfigService(environment);
+    config.skipProcessEnv = true;
+    const service = new RateLimitBucketKeyService(config);
+
+    expect(environment.RATE_LIMIT_HMAC_ACTIVE_KEY_VERSION).toBe(2);
+    expect(environment.RATE_LIMIT_HMAC_KEYS).toEqual(
+      new Map([
+        [2, Buffer.alloc(32, 5)],
+        [1, Buffer.alloc(32, 4)],
+      ]),
+    );
+    expect(
+      service.deriveKeys(
+        AUTHENTICATION_RATE_LIMIT_POLICIES.deliveryIdentity,
+        'student@example.edu',
+      ).buckets,
+    ).toEqual([
+      {
+        keyVersion: 1,
+        key: 'rl:v1:k1:a4b36988e7ca2b622826d65d229da6c3ef93a02b1b4794ec038d55548be8f128',
+      },
+      {
+        keyVersion: 2,
+        key: 'rl:v1:k2:d349c30396be455436ed722e41c07f6dc6e77c6165ef40bb4c8902651457bf7c',
+      },
+    ]);
+  });
+
+  it.each([
+    undefined,
+    '',
+    'invalid',
+    `0:${rateLimitKey}`,
+    `01:${rateLimitKey}`,
+    `9007199254740992:${rateLimitKey}`,
+    `1:${rateLimitKey},1:${rotatedRateLimitKey}`,
+    `1:${rateLimitKey.replace(/=$/, '')}`,
+    `1:${Buffer.alloc(31, 4).toString('base64')}`,
+    `1:${Buffer.alloc(33, 4).toString('base64')}`,
+  ])(
+    'rejects missing or malformed rate-limit key material without echoing it',
+    (value) => {
+      expect(() =>
+        validateEnvironment({
+          ...validEnvironment,
+          RATE_LIMIT_HMAC_KEYS: value,
+        }),
+      ).toThrow('Environment variable RATE_LIMIT_HMAC_KEYS');
+    },
+  );
+
+  it.each([undefined, '0', '-1', '1.5', '9007199254740992', true])(
+    'rejects invalid rate-limit active version %s',
+    (value) => {
+      expect(() =>
+        validateEnvironment({
+          ...validEnvironment,
+          RATE_LIMIT_HMAC_ACTIVE_KEY_VERSION: value,
+        }),
+      ).toThrow(
+        'Environment variable RATE_LIMIT_HMAC_ACTIVE_KEY_VERSION must be a positive safe integer in decimal notation.',
+      );
+    },
+  );
+
+  it('rejects an active rate-limit version absent from the keyring', () => {
+    expect(() =>
+      validateEnvironment({
+        ...validEnvironment,
+        RATE_LIMIT_HMAC_ACTIVE_KEY_VERSION: '2',
+      }),
+    ).toThrow(
+      'Environment variable RATE_LIMIT_HMAC_ACTIVE_KEY_VERSION must reference a key present in its keyring.',
+    );
+  });
+
+  it('rejects relabeling the same rate-limit key material as a new version', () => {
+    expect(() =>
+      validateEnvironment({
+        ...validEnvironment,
+        RATE_LIMIT_HMAC_KEYS: `1:${rateLimitKey},2:${rateLimitKey}`,
+      }),
+    ).toThrow('Rate-limit key versions must use distinct key material.');
+  });
+
+  it.each([hmacKey, rotatedHmacKey, encryptionKey])(
+    'rejects reuse of active or historical challenge keys in any rate-limit version',
+    (value) => {
+      expect(() =>
+        validateEnvironment({
+          ...validEnvironment,
+          AUTH_CHALLENGE_HMAC_KEYS: `1:${hmacKey},2:${rotatedHmacKey}`,
+          RATE_LIMIT_HMAC_ACTIVE_KEY_VERSION: '2',
+          RATE_LIMIT_HMAC_KEYS: `1:${value},2:${rateLimitKey}`,
+        }),
+      ).toThrow(
+        'Rate-limit HMAC keys must be independent from challenge keys, JWT secrets, and legacy rate-limit secrets.',
+      );
+    },
+  );
+
+  it.each([
+    'JWT_ACCESS_SECRET',
+    'JWT_REFRESH_SECRET',
+    'PASSWORD_RESET_RATE_LIMIT_SECRET',
+    'ACCOUNT_DELETION_CANCEL_RATE_LIMIT_SECRET',
+  ])(
+    'rejects reuse of %s as raw bytes or copied base64 key material',
+    (key) => {
+      const keyBytes = Buffer.from('x'.repeat(32), 'utf8');
+      for (const secret of [
+        keyBytes.toString('utf8'),
+        keyBytes.toString('base64'),
+      ]) {
+        expect(() =>
+          validateEnvironment({
+            ...validEnvironment,
+            [key]: secret,
+            RATE_LIMIT_HMAC_KEYS: `1:${keyBytes.toString('base64')}`,
+          }),
+        ).toThrow(
+          'Rate-limit HMAC keys must be independent from challenge keys, JWT secrets, and legacy rate-limit secrets.',
+        );
+      }
+    },
+  );
+
+  it('keeps invalid rate-limit key material out of diagnostic messages', () => {
+    expect(() =>
+      validateEnvironment({
+        ...validEnvironment,
+        RATE_LIMIT_HMAC_KEYS: '1:sensitive-invalid-key-material',
+      }),
+    ).toThrow(
+      new Error(
+        'Environment variable RATE_LIMIT_HMAC_KEYS must be a valid versioned base64 keyring.',
+      ),
+    );
+  });
+
   it('parses all Stage 4 policy settings without changing the supplied environment', () => {
     const environment = validateEnvironment(validEnvironment);
 

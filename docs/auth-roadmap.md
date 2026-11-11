@@ -407,12 +407,12 @@ remaining open decisions before Iteration 1.
 
 ## Stage 4: Database-backed abuse protection
 
-**Iteration 1: COMPLETE — policy semantics accepted; no Stage 4 runtime
-implementation is claimed.** The canonical consolidated register is
+**Iteration 1: COMPLETE — policy semantics accepted; no Stage 4 limiter
+enforcement is claimed.** The canonical consolidated register is
 [Stage 4 Iteration 1 — consolidated policy register](auth-architecture.md#stage-4-iteration-1--consolidated-policy-register).
 It records 12 accepted protection rules, shared charge/denial/transaction/privacy
 contracts, lifecycle prerequisites, and explicit deferred owners. The seven
-iterations below are unchanged. Next: Iteration 2 implementation, without another
+iterations below are unchanged. Current: Iteration 2 implementation, without another
 policy-design round. Global capacity numbers remain measurement-gated before
 production; deferral is intentional and does not mark them as chosen defaults.
 
@@ -879,8 +879,20 @@ required startup validation and configuration snapshots. `.env.example` records
 the accepted V1 values. The configuration boundary and coordinated replica
 rollout/state-preservation rules are documented in `auth-architecture.md`,
 “Iteration 2 configuration boundary and rollout”. Enforcement, bucket keying,
-key rotation, GCRA persistence and tested active-debt conversion remain pending;
+GCRA persistence and tested active-debt conversion remain pending;
 Iteration 2 is not complete.
+
+The next Iteration 2 sub-block implements opaque, versioned HMAC bucket
+derivation in common infrastructure with an independent validated keyring.
+Auth and HTTP owners declare the accepted policy IDs separately. The primitive
+returns all retained-version keys, with the active version marked separately;
+fixed vectors and unit tests cover policy/characteristic separation, canonical
+IP equivalence, and retained-key stability across version addition/promotion.
+The exact encoding, key ownership and staged rotation/retirement requirements
+are recorded in `auth-architecture.md`, “Bucket key derivation and rotation”.
+This is not implementation or database-backed proof of rotation-safe
+enforcement: atomic alias reconciliation, debt preservation, safe retirement,
+GCRA persistence and active-state tuning remain pending Iteration 2–3 work.
 
 Make thresholds, windows, GCRA rates/burst capacities, and any applicable denial
 durations easy to tune via focused,

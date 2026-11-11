@@ -20,7 +20,7 @@ import type {
 import { AuthenticationChallengeConfigService } from './authentication-challenge-config.service';
 import { AuthenticationChallengeProofEncryptionService } from './authentication-challenge-proof-encryption.service';
 import { encodeAuthenticationChallengeEnvelopeAadV1 } from '../utils/authentication-challenge-envelope-v1.util';
-import { encodeLengthPrefixedFields } from '../utils/encode-length-prefixed-fields.util';
+import { encodeLengthPrefixedFields } from '../../../common/utils/encode-length-prefixed-fields.util';
 
 describe('AuthenticationChallengeProofEncryptionService', () => {
   const encryptionKey = Buffer.alloc(32, 3);

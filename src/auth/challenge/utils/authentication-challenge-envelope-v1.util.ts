@@ -9,7 +9,7 @@ import type {
 } from '../types/challenge-proof.type';
 import { assertCanonicalChallengeProofContext } from './assert-canonical-challenge-proof-context.util';
 import { decodeLengthPrefixedFields } from './decode-length-prefixed-fields.util';
-import { encodeLengthPrefixedFields } from './encode-length-prefixed-fields.util';
+import { encodeLengthPrefixedFields } from '../../../common/utils/encode-length-prefixed-fields.util';
 import {
   parseCanonicalMagicLinkToken,
   parseCanonicalOtp,

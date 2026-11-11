@@ -1,14 +1,14 @@
-import type { AuthenticationChallengeKeyring } from '../types/authentication-challenge-keyring.type';
+import type { VersionedKeyring } from '../types/versioned-keyring.type';
 
 const VERSIONED_KEY_PATTERN = /^([1-9]\d*):(.+)$/;
 const CANONICAL_BASE64_PATTERN =
   /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/;
 
-export function parseAuthenticationChallengeKeyring(
+export function parseVersionedKeyring(
   value: unknown,
   environmentKey: string,
   validateKeyLength: (key: Buffer) => boolean,
-): AuthenticationChallengeKeyring {
+): VersionedKeyring {
   if (typeof value !== 'string' || value.trim().length === 0) {
     throwInvalidKeyring(environmentKey);
   }

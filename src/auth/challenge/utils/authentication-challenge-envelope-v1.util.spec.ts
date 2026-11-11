@@ -4,7 +4,7 @@ import type {
   ChallengeProofContext,
   TransientChallengeDeliveryProof,
 } from '../types/challenge-proof.type';
-import { encodeLengthPrefixedFields } from './encode-length-prefixed-fields.util';
+import { encodeLengthPrefixedFields } from '../../../common/utils/encode-length-prefixed-fields.util';
 import {
   decodeAuthenticationChallengeEnvelopePayloadV1,
   encodeAuthenticationChallengeEnvelopeAadV1,

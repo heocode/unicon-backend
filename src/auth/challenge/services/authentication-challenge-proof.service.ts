@@ -29,7 +29,7 @@ import {
 
 // Internal utilities
 import { assertCanonicalChallengeProofContext } from '../utils/assert-canonical-challenge-proof-context.util';
-import { encodeLengthPrefixedFields } from '../utils/encode-length-prefixed-fields.util';
+import { encodeLengthPrefixedFields } from '../../../common/utils/encode-length-prefixed-fields.util';
 import {
   parseCanonicalMagicLinkToken,
   parseCanonicalOtp,

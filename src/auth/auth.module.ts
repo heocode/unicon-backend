@@ -10,6 +10,7 @@ import { SecurityModule } from '../security/security.module';
 import { NotificationModule } from '../notifications/notification.module';
 import { AuthSecurityModule } from './security/auth-security.module';
 import { PasswordModule } from './password/password.module';
+import { RateLimitModule } from '../rate-limit/rate-limit.module';
 
 // Controllers
 import { AuthController } from './auth.controller';
@@ -61,6 +62,7 @@ import { AuthenticationRateLimitConfigService } from './rate-limit/services/auth
     NotificationModule,
     AuthSecurityModule,
     PasswordModule,
+    RateLimitModule,
   ],
   controllers: [AuthController],
   providers: [

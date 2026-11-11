@@ -1309,6 +1309,86 @@ waiting still rejects; correct proof remains single-use; mixed OTP/link and
 cross-challenge concurrency cannot overspend budgets; provider/Delivery behavior
 retains stable proof and independent processing-attempt budgets.
 
+### Bucket key derivation and rotation
+
+Iteration 2 provides `RateLimitBucketKeyService` in the common `RateLimitModule`,
+outside Auth. Auth domain and HTTP request owners declare fixed policy IDs and
+characteristic kinds in their respective constants. The common service knows
+only policy ID plus one `IP`, `IDENTITY`, or `CHALLENGE_ID` characteristic; it
+does not implement admission, counters, quota selection, or arbitrary rule DSLs.
+
+Protocol v1 is immutable. HMAC-SHA-256 takes four UTF-8 fields in this order,
+each prefixed by its unsigned 32-bit big-endian byte length:
+
+```text
+unicon.rate-limit.bucket.v1
+policy ID
+characteristic kind: IP, IDENTITY, or CHALLENGE_ID
+canonical characteristic value
+```
+
+An IP is canonicalized through the strict shared single-literal parser. Identity
+must already be nonempty, trimmed, lowercase, free of control characters, and
+losslessly representable as UTF-8. HTTP email/domain validation and authoritative
+identity selection remain the caller's responsibility; derivation does not
+silently normalize identity or resolve accounts. Challenge ID must be a
+canonical lowercase UUID. Invalid input throws a technical/internal error without
+echoing its value; there is no unknown-source fallback bucket.
+
+The persistence key is `rl:v1:k<keyVersion>:<64 lowercase hex HMAC digits>`.
+Only protocol/key versions and the opaque digest appear in that key. Raw
+identity/IP/challenge values, purpose, endpoint, policy parameters, and deployment
+versions are absent from the returned key set. For identity policies, changing
+challenge, purpose, client or IP cannot change that identity's key. Policy IDs
+and characteristic encodings are persisted protocol inputs: renaming either is
+a state migration, never a harmless refactor. Incompatible protocol changes
+also require a state-preserving transition before enforcement.
+
+`RATE_LIMIT_HMAC_KEYS` is a versioned base64 keyring with exactly 32 bytes per
+key; `RATE_LIMIT_HMAC_ACTIVE_KEY_VERSION` is a positive safe integer referencing
+that keyring. Startup rejects duplicate versions, duplicate rate-limit key
+material, and reuse of any active or retained challenge hash/encryption key,
+JWT secret, or legacy recovery/deletion rate-limit secret. As well as raw secret
+bytes, copying the same base64 key text into those secret settings is rejected.
+Examples contain placeholders; test fixtures contain public synthetic keys only.
+
+The service privately snapshots the keyring and returns one immutable set of
+bucket keys, sorted by numeric key version, with the active version marked
+separately. It never returns only the active bucket. This output order is not a
+database locking-order prescription. All applicable retained versions must
+participate in authoritative enforcement; selecting only the active one would
+permit a fresh-bucket bypass.
+
+Required rotation sequence for the future limiter:
+
+1. Provision the new key alongside every still-applicable old key, without
+   changing existing version-to-material mappings. Keep the active version old
+   while preparing the coordinated rollout. Drain protected admissions and
+   in-flight transactions when changing the participating key set; all serving
+   replicas must agree before admission resumes.
+2. Under one atomic operation, lock/read all applicable aliases. Treat them as
+   representations of one policy/subject, not independent allowances or summed
+   historical charges. Preserve the latest applicable cooldown boundary and
+   GCRA restriction. A missing new alias does not mean idle capacity when an
+   old alias still restricts the operation. The exact alias reconciliation,
+   charge/mirroring and debt-storage arithmetic belong to the PostgreSQL limiter
+   implementation, with denial and failure rollback semantics preserved.
+3. Promote the active version only after every serving replica accounts for
+   all retained aliases. Promotion changes neither old derived keys nor their
+   applicability. A new active version alone never grants capacity.
+4. Retire old material only after all old-only writers and transactions are
+   gone and a database-backed transition proves every still-applicable old
+   restriction is preserved by retained state, or has become safely idle.
+   Challenge expiry, Delivery retention, application restart, and a guessed
+   rotation grace period are not evidence that cooldown or GCRA debt ended.
+
+This block implements derivation and startup configuration only. It cannot
+prove that deleting a key is safe by inspecting the configured keyring. Rotation
+of enforced state, alias reconciliation, cleanup safety, concurrency and rollback
+remain database-backed implementation/test gates before enabling protection or
+retiring keys. No schema migration or limiter enforcement is included here;
+the legacy OTP lock remains in force.
+
 ### Policy configuration and operational analytics requirements
 
 Status: **ACCEPTED** implementation requirements for Stage 4. Operators must be

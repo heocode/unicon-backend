@@ -1,4 +1,4 @@
-import { parseAuthenticationChallengeKeyring } from './utils/parse-authentication-challenge-keyring.util';
+import { parseVersionedKeyring } from './utils/parse-versioned-keyring.util';
 import { AUTHENTICATION_EMAIL_FROM } from './constants/authentication-email.constants';
 import { AUTHENTICATION_MAGIC_LINK_PUBLIC_URL } from './constants/authentication-magic-link.constants';
 
@@ -13,6 +13,7 @@ const REQUIRED_ENVIRONMENT_VARIABLES = [
   'ACCOUNT_DELETION_CANCEL_RATE_LIMIT_SECRET',
   'AUTH_CHALLENGE_HMAC_KEYS',
   'AUTH_CHALLENGE_ENCRYPTION_KEYS',
+  'RATE_LIMIT_HMAC_KEYS',
   'AUTH_MAGIC_LINK_PUBLIC_URL',
   'AUTH_EMAIL_FROM',
 ] as const;
@@ -308,15 +309,30 @@ export function validateEnvironment(
       'AUTH_CHALLENGE_ENCRYPTION_ACTIVE_KEY_VERSION',
     );
 
-  const hmacKeyring = parseAuthenticationChallengeKeyring(
+  const hmacKeyring = parseVersionedKeyring(
     validatedEnvironment.AUTH_CHALLENGE_HMAC_KEYS,
     'AUTH_CHALLENGE_HMAC_KEYS',
     (key) => key.length >= 32,
   );
-  const encryptionKeyring = parseAuthenticationChallengeKeyring(
+  const encryptionKeyring = parseVersionedKeyring(
     validatedEnvironment.AUTH_CHALLENGE_ENCRYPTION_KEYS,
     'AUTH_CHALLENGE_ENCRYPTION_KEYS',
     (key) => key.length === 32,
+  );
+  const rateLimitKeyring = parseVersionedKeyring(
+    validatedEnvironment.RATE_LIMIT_HMAC_KEYS,
+    'RATE_LIMIT_HMAC_KEYS',
+    (key) => key.length === 32,
+  );
+  validatedEnvironment.RATE_LIMIT_HMAC_ACTIVE_KEY_VERSION =
+    parsePositiveSafeInteger(
+      environment.RATE_LIMIT_HMAC_ACTIVE_KEY_VERSION,
+      'RATE_LIMIT_HMAC_ACTIVE_KEY_VERSION',
+    );
+  assertActiveKeyExists(
+    rateLimitKeyring,
+    validatedEnvironment.RATE_LIMIT_HMAC_ACTIVE_KEY_VERSION,
+    'RATE_LIMIT_HMAC_ACTIVE_KEY_VERSION',
   );
 
   assertActiveKeyExists(
@@ -330,9 +346,16 @@ export function validateEnvironment(
     'AUTH_CHALLENGE_ENCRYPTION_ACTIVE_KEY_VERSION',
   );
   assertKeyringsAreIndependent(hmacKeyring, encryptionKeyring);
+  assertRateLimitKeysAreIndependent(
+    rateLimitKeyring,
+    hmacKeyring,
+    encryptionKeyring,
+    validatedEnvironment,
+  );
 
   validatedEnvironment.AUTH_CHALLENGE_HMAC_KEYS = hmacKeyring;
   validatedEnvironment.AUTH_CHALLENGE_ENCRYPTION_KEYS = encryptionKeyring;
+  validatedEnvironment.RATE_LIMIT_HMAC_KEYS = rateLimitKeyring;
 
   validatedEnvironment.PORT = parsePort(environment.PORT);
   validatedEnvironment.GEOIP_ENABLED = parseBoolean(
@@ -375,6 +398,48 @@ function assertKeyringsAreIndependent(
           'Authentication challenge HMAC and encryption keys must be independent.',
         );
       }
+    }
+  }
+}
+
+function assertRateLimitKeysAreIndependent(
+  rateLimitKeyring: ReadonlyMap<number, Buffer>,
+  hmacKeyring: ReadonlyMap<number, Buffer>,
+  encryptionKeyring: ReadonlyMap<number, Buffer>,
+  environment: Record<string, unknown>,
+): void {
+  const rateLimitKeys = [...rateLimitKeyring.values()];
+  const challengeKeys = [
+    ...hmacKeyring.values(),
+    ...encryptionKeyring.values(),
+  ];
+  const otherSecrets = [
+    'JWT_ACCESS_SECRET',
+    'JWT_REFRESH_SECRET',
+    'PASSWORD_RESET_RATE_LIMIT_SECRET',
+    'ACCOUNT_DELETION_CANCEL_RATE_LIMIT_SECRET',
+  ].map((key) => environment[key] as string);
+
+  for (const [index, key] of rateLimitKeys.entries()) {
+    if (
+      rateLimitKeys.slice(0, index).some((previous) => previous.equals(key))
+    ) {
+      throw new Error(
+        'Rate-limit key versions must use distinct key material.',
+      );
+    }
+
+    if (
+      challengeKeys.some((other) => other.equals(key)) ||
+      otherSecrets.some(
+        (secret) =>
+          key.equals(Buffer.from(secret, 'utf8')) ||
+          key.toString('base64') === secret,
+      )
+    ) {
+      throw new Error(
+        'Rate-limit HMAC keys must be independent from challenge keys, JWT secrets, and legacy rate-limit secrets.',
+      );
     }
   }
 }
