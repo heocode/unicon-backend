@@ -86,6 +86,9 @@ const validEnvironment = {
   AUTH_CHALLENGE_ENCRYPTION_KEYS: `1:${encryptionKey}`,
   RATE_LIMIT_HMAC_ACTIVE_KEY_VERSION: '1',
   RATE_LIMIT_HMAC_KEYS: `1:${rateLimitKey}`,
+  RATE_LIMIT_TRANSACTION_MAX_ATTEMPTS: '3',
+  RATE_LIMIT_TRANSACTION_TIMEOUT_SECONDS: '5',
+  RATE_LIMIT_TRANSACTION_MAX_WAIT_SECONDS: '2',
   RESEND_API_KEY: 'resend-api-key',
   MAIL_FROM: 'noreply@unicon.local',
   CLIENT_URL: 'http://localhost:3001',
@@ -121,6 +124,44 @@ const rateLimitEnvironmentKeys = [
 ] as const;
 
 describe('validateEnvironment', () => {
+  it('parses GCRA transaction bounds', () => {
+    const environment = validateEnvironment(validEnvironment);
+    expect(environment.RATE_LIMIT_TRANSACTION_MAX_ATTEMPTS).toBe(3);
+    expect(environment.RATE_LIMIT_TRANSACTION_TIMEOUT_SECONDS).toBe(5);
+    expect(environment.RATE_LIMIT_TRANSACTION_MAX_WAIT_SECONDS).toBe(2);
+  });
+
+  describe.each([
+    ['RATE_LIMIT_TRANSACTION_MAX_ATTEMPTS', 5],
+    ['RATE_LIMIT_TRANSACTION_TIMEOUT_SECONDS', 60],
+    ['RATE_LIMIT_TRANSACTION_MAX_WAIT_SECONDS', 60],
+  ] as const)('%s', (key, maximum) => {
+    it.each([undefined, '0', '-1', '1.5', '9007199254740992', true])(
+      'rejects invalid transaction setting %s',
+      (value) => {
+        expect(() =>
+          validateEnvironment({ ...validEnvironment, [key]: value }),
+        ).toThrow(
+          `Environment variable ${key} must be a positive safe integer in decimal notation.`,
+        );
+      },
+    );
+    it('enforces its operational upper bound', () => {
+      expect(() =>
+        validateEnvironment({
+          ...validEnvironment,
+          [key]: String(maximum + 1),
+        }),
+      ).toThrow(
+        `Environment variable ${key} must be less than or equal to ${maximum}.`,
+      );
+      expect(
+        validateEnvironment({ ...validEnvironment, [key]: String(maximum) })[
+          key
+        ],
+      ).toBe(maximum);
+    });
+  });
   it('parses an independent rate-limit keyring and derives keys through the real configuration boundary', () => {
     const environment = validateEnvironment({
       ...validEnvironment,

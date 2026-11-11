@@ -413,7 +413,7 @@ The canonical consolidated register is
 [Stage 4 Iteration 1 — consolidated policy register](auth-architecture.md#stage-4-iteration-1--consolidated-policy-register).
 It records 12 accepted protection rules, shared charge/denial/transaction/privacy
 contracts, lifecycle prerequisites, and explicit deferred owners. The seven
-iterations below are unchanged. Next: Iteration 3 atomic PostgreSQL limiter,
+iterations below are unchanged. Current: Iteration 3 atomic PostgreSQL limiter,
 without another policy-design round. Global capacity numbers remain measurement-gated before
 production; deferral is intentional and does not mark them as chosen defaults.
 
@@ -945,7 +945,15 @@ and support evidence. Telemetry outages do not change enforcement.
    validated policy snapshots, exact GCRA persistence/arithmetic and rollout/
    tuning/rotation contracts. Unit and PostgreSQL persistence tests pass;
    runtime enforcement and concurrent alias/cooldown mutations remain Iteration 3.
-3. **Atomic PostgreSQL limiter.** Use locking or Serializable equivalents,
+3. **Atomic PostgreSQL limiter — IN PROGRESS.** The first block supplies
+   self-owned, single-policy GCRA unit admission with atomic retained-alias
+   locking/reconciliation/charge. Real PostgreSQL tests cover concurrency,
+   fresh time after advisory and row waits, denial immutability, rollback,
+   confirmed-abort retries and fail-closed infrastructure errors. The exact
+   contract and operational settings are in `auth-architecture.md`, “Iteration 3
+   single-policy atomic GCRA admission”. Cooldown and a complete multi-policy
+   atomic boundary remain pending; HTTP/domain enforcement is not connected.
+   Use locking or Serializable equivalents,
    deterministic lock ordering, bounded retries, and fresh DB-authoritative
    time. Enforce exact multi-replica admission with persisted retry-after.
    Implement admission-anchored count=1/windowEndAt cooldown, not calendar-aligned

@@ -184,6 +184,20 @@ export function validateEnvironment(
     validatedEnvironment[key] = parsePositiveSafeInteger(environment[key], key);
   }
 
+  for (const [key, maximum] of [
+    ['RATE_LIMIT_TRANSACTION_MAX_ATTEMPTS', 5],
+    ['RATE_LIMIT_TRANSACTION_TIMEOUT_SECONDS', 60],
+    ['RATE_LIMIT_TRANSACTION_MAX_WAIT_SECONDS', 60],
+  ] as const) {
+    const value = parsePositiveSafeInteger(environment[key], key);
+    if (value > maximum) {
+      throw new Error(
+        `Environment variable ${key} must be less than or equal to ${maximum}.`,
+      );
+    }
+    validatedEnvironment[key] = value;
+  }
+
   validatedEnvironment.AUTH_CHALLENGE_CLEANUP_INTERVAL_SECONDS =
     parsePositiveInteger(
       environment.AUTH_CHALLENGE_CLEANUP_INTERVAL_SECONDS,

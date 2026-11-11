@@ -1458,6 +1458,78 @@ schema constraints, and rollback against PostgreSQL. It does not establish
 concurrent admission, replica coordination, key-retirement safety, HTTP behavior,
 or integration with verification. The legacy OTP lock remains unchanged.
 
+### Iteration 3 single-policy atomic GCRA admission
+
+The first Iteration 3 block implements `GcraAdmissionService.consume` in common
+rate-limit infrastructure. It owns one independent unit-charge transaction for
+one explicitly selected internal policy/characteristic and every retained key
+alias. The first intended consumer is public HTTP request accounting; no HTTP
+middleware or auth domain flow is connected by this block. This method charges
+on admission and must not be used directly for failure-only proof verification.
+It also cannot compose several policies by making several independent calls:
+the later multi-policy path must check/charge its complete set atomically.
+
+The service captures validated policy inputs and derives all retained keys
+before opening a `READ COMMITTED` transaction. It acquires transaction-level
+advisory locks for existing and absent aliases. Each lock ID is PostgreSQL
+`hashtextextended('unicon.rate-limit.lock.v1:' || bucketKey, 0)`; distinct actual
+signed 64-bit IDs are acquired in ascending numeric order, not key-version or
+text-key order. Hash collisions can cause extra serialization, never additional
+capacity. Every participating writer and future cleanup must follow this same
+protocol. Multi-policy work must acquire its entire lock union in one order.
+
+After advisory locks, existing alias rows are selected in key order with
+`FOR UPDATE`. Only after both advisory and row-lock waits does the service sample
+one `clock_timestamp()` as integer microseconds. `READ COMMITTED` ensures the
+row read sees committed work from prior lock owners; a transaction-start snapshot
+or timestamp must not be reused across those waits.
+
+Stored policy IDs, policy snapshots and exact state must be valid. A mismatch
+is a technical failure, without implicit tuning or state repair. Matching aliases
+reconcile to the latest exact TAT. A denying evaluation returns one authoritative
+integer `retryAfterSeconds` without insert/update, missing-alias repair, TAT or
+`updatedAt` changes. An allowed evaluation writes the same single-charge state
+to every retained alias in the transaction. The result is returned only after
+the owning transaction resolves successfully. No raw subject or key is returned.
+
+Operational settings are required startup-validated configuration:
+
+```text
+RATE_LIMIT_TRANSACTION_MAX_ATTEMPTS = 3 (allowed range 1..5)
+RATE_LIMIT_TRANSACTION_TIMEOUT_SECONDS = 5 (allowed range 1..60)
+RATE_LIMIT_TRANSACTION_MAX_WAIT_SECONDS = 2 (allowed range 1..60)
+```
+
+Prisma transaction timeout/max-wait use these values; PostgreSQL's transaction-
+local `lock_timeout` uses the same timeout setting. Only confirmed rollback
+conflicts (`P2034`, or PostgreSQL `40001`/`40P01` through the supported adapter
+wrappers) may retry, within the attempt bound, with new locks, reads and DB time.
+No connection error, constraint error, timeout, generic error message or unknown
+commit result is retried. Exhaustion is technical unavailability, not policy
+denial. Internal failure reasons distinguish invalid input/state, unavailable
+state, exhausted retries and unknown commit outcome. They retain no raw database
+error/cause, query, subject or key; public error mapping remains Stage 5–6 work.
+
+If the transaction callback completed but commit acknowledgement fails without
+a confirmed abort, the result is `COMMIT_OUTCOME_UNKNOWN`. Do not claim rollback,
+refund, or repeat it blindly. This block has no durable operation identity and
+does not establish domain admission reconciliation/idempotency for Delivery.
+
+Unit tests exercise bounded retry/error classification, configuration and a
+simulated lost commit acknowledgement. PostgreSQL tests use real services and
+independent Prisma clients for absent-row burst concurrency, accepted request
+policy arithmetic over actual DB timestamps, subject independence, retained and
+missing aliases, denial immutability, actual advisory/row-lock waits, incompatible
+state, partial-write rollback, injected database abort retries/exhaustion,
+lock timeout and backend connection loss. Test-only SQL triggers and sequences
+inject aborts; they are removed by each test. These are correctness checks, not
+production capacity measurements or real network-fault coverage around commit.
+
+Cooldown admission, a complete multi-policy lock/check/charge boundary, cleanup
+and coordinated tuning/key-retirement operations, Delivery/verification and
+pre-parser HTTP integration remain later blocks. Iteration 3 is still open and
+the legacy OTP lock remains unchanged.
+
 ### Policy configuration and operational analytics requirements
 
 Status: **ACCEPTED** implementation requirements for Stage 4. Operators must be
