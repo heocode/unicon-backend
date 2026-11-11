@@ -283,6 +283,21 @@ model AuthenticationRateLimit {
   @@index([windowEndAt])
 }
 
+model GcraRateLimit {
+  key             String   @id
+  policyId        String
+  tatNumerator    Decimal  @db.Decimal
+  tatDenominator  Decimal  @db.Decimal
+  idleAfterMicros Decimal  @db.Decimal
+  burst           BigInt
+  rate            BigInt
+  periodSeconds   BigInt
+  updatedAt       DateTime @updatedAt @db.Timestamptz(6)
+
+  @@index([policyId])
+  @@index([idleAfterMicros])
+}
+
 model University {
   id        String   @id @default(cuid())
   name      String   @unique

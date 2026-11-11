@@ -59,6 +59,7 @@ export const ModelName = {
   AuthenticationChallenge: 'AuthenticationChallenge',
   AuthenticationChallengeDelivery: 'AuthenticationChallengeDelivery',
   AuthenticationRateLimit: 'AuthenticationRateLimit',
+  GcraRateLimit: 'GcraRateLimit',
   University: 'University',
   AllowedDomain: 'AllowedDomain',
   Session: 'Session',
@@ -212,6 +213,21 @@ export const AuthenticationRateLimitScalarFieldEnum = {
 } as const
 
 export type AuthenticationRateLimitScalarFieldEnum = (typeof AuthenticationRateLimitScalarFieldEnum)[keyof typeof AuthenticationRateLimitScalarFieldEnum]
+
+
+export const GcraRateLimitScalarFieldEnum = {
+  key: 'key',
+  policyId: 'policyId',
+  tatNumerator: 'tatNumerator',
+  tatDenominator: 'tatDenominator',
+  idleAfterMicros: 'idleAfterMicros',
+  burst: 'burst',
+  rate: 'rate',
+  periodSeconds: 'periodSeconds',
+  updatedAt: 'updatedAt'
+} as const
+
+export type GcraRateLimitScalarFieldEnum = (typeof GcraRateLimitScalarFieldEnum)[keyof typeof GcraRateLimitScalarFieldEnum]
 
 
 export const UniversityScalarFieldEnum = {

@@ -58,6 +58,11 @@ export type AuthenticationChallengeDelivery = Prisma.AuthenticationChallengeDeli
  */
 export type AuthenticationRateLimit = Prisma.AuthenticationRateLimitModel
 /**
+ * Model GcraRateLimit
+ * 
+ */
+export type GcraRateLimit = Prisma.GcraRateLimitModel
+/**
  * Model University
  * 
  */

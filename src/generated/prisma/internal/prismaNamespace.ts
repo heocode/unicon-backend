@@ -392,6 +392,7 @@ export const ModelName = {
   AuthenticationChallenge: 'AuthenticationChallenge',
   AuthenticationChallengeDelivery: 'AuthenticationChallengeDelivery',
   AuthenticationRateLimit: 'AuthenticationRateLimit',
+  GcraRateLimit: 'GcraRateLimit',
   University: 'University',
   AllowedDomain: 'AllowedDomain',
   Session: 'Session',
@@ -412,7 +413,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "user" | "passwordResetToken" | "passwordResetRateLimit" | "accountDeletionCancellationRateLimit" | "authenticationChallengeSubject" | "authenticationChallenge" | "authenticationChallengeDelivery" | "authenticationRateLimit" | "university" | "allowedDomain" | "session" | "notificationDelivery" | "securityEvent"
+    modelProps: "user" | "passwordResetToken" | "passwordResetRateLimit" | "accountDeletionCancellationRateLimit" | "authenticationChallengeSubject" | "authenticationChallenge" | "authenticationChallengeDelivery" | "authenticationRateLimit" | "gcraRateLimit" | "university" | "allowedDomain" | "session" | "notificationDelivery" | "securityEvent"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
@@ -1008,6 +1009,80 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         }
       }
     }
+    GcraRateLimit: {
+      payload: Prisma.$GcraRateLimitPayload<ExtArgs>
+      fields: Prisma.GcraRateLimitFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.GcraRateLimitFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$GcraRateLimitPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.GcraRateLimitFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$GcraRateLimitPayload>
+        }
+        findFirst: {
+          args: Prisma.GcraRateLimitFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$GcraRateLimitPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.GcraRateLimitFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$GcraRateLimitPayload>
+        }
+        findMany: {
+          args: Prisma.GcraRateLimitFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$GcraRateLimitPayload>[]
+        }
+        create: {
+          args: Prisma.GcraRateLimitCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$GcraRateLimitPayload>
+        }
+        createMany: {
+          args: Prisma.GcraRateLimitCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.GcraRateLimitCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$GcraRateLimitPayload>[]
+        }
+        delete: {
+          args: Prisma.GcraRateLimitDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$GcraRateLimitPayload>
+        }
+        update: {
+          args: Prisma.GcraRateLimitUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$GcraRateLimitPayload>
+        }
+        deleteMany: {
+          args: Prisma.GcraRateLimitDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.GcraRateLimitUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.GcraRateLimitUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$GcraRateLimitPayload>[]
+        }
+        upsert: {
+          args: Prisma.GcraRateLimitUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$GcraRateLimitPayload>
+        }
+        aggregate: {
+          args: Prisma.GcraRateLimitAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateGcraRateLimit>
+        }
+        groupBy: {
+          args: Prisma.GcraRateLimitGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.GcraRateLimitGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.GcraRateLimitCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.GcraRateLimitCountAggregateOutputType> | number
+        }
+      }
+    }
     University: {
       payload: Prisma.$UniversityPayload<ExtArgs>
       fields: Prisma.UniversityFieldRefs
@@ -1549,6 +1624,21 @@ export const AuthenticationRateLimitScalarFieldEnum = {
 export type AuthenticationRateLimitScalarFieldEnum = (typeof AuthenticationRateLimitScalarFieldEnum)[keyof typeof AuthenticationRateLimitScalarFieldEnum]
 
 
+export const GcraRateLimitScalarFieldEnum = {
+  key: 'key',
+  policyId: 'policyId',
+  tatNumerator: 'tatNumerator',
+  tatDenominator: 'tatDenominator',
+  idleAfterMicros: 'idleAfterMicros',
+  burst: 'burst',
+  rate: 'rate',
+  periodSeconds: 'periodSeconds',
+  updatedAt: 'updatedAt'
+} as const
+
+export type GcraRateLimitScalarFieldEnum = (typeof GcraRateLimitScalarFieldEnum)[keyof typeof GcraRateLimitScalarFieldEnum]
+
+
 export const UniversityScalarFieldEnum = {
   id: 'id',
   name: 'name',
@@ -1836,6 +1926,34 @@ export type ListEnumAuthenticationDeliveryStatusFieldRefInput<$PrismaModel> = Fi
 
 
 /**
+ * Reference to a field of type 'Decimal'
+ */
+export type DecimalFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Decimal'>
+    
+
+
+/**
+ * Reference to a field of type 'Decimal[]'
+ */
+export type ListDecimalFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Decimal[]'>
+    
+
+
+/**
+ * Reference to a field of type 'BigInt'
+ */
+export type BigIntFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'BigInt'>
+    
+
+
+/**
+ * Reference to a field of type 'BigInt[]'
+ */
+export type ListBigIntFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'BigInt[]'>
+    
+
+
+/**
  * Reference to a field of type 'SessionPlatform'
  */
 export type EnumSessionPlatformFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'SessionPlatform'>
@@ -2092,6 +2210,7 @@ export type GlobalOmitConfig = {
   authenticationChallenge?: Prisma.AuthenticationChallengeOmit
   authenticationChallengeDelivery?: Prisma.AuthenticationChallengeDeliveryOmit
   authenticationRateLimit?: Prisma.AuthenticationRateLimitOmit
+  gcraRateLimit?: Prisma.GcraRateLimitOmit
   university?: Prisma.UniversityOmit
   allowedDomain?: Prisma.AllowedDomainOmit
   session?: Prisma.SessionOmit

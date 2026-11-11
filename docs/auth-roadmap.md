@@ -407,13 +407,14 @@ remaining open decisions before Iteration 1.
 
 ## Stage 4: Database-backed abuse protection
 
-**Iteration 1: COMPLETE — policy semantics accepted; no Stage 4 limiter
-enforcement is claimed.** The canonical consolidated register is
+**Iterations 1–2: COMPLETE — policy semantics, configuration, key derivation,
+and exact GCRA state foundations; no Stage 4 limiter enforcement is claimed.**
+The canonical consolidated register is
 [Stage 4 Iteration 1 — consolidated policy register](auth-architecture.md#stage-4-iteration-1--consolidated-policy-register).
 It records 12 accepted protection rules, shared charge/denial/transaction/privacy
 contracts, lifecycle prerequisites, and explicit deferred owners. The seven
-iterations below are unchanged. Current: Iteration 2 implementation, without another
-policy-design round. Global capacity numbers remain measurement-gated before
+iterations below are unchanged. Next: Iteration 3 atomic PostgreSQL limiter,
+without another policy-design round. Global capacity numbers remain measurement-gated before
 production; deferral is intentional and does not mark them as chosen defaults.
 
 Stage 4 delivers layered auth abuse protection before public Stage 5–6 flows.
@@ -716,17 +717,16 @@ boundary below; exact addresses/ranges and header mechanism are deployment value
 to choose and validate before staging. No runtime configuration changes are
 made by this entry.
 
-Iteration 2 partial implementation: `canonicalizeIp` in `src/common/utils`
+Iteration 2 implementation: `canonicalizeIp` in `src/common/utils`
 provides the standalone strict single-literal canonicalizer, with unit coverage
 for equivalent IPv6 forms, mapped IPv4, private/loopback addresses, and rejected
 ambiguous/transport inputs. It uses Node.js `isIP` for strict syntax validation
 and ipaddr.js for address parsing and canonical representation. Whitespace,
 zone identifiers, CIDR, brackets, forwarding lists, and legacy IPv4 syntax are
 rejected with an internal error that contains no input value. IPv4-compatible
-IPv6 remains IPv6; only IPv4-mapped IPv6 becomes IPv4. This does not implement
-source resolution, HTTP error mapping/enforcement, opaque bucket derivation,
-policy configuration, key rotation, or GCRA persistence; Iteration 2 remains
-incomplete.
+IPv6 remains IPv6; only IPv4-mapped IPv6 becomes IPv4. Source resolution and HTTP
+error mapping/enforcement remain Stage 5–6 work. The other completed Iteration 2
+foundations are recorded under configuration and persistence below.
 
 ### Accepted deployment proxy trust boundary
 
@@ -873,16 +873,15 @@ semantics/thresholds remain open.
 
 ### Accepted configuration and analytics requirements
 
-Iteration 2 partial implementation: six domain GCRA policies, two Delivery
+Iteration 2 implementation: six domain GCRA policies, two Delivery
 cooldown settings, and the separate public HTTP request GCRA policy now have
 required startup validation and configuration snapshots. `.env.example` records
 the accepted V1 values. The configuration boundary and coordinated replica
 rollout/state-preservation rules are documented in `auth-architecture.md`,
-“Iteration 2 configuration boundary and rollout”. Enforcement, bucket keying,
-GCRA persistence and tested active-debt conversion remain pending;
-Iteration 2 is not complete.
+“Iteration 2 configuration boundary and rollout”. This prepares policy inputs;
+enforcement and coordinated runtime application remain later implementation.
 
-The next Iteration 2 sub-block implements opaque, versioned HMAC bucket
+Another completed Iteration 2 sub-block implements opaque, versioned HMAC bucket
 derivation in common infrastructure with an independent validated keyring.
 Auth and HTTP owners declare the accepted policy IDs separately. The primitive
 returns all retained-version keys, with the active version marked separately;
@@ -891,8 +890,23 @@ IP equivalence, and retained-key stability across version addition/promotion.
 The exact encoding, key ownership and staged rotation/retirement requirements
 are recorded in `auth-architecture.md`, “Bucket key derivation and rotation”.
 This is not implementation or database-backed proof of rotation-safe
-enforcement: atomic alias reconciliation, debt preservation, safe retirement,
-GCRA persistence and active-state tuning remain pending Iteration 2–3 work.
+enforcement: locking, atomic alias charge/mirroring, safe retirement and
+coordinated runtime tuning remain Iteration 3/7 integration work.
+
+The final Iteration 2 sub-block adds `GcraRateLimit` through an additive migration,
+with exact rational microsecond TAT, policy snapshots and a checked full-recovery
+deadline. `AuthenticationRateLimit` cooldown storage is unchanged. Pure bigint
+arithmetic covers exact bursts/fractional intervals, eligibility, retry-after,
+explicit conservative tuning and latest-TAT alias reconciliation. Persistence
+conversion avoids JavaScript number and Decimal arithmetic for TAT. See
+`auth-architecture.md`, “Exact GCRA state persistence and arithmetic”.
+
+Database-backed tests use real Prisma and PostgreSQL without service mocks to
+verify exact storage, schema rejection of invalid/nonfinite/fractional values,
+safe full-recovery boundaries, retained-alias reconciliation, persisted tuning
+and multi-write rollback. Migrations were applied from an empty dedicated test
+database. This completes Iteration 2 foundations, not concurrent admission,
+production key rotation, cleanup workers or HTTP/domain enforcement.
 
 Make thresholds, windows, GCRA rates/burst capacities, and any applicable denial
 durations easy to tune via focused,
@@ -918,7 +932,7 @@ and support evidence. Telemetry outages do not change enforcement.
    in the architecture register. Measurements and implementation details have
    explicit later owners. No new policy decisions are required to start
    Iteration 2; the ten-Delivery reference is not a fixed hourly quota.
-2. **Secure/extensible bucket derivation and configuration.** Derive opaque keys
+2. **Secure/extensible bucket derivation and configuration — COMPLETE.** Derive opaque keys
    from policy identity and canonical characteristics using independent auth
    rate-limit key material. Implement the accepted canonical IP contract and resolve key-rotation semantics
    without changing proxy trust. Active challenge and identity cooldown keys must remain stable and
@@ -927,6 +941,10 @@ and support evidence. Telemetry outages do not change enforcement.
    validated policy settings/examples, define GCRA TAT persistence, and specify
    replica rollout and active-state semantics for tuning. Prepare reusable
    route-group request policy configuration separately from auth domain policies.
+   Delivered strict canonical IP, independent versioned HMAC key derivation,
+   validated policy snapshots, exact GCRA persistence/arithmetic and rollout/
+   tuning/rotation contracts. Unit and PostgreSQL persistence tests pass;
+   runtime enforcement and concurrent alias/cooldown mutations remain Iteration 3.
 3. **Atomic PostgreSQL limiter.** Use locking or Serializable equivalents,
    deterministic lock ordering, bounded retries, and fresh DB-authoritative
    time. Enforce exact multi-replica admission with persisted retry-after.

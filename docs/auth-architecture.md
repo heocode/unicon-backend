@@ -1389,6 +1389,75 @@ remain database-backed implementation/test gates before enabling protection or
 retiring keys. No schema migration or limiter enforcement is included here;
 the legacy OTP lock remains in force.
 
+### Exact GCRA state persistence and arithmetic
+
+Iteration 2 stores GCRA separately in `GcraRateLimit`; the existing
+`AuthenticationRateLimit.count/windowEndAt` keeps its admission-anchored
+cooldown meaning. The new table has an opaque bucket key, bounded policy ID,
+the policy snapshot (`burst`, `rate`, `periodSeconds`), and a rational TAT:
+`tatNumerator / tatDenominator` in microseconds since Unix epoch. Both rational
+components use unrestricted PostgreSQL `NUMERIC` with checks for finite integer
+values, nonnegative numerator and strictly positive denominator. This avoids
+both binary floating-point error and the implicit rounding of `NUMERIC(p, 0)`.
+Policy snapshot fields are positive safe integers stored as `BIGINT`.
+
+Application arithmetic uses `bigint` fractions reduced by GCD. The interval is
+exactly `periodSeconds * 1_000_000 / rate`; `Date` and JavaScript `number` never
+carry TAT or enforcement timestamps. The future limiter must obtain integer
+microsecond DB time after its required locks, e.g. from one `clock_timestamp()`
+sample; converting that timestamp through JavaScript `Date` would discard
+precision. This patch supplies arithmetic and storage only, not that lock/time
+orchestration.
+
+Eligibility is `t >= TAT - (burst - 1) * interval`, with exactly `burst` initial
+unit admissions. A charge computes `max(TAT, t) + interval`; evaluation alone
+does not mutate state. Public retry-after is the positive rational wait rounded
+up to whole seconds. Success/excluded verification outcomes never invoke charge.
+The arithmetic returns integer retry seconds as `bigint`; future HTTP mapping
+must convert without numeric overflow, not silently truncate it.
+
+`idleAfterMicros` is the exact integer ceiling of TAT. A SQL check binds it to
+the rational components via integer quotient/remainder, not rounded decimal
+division, and an index supports later cleanup. Deletion is safe only when fresh
+DB time reaches this full-recovery boundary, rechecked under the same locking
+protocol as admission. The earlier next-eligibility boundary is not full recovery.
+Neither challenge expiry nor Delivery retention determines GCRA cleanup. No
+cleanup worker is enabled by this patch.
+
+An evaluator rejects a stored/configured policy mismatch as technical failure;
+it never silently reinterprets debt. Parameter transitions use an explicit pure
+retuning operation, to be applied only under the coordinated DB/replica rollout
+contract. For active state at transition time t, define:
+
+```text
+oldInterval = oldPeriodMicros / oldRate
+newInterval = newPeriodMicros / newRate
+oldDebtUnits = (oldTAT - t) / oldInterval
+newDebtUnits = oldDebtUnits + max(0, newBurst - oldBurst)
+oldEligibleAt = oldTAT - (oldBurst - 1) * oldInterval
+newTAT = max(
+  oldTAT,
+  t + newDebtUnits * newInterval,
+  oldEligibleAt + (newBurst - 1) * newInterval
+)
+```
+
+This conservative transition preserves at least the old time debt, outstanding
+unit debt, current denial boundary, and no more immediately available unit
+capacity. Looser settings do not immediately refund active protection; stricter
+settings can increase waiting. Once TAT is reached, the bucket is fully idle
+and the new policy can take effect without manufacturing recovery. This is an
+explicit tuning rule, not an automatic per-request policy migration.
+
+Retained aliases must have matching policy snapshots before reconciliation.
+The pure reconciliation operation takes the latest exact TAT, not the sum of
+alias histories; a missing new alias cannot erase an old restriction. Iteration 3
+must atomically lock/read/reconcile and mirror a committed charge to all retained
+aliases. This patch tests stored state, exact arithmetic, alias reconciliation,
+schema constraints, and rollback against PostgreSQL. It does not establish
+concurrent admission, replica coordination, key-retirement safety, HTTP behavior,
+or integration with verification. The legacy OTP lock remains unchanged.
+
 ### Policy configuration and operational analytics requirements
 
 Status: **ACCEPTED** implementation requirements for Stage 4. Operators must be
@@ -1429,11 +1498,13 @@ part of bucket identity or trigger state deletion. Preserve existing cooldown
 `windowEndAt` boundaries; a new interval applies only to a subsequent successful
 admission. GCRA tuning must preserve outstanding debt, without a fresh burst,
 and must not reset independent policy state or shorten waiting merely by
-restarting a replica. The exact active-TAT conversion and its transaction/storage
-format remain a required Iteration 2–3 design and database-test gate before
-enforcement or tuning is enabled. Until that gate is met, changed parameters
-cannot be applied to active enforced GCRA state. Denial still follows persisted
-state and fresh DB time without an extra reset or penalty timer.
+restarting a replica. Exact storage and conservative active-TAT conversion are
+defined and tested in “Exact GCRA state persistence and arithmetic” above.
+Their locked, atomic application across retained aliases remains an Iteration 3
+database/concurrency gate before enforcement or tuning is enabled. Until that
+gate is met, changed parameters cannot be applied to active enforced GCRA state.
+Denial still follows persisted state and fresh DB time without an extra reset
+or penalty timer.
 
 This patch prepares validated configuration only. Startup validation and unit
 tests do not establish replica agreement, migrate debt, implement rate limiting,
