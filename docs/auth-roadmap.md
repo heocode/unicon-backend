@@ -716,6 +716,18 @@ boundary below; exact addresses/ranges and header mechanism are deployment value
 to choose and validate before staging. No runtime configuration changes are
 made by this entry.
 
+Iteration 2 partial implementation: `canonicalizeIp` in `src/common/utils`
+provides the standalone strict single-literal canonicalizer, with unit coverage
+for equivalent IPv6 forms, mapped IPv4, private/loopback addresses, and rejected
+ambiguous/transport inputs. It uses Node.js `isIP` for strict syntax validation
+and ipaddr.js for address parsing and canonical representation. Whitespace,
+zone identifiers, CIDR, brackets, forwarding lists, and legacy IPv4 syntax are
+rejected with an internal error that contains no input value. IPv4-compatible
+IPv6 remains IPv6; only IPv4-mapped IPv6 becomes IPv4. This does not implement
+source resolution, HTTP error mapping/enforcement, opaque bucket derivation,
+policy configuration, key rotation, or GCRA persistence; Iteration 2 remains
+incomplete.
+
 ### Accepted deployment proxy trust boundary
 
 **ACCEPTED / FIXED target:** source resolution is explicitly configured as direct
