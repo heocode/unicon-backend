@@ -38,7 +38,6 @@ describe('AuthenticationChallengeProofService', () => {
     const config = new AuthenticationChallengeConfigService(
       new ConfigService({
         AUTH_CHALLENGE_TTL_SECONDS: 600,
-        AUTH_CHALLENGE_MAX_ATTEMPTS: 5,
         AUTH_CHALLENGE_RETENTION_SECONDS: 86_400,
         AUTH_CHALLENGE_CLEANUP_INTERVAL_SECONDS: 60,
         AUTH_CHALLENGE_CLEANUP_BATCH_SIZE: 100,
@@ -129,7 +128,6 @@ describe('AuthenticationChallengeProofService', () => {
       new AuthenticationChallengeConfigService(
         new ConfigService({
           AUTH_CHALLENGE_TTL_SECONDS: 600,
-          AUTH_CHALLENGE_MAX_ATTEMPTS: 5,
           AUTH_CHALLENGE_RETENTION_SECONDS: 86_400,
           AUTH_CHALLENGE_CLEANUP_INTERVAL_SECONDS: 60,
           AUTH_CHALLENGE_CLEANUP_BATCH_SIZE: 100,

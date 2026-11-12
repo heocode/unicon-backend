@@ -41,8 +41,6 @@ type ResendChallengeRow = {
   normalizedIdentity: string;
   expiresAt: Date;
   expiresAtMicros: string;
-  failedAttemptCount: number;
-  maxAttempts: number;
   consumedAt: Date | null;
   lockedAt: Date | null;
   encryptedProof: Uint8Array | null;
@@ -65,8 +63,6 @@ type OwnedDeliveryChallengeRow = {
   normalizedIdentity: string;
   purpose: AuthenticationChallengePurpose;
   expiresAt: Date;
-  failedAttemptCount: number;
-  maxAttempts: number;
   consumedAt: Date | null;
   lockedAt: Date | null;
   encryptedProof: Uint8Array | null;
@@ -268,8 +264,6 @@ export class AuthenticationDeliveryRepository {
           "challenge"."normalizedIdentity",
           "challenge"."purpose",
           "challenge"."expiresAt",
-          "challenge"."failedAttemptCount",
-          "challenge"."maxAttempts",
           "challenge"."consumedAt",
           "challenge"."lockedAt",
           "challenge"."encryptedProof",
@@ -302,8 +296,6 @@ export class AuthenticationDeliveryRepository {
         normalizedIdentity: row.normalizedIdentity,
         purpose: row.purpose,
         expiresAt: row.expiresAt,
-        failedAttemptCount: row.failedAttemptCount,
-        maxAttempts: row.maxAttempts,
         consumedAt: row.consumedAt,
         lockedAt: row.lockedAt,
         encryptedProof: row.encryptedProof,
@@ -343,7 +335,6 @@ export class AuthenticationDeliveryRepository {
             WHEN "challenge"."consumedAt" IS NOT NULL
               OR "challenge"."lockedAt" IS NOT NULL
               OR "challenge"."expiresAt" <= ${operationNow}
-              OR "challenge"."failedAttemptCount" >= "challenge"."maxAttempts"
               THEN true
             ELSE false
           END AS "challengeUnavailable"
@@ -564,8 +555,6 @@ export class AuthenticationDeliveryRepository {
         "normalizedIdentity",
         "expiresAt",
         trunc(EXTRACT(EPOCH FROM "expiresAt") * 1000000)::text AS "expiresAtMicros",
-        "failedAttemptCount",
-        "maxAttempts",
         "consumedAt",
         "lockedAt",
         "encryptedProof",
@@ -588,7 +577,6 @@ export class AuthenticationDeliveryRepository {
       challenge.consumedAt === null &&
       challenge.lockedAt === null &&
       challenge.expiresAt > operationNow &&
-      challenge.failedAttemptCount < challenge.maxAttempts &&
       challenge.encryptedProof !== null &&
       challenge.proofEncryptionIv !== null &&
       challenge.proofEncryptionTag !== null

@@ -119,7 +119,6 @@ describe('Authentication delivery persistence (e2e)', () => {
           proof.persistence.encryption.encryptionProtocolVersion,
         encryptionKeyVersion: proof.persistence.encryption.encryptionKeyVersion,
         expiresAt: new Date(Date.now() + 600_000),
-        maxAttempts: 5,
         retentionExpiresAt: new Date(Date.now() + 86_400_000),
       },
     });
@@ -160,6 +159,32 @@ describe('Authentication delivery persistence (e2e)', () => {
         ...overrides,
       },
     });
+
+  it('processes Delivery and resolves pending resend above the former OTP threshold without changing stable proof', async () => {
+    const delivery = (await createDelivery()) as { id: string };
+    await prisma.authenticationChallenge.update({
+      where: { id: challengeId },
+      data: { failedAttemptCount: 9 },
+    });
+    const before = await prisma.authenticationChallenge.findUniqueOrThrow({
+      where: { id: challengeId },
+    });
+    expect(await repository.createResendDelivery(resendInput())).toMatchObject({
+      outcome: 'EXISTING',
+      delivery: { id: delivery.id },
+    });
+    const claim = await repository.claimNextDelivery();
+    expect(claim?.id).toBe(delivery.id);
+    expect(await orchestration.process(claim!)).toMatchObject({
+      outcome: 'SENT',
+    });
+    expect(provider.submit).toHaveBeenCalledTimes(1);
+    expect(
+      await prisma.authenticationChallenge.findUniqueOrThrow({
+        where: { id: challengeId },
+      }),
+    ).toEqual(before);
+  });
 
   it.each(['expired', 'consumed', 'locked'])(
     'terminalizes and retains a pending Delivery for a %s challenge',
@@ -935,7 +960,7 @@ describe('Authentication delivery persistence (e2e)', () => {
     },
   );
 
-  it.each(['consumed', 'locked', 'attempts', 'envelope'])(
+  it.each(['consumed', 'locked', 'envelope'])(
     'does not resolve or mutate pending work for a challenge unavailable due to %s',
     async (state) => {
       await createDelivery();
@@ -944,13 +969,9 @@ describe('Authentication delivery persistence (e2e)', () => {
         data: {
           ...(state === 'consumed' ? { consumedAt: new Date() } : {}),
           ...(state === 'locked' ? { lockedAt: new Date() } : {}),
-          ...(state === 'attempts'
-            ? { failedAttemptCount: 5 }
-            : {
-                encryptedProof: null,
-                proofEncryptionIv: null,
-                proofEncryptionTag: null,
-              }),
+          encryptedProof: null,
+          proofEncryptionIv: null,
+          proofEncryptionTag: null,
         },
       });
       const before = await prisma.authenticationChallengeDelivery.findMany({

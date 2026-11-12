@@ -7,6 +7,7 @@ export const ChallengeVerificationStatus = {
   VERIFIED: 'VERIFIED',
   INVALID_PROOF: 'INVALID_PROOF',
   UNAVAILABLE: 'UNAVAILABLE',
+  RATE_LIMITED: 'RATE_LIMITED',
 } as const;
 
 export const InvalidChallengeProofKind = {
@@ -17,6 +18,7 @@ export const InvalidChallengeProofKind = {
 export const InternalChallengeUnavailabilityReason = {
   NOT_FOUND: 'NOT_FOUND',
   PURPOSE_MISMATCH: 'PURPOSE_MISMATCH',
+  BINDING_MISMATCH: 'BINDING_MISMATCH',
   CONSUMED: 'CONSUMED',
   LOCKED: 'LOCKED',
   EXPIRED: 'EXPIRED',
@@ -31,6 +33,8 @@ export type InternalChallengeUnavailabilityReason =
 export type AuthenticationChallengeVerificationInput = {
   challengeId: string;
   expectedPurpose: AuthenticationChallengePurpose;
+  expectedBoundSessionId: string | null;
+  ipAddress: string | undefined;
   proof: string;
 };
 
@@ -48,9 +52,9 @@ export type VerifiedAuthenticationChallenge = {
 export type InvalidChallengeProofResult = {
   status: typeof ChallengeVerificationStatus.INVALID_PROOF;
   kind: InvalidChallengeProofKind;
+  /** True only when a canonical mismatch charged the failure budgets. */
   attemptConsumed: boolean;
   failedAttemptCount: number;
-  attemptsRemaining: number;
   locked: boolean;
   lockedAt: Date | null;
 };
@@ -68,4 +72,10 @@ export type ChallengeVerifiedResult = {
 export type AuthenticationChallengeVerificationResult =
   | InvalidChallengeProofResult
   | ChallengeUnavailableResult
-  | ChallengeVerifiedResult;
+  | ChallengeVerifiedResult
+  | Readonly<{
+      status: typeof ChallengeVerificationStatus.RATE_LIMITED;
+      retryAfterSeconds: bigint;
+      retryNotBeforeMicros: bigint;
+      deniedPolicyIds: readonly string[];
+    }>;

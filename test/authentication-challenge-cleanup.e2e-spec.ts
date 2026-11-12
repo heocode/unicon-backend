@@ -83,7 +83,6 @@ describe('Authentication challenge cleanup (e2e)', () => {
         encryptionKeyVersion:
           generated.persistence.encryption.encryptionKeyVersion,
         expiresAt: options?.expiresAt ?? new Date(Date.now() + 10 * 60 * 1000),
-        maxAttempts: 5,
         retentionExpiresAt:
           options?.retentionExpiresAt ??
           new Date(Date.now() + 24 * 60 * 60 * 1000),

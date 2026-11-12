@@ -39,7 +39,6 @@ const validEnvironment = {
   ACCOUNT_DELETION_CANCEL_LIMIT_PER_IP: '20',
   ACCOUNT_DELETION_CANCEL_RATE_LIMIT_SECRET: 'deletion-cancel-rate-secret',
   AUTH_CHALLENGE_TTL_SECONDS: '600',
-  AUTH_CHALLENGE_MAX_ATTEMPTS: '5',
   AUTH_CHALLENGE_RETENTION_SECONDS: '86400',
   AUTH_CHALLENGE_CLEANUP_INTERVAL_SECONDS: '60',
   AUTH_CHALLENGE_CLEANUP_BATCH_SIZE: '100',
@@ -531,16 +530,15 @@ describe('validateEnvironment', () => {
     expect(() =>
       validateEnvironment({
         ...validEnvironment,
-        AUTH_CHALLENGE_MAX_ATTEMPTS: '5.5',
+        AUTH_CHALLENGE_TTL_SECONDS: '5.5',
       }),
     ).toThrow(
-      'Environment variable AUTH_CHALLENGE_MAX_ATTEMPTS must be a positive integer.',
+      'Environment variable AUTH_CHALLENGE_TTL_SECONDS must be a positive integer.',
     );
   });
 
   it.each([
     'AUTH_CHALLENGE_TTL_SECONDS',
-    'AUTH_CHALLENGE_MAX_ATTEMPTS',
     'AUTH_CHALLENGE_RETENTION_SECONDS',
     'AUTH_CHALLENGE_CLEANUP_INTERVAL_SECONDS',
     'AUTH_CHALLENGE_CLEANUP_BATCH_SIZE',

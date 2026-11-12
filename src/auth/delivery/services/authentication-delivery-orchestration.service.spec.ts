@@ -39,8 +39,6 @@ describe('AuthenticationDeliveryOrchestrationService', () => {
     normalizedIdentity: 'student@example.edu',
     purpose: AuthenticationChallengePurpose.SIGN_IN,
     expiresAt: new Date('2026-09-14T12:10:00.000Z'),
-    failedAttemptCount: 0,
-    maxAttempts: 5,
     consumedAt: null,
     lockedAt: null,
     encryptedProof: Uint8Array.from([1]),

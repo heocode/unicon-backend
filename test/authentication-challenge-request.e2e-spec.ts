@@ -259,7 +259,6 @@ describe('SIGN_IN initial and replacement admission (PostgreSQL)', () => {
           proof.persistence.encryption.proofEncryptionTag,
         ),
         expiresAt: new Date(Date.now() + (options.expired ? -1_000 : 600_000)),
-        maxAttempts: 5,
         retentionExpiresAt: new Date(Date.now() + 86_400_000),
       },
     });
@@ -590,14 +589,17 @@ describe('SIGN_IN initial and replacement admission (PostgreSQL)', () => {
     expect(await state()).toEqual(before);
   });
 
-  it('preserves the transitional failure threshold instead of generating replacement proof for a live challenge', async () => {
+  it('reuses live stable proof above the former failure threshold', async () => {
     const old = await seedChallenge();
     await prisma.authenticationChallenge.update({
       where: { id: old.id },
       data: { failedAttemptCount: 5 },
     });
     const before = await state();
-    expect(await request()).toEqual({ outcome: 'CHALLENGE_UNAVAILABLE' });
+    expect(await request()).toMatchObject({
+      outcome: 'REUSED',
+      challenge: { id: old.id },
+    });
     expect(await state()).toEqual(before);
   });
 
@@ -678,7 +680,6 @@ describe('SIGN_IN initial and replacement admission (PostgreSQL)', () => {
     const shorterConfig = {
       ttlSeconds: 121,
       retentionSeconds: challengeConfig.retentionSeconds,
-      maxAttempts: challengeConfig.maxAttempts,
     } as AuthenticationChallengeConfigService;
     const shortRequests = new AuthenticationChallengeRequestService(
       challengeRepository,

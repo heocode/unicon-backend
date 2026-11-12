@@ -92,10 +92,7 @@ export class AuthenticationChallengeRequestService {
       throw new GcraAdmissionInfrastructureError('INVALID_STATE');
     if (live.length === 1) {
       const candidate = live[0];
-      if (
-        !candidate.hasProof ||
-        candidate.failedAttemptCount >= candidate.maxAttempts
-      ) {
+      if (!candidate.hasProof) {
         return { outcome: 'CHALLENGE_UNAVAILABLE' };
       }
       return {
@@ -121,7 +118,6 @@ export class AuthenticationChallengeRequestService {
       createdAt: now,
       expiresAt: new Date(now.getTime() + this.config.ttlSeconds * 1_000),
       retentionExpiresAt,
-      maxAttempts: this.config.maxAttempts,
     });
     const admission = await this.deliveries.admitInitialInTransaction(
       transaction,

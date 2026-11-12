@@ -30,8 +30,6 @@ export type AuthenticationDeliveryChallengeState = {
   normalizedIdentity: string;
   purpose: AuthenticationChallengePurpose;
   expiresAt: Date;
-  failedAttemptCount: number;
-  maxAttempts: number;
   consumedAt: Date | null;
   lockedAt: Date | null;
   encryptedProof: Uint8Array | null;

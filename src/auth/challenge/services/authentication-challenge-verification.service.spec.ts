@@ -1,293 +1,290 @@
 import type { Prisma } from '../../../generated/prisma/client';
-import {
-  AuthenticationChallengePurpose,
-  AuthenticationMethod,
-} from '../../../generated/prisma/enums';
-
+import { GcraAdmissionInfrastructureError } from '../../../rate-limit/errors/gcra-admission-infrastructure.error';
+import type { AuthenticationVerificationProofCheck } from '../../rate-limit/types/authentication-verification-rate-limit.type';
+import type { AuthenticationVerificationRateLimitService } from '../../rate-limit/services/authentication-verification-rate-limit.service';
+import type { AuthenticationChallengeProofService } from './authentication-challenge-proof.service';
+import type { AuthenticationChallengeRepository } from '../repositories/authentication-challenge.repository';
 import type { LockedAuthenticationChallenge } from '../repositories/authentication-challenge.repository';
-import {
-  ChallengeVerificationStatus,
-  InternalChallengeUnavailabilityReason,
-  InvalidChallengeProofKind,
-} from '../types/authentication-challenge-verification.type';
 import { AuthenticationChallengeVerificationService } from './authentication-challenge-verification.service';
 
-describe('AuthenticationChallengeVerificationService', () => {
-  const operationNow = new Date('2026-09-04T12:00:00.000Z');
-  const canonicalOtp = '004201';
-  const canonicalLinkToken = Buffer.alloc(32, 1).toString('base64url');
-  const challenge: LockedAuthenticationChallenge = {
-    id: '123e4567-e89b-42d3-a456-426614174000',
-    normalizedIdentity: 'student@example.edu',
-    purpose: AuthenticationChallengePurpose.SIGN_IN,
-    userId: null,
-    boundSessionId: null,
-    otpHash: Buffer.alloc(32, 2),
-    linkTokenHash: Buffer.alloc(32, 3),
-    hashProtocolVersion: 1,
-    hashKeyVersion: 1,
-    expiresAt: new Date('2026-09-04T12:10:00.000Z'),
-    failedAttemptCount: 0,
-    maxAttempts: 5,
-    consumedAt: null,
-    lockedAt: null,
+const now = new Date('2026-11-11T12:00:01.001Z');
+const challenge: LockedAuthenticationChallenge = {
+  id: 'challenge',
+  normalizedIdentity: 'student@example.edu',
+  purpose: 'SIGN_IN',
+  userId: null,
+  boundSessionId: null,
+  otpHash: Buffer.alloc(32, 1),
+  linkTokenHash: Buffer.alloc(32, 2),
+  hashProtocolVersion: 1,
+  hashKeyVersion: 1,
+  expiresAt: new Date(now.getTime() + 600_000),
+  failedAttemptCount: 5,
+  consumedAt: null,
+  lockedAt: null,
+};
+const input = {
+  challengeId: challenge.id,
+  expectedPurpose: 'SIGN_IN' as const,
+  expectedBoundSessionId: null,
+  ipAddress: '192.0.2.1',
+  proof: '004201',
+};
+function setup() {
+  const repository = {
+    lockByIdForUpdate: jest.fn().mockResolvedValue(challenge),
+    getOperationTimestamp: jest
+      .fn()
+      .mockResolvedValue(new Date(now.getTime() - 1000)),
+    recordProofFailure: jest
+      .fn()
+      .mockResolvedValue({ failedAttemptCount: 6, lockedAt: null }),
+    clearExpiredEnvelope: jest.fn().mockResolvedValue(undefined),
+    consume: jest.fn().mockResolvedValue(undefined),
   };
-
-  let repository: {
-    lockByIdForUpdate: jest.Mock;
-    getOperationTimestamp: jest.Mock;
-    enforceAttemptLimitLock: jest.Mock;
-    clearExpiredEnvelope: jest.Mock;
-    recordOtpFailure: jest.Mock;
-    consume: jest.Mock;
+  const proof = {
+    verifyOtp: jest.fn().mockReturnValue(true),
+    verifyMagicLinkToken: jest.fn().mockReturnValue(true),
   };
-  let proofService: {
-    verifyOtp: jest.Mock;
-    verifyMagicLinkToken: jest.Mock;
+  const limiter = {
+    evaluateInTransaction: jest
+      .fn()
+      .mockImplementation(
+        async (
+          _tx: unknown,
+          _input: unknown,
+          check: AuthenticationVerificationProofCheck,
+        ) => ({
+          outcome: await check(BigInt(now.getTime()) * 1000n + 999n),
+          operationNowMicros: BigInt(now.getTime()) * 1000n + 999n,
+        }),
+      ),
   };
-  let service: AuthenticationChallengeVerificationService;
-  const transaction = {} as Prisma.TransactionClient;
+  const tx = {
+    $queryRaw: jest.fn().mockResolvedValue([{ isolation: 'read committed' }]),
+    $executeRaw: jest.fn().mockResolvedValue(0),
+  };
+  const transaction = tx as unknown as Prisma.TransactionClient;
+  return {
+    repository,
+    proof,
+    limiter,
+    tx,
+    transaction,
+    service: new AuthenticationChallengeVerificationService(
+      repository as unknown as AuthenticationChallengeRepository,
+      proof as unknown as AuthenticationChallengeProofService,
+      limiter as unknown as AuthenticationVerificationRateLimitService,
+    ),
+  };
+}
 
-  beforeEach(() => {
-    repository = {
-      lockByIdForUpdate: jest.fn().mockResolvedValue(challenge),
-      getOperationTimestamp: jest.fn().mockResolvedValue(operationNow),
-      enforceAttemptLimitLock: jest.fn().mockResolvedValue(undefined),
-      clearExpiredEnvelope: jest.fn().mockResolvedValue(undefined),
-      recordOtpFailure: jest.fn(),
-      consume: jest.fn().mockResolvedValue(undefined),
-    };
-    proofService = {
-      verifyOtp: jest.fn(),
-      verifyMagicLinkToken: jest.fn(),
-    };
-    service = new AuthenticationChallengeVerificationService(
-      repository,
-      proofService,
-    );
-  });
-
-  it('gets one operation timestamp after acquiring the row lock', async () => {
-    proofService.verifyOtp.mockReturnValue(true);
-
-    await service.verifyAndConsumeOtpInTransaction(transaction, {
-      challengeId: challenge.id,
-      expectedPurpose: challenge.purpose,
-      proof: canonicalOtp,
-    });
-
-    expect(repository.getOperationTimestamp).toHaveBeenCalledTimes(1);
+describe('AuthenticationChallengeVerificationService (unit orchestration)', () => {
+  it.each(['OTP', 'LINK'])(
+    'uses authoritative identity and post-bucket-wait time for %s consumption',
+    async (method) => {
+      const { service, repository, limiter, transaction } = setup();
+      const result = await (method === 'OTP'
+        ? service.verifyAndConsumeOtpInTransaction(transaction, input)
+        : service.verifyAndConsumeMagicLinkInTransaction(transaction, {
+            ...input,
+            proof: Buffer.alloc(32, 3).toString('base64url'),
+          }));
+      expect(result).toMatchObject({
+        status: 'VERIFIED',
+        challenge: {
+          authenticatedAt: now,
+          consumedAt: now,
+          authenticationMethod:
+            method === 'OTP' ? 'EMAIL_OTP' : 'EMAIL_MAGIC_LINK',
+        },
+      });
+      expect(limiter.evaluateInTransaction).toHaveBeenCalledWith(
+        transaction,
+        {
+          normalizedIdentity: challenge.normalizedIdentity,
+          ipAddress: input.ipAddress,
+          expiresAtMicros: BigInt(challenge.expiresAt.getTime()) * 1000n,
+        },
+        expect.any(Function),
+      );
+      expect(repository.consume).toHaveBeenCalledWith(
+        transaction,
+        challenge.id,
+        now,
+      );
+      expect(repository.recordProofFailure).not.toHaveBeenCalled();
+    },
+  );
+  it.each(['OTP', 'LINK'])(
+    'records canonical %s mismatch as a normal chargeable result without a permanent lock',
+    async (method) => {
+      const { service, repository, proof, transaction } = setup();
+      proof.verifyOtp.mockReturnValue(false);
+      proof.verifyMagicLinkToken.mockReturnValue(false);
+      const result = await (method === 'OTP'
+        ? service.verifyAndConsumeOtpInTransaction(transaction, input)
+        : service.verifyAndConsumeMagicLinkInTransaction(transaction, {
+            ...input,
+            proof: Buffer.alloc(32, 3).toString('base64url'),
+          }));
+      expect(result).toEqual({
+        status: 'INVALID_PROOF',
+        kind: 'MISMATCH',
+        attemptConsumed: true,
+        failedAttemptCount: 6,
+        locked: false,
+        lockedAt: null,
+      });
+      expect(repository.recordProofFailure).toHaveBeenCalledWith(
+        transaction,
+        challenge.id,
+        now,
+      );
+      expect(repository.consume).not.toHaveBeenCalled();
+    },
+  );
+  it.each(['4201', ' 004201', '004201 '])(
+    'excludes malformed OTP %j before limiter/comparison',
+    async (candidate) => {
+      const { service, limiter, proof, repository, transaction } = setup();
+      expect(
+        await service.verifyAndConsumeOtpInTransaction(transaction, {
+          ...input,
+          proof: candidate,
+        }),
+      ).toMatchObject({
+        status: 'INVALID_PROOF',
+        kind: 'MALFORMED',
+        attemptConsumed: false,
+      });
+      expect(limiter.evaluateInTransaction).not.toHaveBeenCalled();
+      expect(proof.verifyOtp).not.toHaveBeenCalled();
+      expect(repository.recordProofFailure).not.toHaveBeenCalled();
+    },
+  );
+  it('excludes malformed magic links', async () => {
+    const { service, limiter, proof, transaction } = setup();
     expect(
-      repository.lockByIdForUpdate.mock.invocationCallOrder[0],
-    ).toBeLessThan(
-      repository.getOperationTimestamp.mock.invocationCallOrder[0],
-    );
-    expect(repository.consume).toHaveBeenCalledWith(
-      transaction,
-      challenge.id,
-      operationNow,
-    );
+      await service.verifyAndConsumeMagicLinkInTransaction(transaction, {
+        ...input,
+        proof: Buffer.alloc(32).toString('base64url') + '=',
+      }),
+    ).toMatchObject({ status: 'INVALID_PROOF', kind: 'MALFORMED' });
+    expect(limiter.evaluateInTransaction).not.toHaveBeenCalled();
+    expect(proof.verifyMagicLinkToken).not.toHaveBeenCalled();
   });
-
-  it('does not consume an OTP attempt for malformed proof', async () => {
-    const result = await service.verifyAndConsumeOtpInTransaction(transaction, {
-      challengeId: challenge.id,
-      expectedPurpose: challenge.purpose,
-      proof: '4201',
-    });
-
-    expect(result).toMatchObject({
-      status: ChallengeVerificationStatus.INVALID_PROOF,
-      kind: InvalidChallengeProofKind.MALFORMED,
-      attemptConsumed: false,
-      failedAttemptCount: 0,
-      attemptsRemaining: 5,
-    });
-    expect(proofService.verifyOtp).not.toHaveBeenCalled();
-    expect(repository.recordOtpFailure).not.toHaveBeenCalled();
-  });
-
-  it('uses the atomic returned state for a canonical wrong OTP', async () => {
-    proofService.verifyOtp.mockReturnValue(false);
-    repository.recordOtpFailure.mockResolvedValue({
-      failedAttemptCount: 5,
-      maxAttempts: 5,
-      lockedAt: operationNow,
-    });
-
-    const result = await service.verifyAndConsumeOtpInTransaction(transaction, {
-      challengeId: challenge.id,
-      expectedPurpose: challenge.purpose,
-      proof: canonicalOtp,
-    });
-
-    expect(result).toEqual({
-      status: ChallengeVerificationStatus.INVALID_PROOF,
-      kind: InvalidChallengeProofKind.MISMATCH,
-      attemptConsumed: true,
-      failedAttemptCount: 5,
-      attemptsRemaining: 0,
-      locked: true,
-      lockedAt: operationNow,
-    });
-  });
-
-  it('self-heals an exhausted challenge fail-closed', async () => {
+  it.each([
+    [null, 'NOT_FOUND'],
+    [{ ...challenge, purpose: 'STEP_UP' }, 'PURPOSE_MISMATCH'],
+    [{ ...challenge, boundSessionId: 'other' }, 'BINDING_MISMATCH'],
+    [{ ...challenge, consumedAt: now }, 'CONSUMED'],
+    [{ ...challenge, lockedAt: now }, 'LOCKED'],
+  ])(
+    'excludes unavailable challenge without limiter or proof comparison (%s)',
+    async (row, reason) => {
+      const { service, repository, limiter, proof, transaction } = setup();
+      repository.lockByIdForUpdate.mockResolvedValue(row);
+      expect(
+        await service.verifyAndConsumeOtpInTransaction(transaction, input),
+      ).toEqual({ status: 'UNAVAILABLE', internalReason: reason });
+      expect(limiter.evaluateInTransaction).not.toHaveBeenCalled();
+      expect(proof.verifyOtp).not.toHaveBeenCalled();
+      expect(repository.consume).not.toHaveBeenCalled();
+    },
+  );
+  it('clears expired envelope before admission', async () => {
+    const { service, repository, limiter, transaction } = setup();
     repository.lockByIdForUpdate.mockResolvedValue({
       ...challenge,
-      failedAttemptCount: 5,
+      expiresAt: new Date(now.getTime() - 1000),
     });
-
-    const result = await service.verifyAndConsumeOtpInTransaction(transaction, {
-      challengeId: challenge.id,
-      expectedPurpose: challenge.purpose,
-      proof: canonicalOtp,
-    });
-
-    expect(repository.enforceAttemptLimitLock).toHaveBeenCalledWith(
-      transaction,
-      challenge.id,
-      operationNow,
-    );
-    expect(result).toEqual({
-      status: ChallengeVerificationStatus.UNAVAILABLE,
-      internalReason: InternalChallengeUnavailabilityReason.LOCKED,
-    });
-    expect(proofService.verifyOtp).not.toHaveBeenCalled();
+    expect(
+      await service.verifyAndConsumeOtpInTransaction(transaction, input),
+    ).toEqual({ status: 'UNAVAILABLE', internalReason: 'EXPIRED' });
+    expect(repository.clearExpiredEnvelope).toHaveBeenCalled();
+    expect(limiter.evaluateInTransaction).not.toHaveBeenCalled();
   });
-
-  it('clears an envelope when expiry equals operation time', async () => {
-    repository.lockByIdForUpdate.mockResolvedValue({
-      ...challenge,
-      expiresAt: operationNow,
+  it('clears envelope when challenge expires during bucket waits', async () => {
+    const { service, repository, limiter, proof, transaction } = setup();
+    limiter.evaluateInTransaction.mockResolvedValue({
+      outcome: 'EXPIRED',
+      operationNowMicros: BigInt(challenge.expiresAt.getTime()) * 1000n,
     });
-
-    const result = await service.verifyAndConsumeOtpInTransaction(transaction, {
-      challengeId: challenge.id,
-      expectedPurpose: challenge.purpose,
-      proof: canonicalOtp,
-    });
-
+    expect(
+      await service.verifyAndConsumeOtpInTransaction(transaction, input),
+    ).toEqual({ status: 'UNAVAILABLE', internalReason: 'EXPIRED' });
     expect(repository.clearExpiredEnvelope).toHaveBeenCalledWith(
       transaction,
       challenge.id,
-      operationNow,
+      challenge.expiresAt,
     );
-    expect(result).toEqual({
-      status: ChallengeVerificationStatus.UNAVAILABLE,
-      internalReason: InternalChallengeUnavailabilityReason.EXPIRED,
-    });
+    expect(proof.verifyOtp).not.toHaveBeenCalled();
   });
-
-  it('returns a verified OTP result with the shared operation timestamp', async () => {
-    proofService.verifyOtp.mockReturnValue(true);
-
-    const result = await service.verifyAndConsumeOtpInTransaction(transaction, {
-      challengeId: challenge.id,
-      expectedPurpose: challenge.purpose,
-      proof: canonicalOtp,
+  it('returns authoritative denial without comparing proof or changing diagnostics', async () => {
+    const { service, repository, limiter, proof, transaction } = setup();
+    const denial = {
+      outcome: 'RATE_LIMITED',
+      retryAfterSeconds: 10n,
+      retryNotBeforeMicros: 123n,
+      deniedPolicyIds: ['policy'],
+    };
+    limiter.evaluateInTransaction.mockResolvedValue(denial);
+    expect(
+      await service.verifyAndConsumeOtpInTransaction(transaction, input),
+    ).toEqual({
+      status: 'RATE_LIMITED',
+      retryAfterSeconds: 10n,
+      retryNotBeforeMicros: 123n,
+      deniedPolicyIds: ['policy'],
     });
-
-    expect(result).toEqual({
-      status: ChallengeVerificationStatus.VERIFIED,
-      challenge: {
-        id: challenge.id,
-        normalizedIdentity: challenge.normalizedIdentity,
-        purpose: challenge.purpose,
-        userId: null,
-        boundSessionId: null,
-        authenticationMethod: AuthenticationMethod.EMAIL_OTP,
-        authenticatedAt: operationNow,
-        consumedAt: operationNow,
-      },
-    });
-  });
-
-  it('does not mutate challenge state for a wrong canonical magic link', async () => {
-    proofService.verifyMagicLinkToken.mockReturnValue(false);
-
-    const result = await service.verifyAndConsumeMagicLinkInTransaction(
-      transaction,
-      {
-        challengeId: challenge.id,
-        expectedPurpose: challenge.purpose,
-        proof: canonicalLinkToken,
-      },
-    );
-
-    expect(result).toMatchObject({
-      status: ChallengeVerificationStatus.INVALID_PROOF,
-      kind: InvalidChallengeProofKind.MISMATCH,
-      attemptConsumed: false,
-    });
-    expect(repository.recordOtpFailure).not.toHaveBeenCalled();
+    expect(proof.verifyOtp).not.toHaveBeenCalled();
+    expect(repository.recordProofFailure).not.toHaveBeenCalled();
     expect(repository.consume).not.toHaveBeenCalled();
   });
-
-  it('does not mutate challenge state for a malformed magic link', async () => {
-    const result = await service.verifyAndConsumeMagicLinkInTransaction(
-      transaction,
-      {
-        challengeId: challenge.id,
-        expectedPurpose: challenge.purpose,
-        proof: `${canonicalLinkToken}=`,
-      },
+  it('fails closed on infrastructure failure and rolls back its savepoint even if caught by owner', async () => {
+    const { service, limiter, proof, tx, transaction } = setup();
+    limiter.evaluateInTransaction.mockRejectedValue(
+      new GcraAdmissionInfrastructureError('STATE_UNAVAILABLE'),
     );
-
-    expect(result).toMatchObject({
-      status: ChallengeVerificationStatus.INVALID_PROOF,
-      kind: InvalidChallengeProofKind.MALFORMED,
-      attemptConsumed: false,
-    });
-    expect(proofService.verifyMagicLinkToken).not.toHaveBeenCalled();
-    expect(repository.recordOtpFailure).not.toHaveBeenCalled();
-    expect(repository.consume).not.toHaveBeenCalled();
+    await expect(
+      service.verifyAndConsumeOtpInTransaction(transaction, input),
+    ).rejects.toMatchObject({ reason: 'STATE_UNAVAILABLE' });
+    expect(proof.verifyOtp).not.toHaveBeenCalled();
+    expect(
+      tx.$executeRaw.mock.calls.map((args: [TemplateStringsArray]) =>
+        args[0].join(''),
+      ),
+    ).toContain('ROLLBACK TO SAVEPOINT unicon_challenge_verification');
   });
-
-  it('keeps a purpose mismatch internal and does not mutate state', async () => {
-    const result = await service.verifyAndConsumeOtpInTransaction(transaction, {
-      challengeId: challenge.id,
-      expectedPurpose: AuthenticationChallengePurpose.STEP_UP,
-      proof: canonicalOtp,
+  it('does not expose raw cryptographic errors', async () => {
+    const { service, proof, transaction } = setup();
+    proof.verifyOtp.mockImplementation(() => {
+      throw new Error('Sensitive key detail');
     });
-
-    expect(result).toEqual({
-      status: ChallengeVerificationStatus.UNAVAILABLE,
-      internalReason: InternalChallengeUnavailabilityReason.PURPOSE_MISMATCH,
-    });
-    expect(proofService.verifyOtp).not.toHaveBeenCalled();
-    expect(repository.consume).not.toHaveBeenCalled();
+    await expect(
+      service.verifyAndConsumeOtpInTransaction(transaction, input),
+    ).rejects.toBeInstanceOf(GcraAdmissionInfrastructureError);
   });
-
-  it.each([
-    [null, InternalChallengeUnavailabilityReason.NOT_FOUND],
-    [
-      { ...challenge, consumedAt: operationNow },
-      InternalChallengeUnavailabilityReason.CONSUMED,
-    ],
-    [
-      { ...challenge, lockedAt: operationNow },
-      InternalChallengeUnavailabilityReason.LOCKED,
-    ],
-  ])(
-    'returns an internal unavailable result without checking proof',
-    async (row, reason) => {
-      repository.lockByIdForUpdate.mockResolvedValue(row);
-
-      const result = await service.verifyAndConsumeOtpInTransaction(
-        transaction,
+  it('rejects root client, reused transaction and unsupported isolation before proof', async () => {
+    const { service, tx, transaction, repository, proof } = setup();
+    await expect(
+      service.verifyAndConsumeOtpInTransaction(
         {
-          challengeId: challenge.id,
-          expectedPurpose: challenge.purpose,
-          proof: canonicalOtp,
-        },
-      );
-
-      expect(result).toEqual({
-        status: ChallengeVerificationStatus.UNAVAILABLE,
-        internalReason: reason,
-      });
-      expect(proofService.verifyOtp).not.toHaveBeenCalled();
-    },
-  );
+          ...tx,
+          $connect: () => undefined,
+        } as unknown as Prisma.TransactionClient,
+        input,
+      ),
+    ).rejects.toMatchObject({ reason: 'INVALID_TRANSACTION' });
+    tx.$queryRaw.mockResolvedValue([{ isolation: 'repeatable read' }]);
+    await expect(
+      service.verifyAndConsumeOtpInTransaction(transaction, input),
+    ).rejects.toMatchObject({ reason: 'INVALID_TRANSACTION' });
+    await expect(
+      service.verifyAndConsumeOtpInTransaction(transaction, input),
+    ).rejects.toMatchObject({ reason: 'INVALID_TRANSACTION' });
+    expect(repository.lockByIdForUpdate).not.toHaveBeenCalled();
+    expect(proof.verifyOtp).not.toHaveBeenCalled();
+  });
 });

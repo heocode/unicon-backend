@@ -124,7 +124,6 @@ describe('RESEND Delivery admission (PostgreSQL)', () => {
           proof.persistence.encryption.proofEncryptionTag,
         ),
         expiresAt: new Date(Date.now() + 600_000),
-        maxAttempts: 5,
         retentionExpiresAt: new Date(Date.now() + 86_400_000),
       },
     });
@@ -341,7 +340,7 @@ describe('RESEND Delivery admission (PostgreSQL)', () => {
     },
   );
 
-  it.each(['expired', 'consumed', 'locked', 'attempts', 'envelope'] as const)(
+  it.each(['expired', 'consumed', 'locked', 'envelope'] as const)(
     'rejects an unavailable challenge (%s) without touching unfinished work or budgets',
     async (reason) => {
       await existing();
@@ -353,7 +352,6 @@ describe('RESEND Delivery admission (PostgreSQL)', () => {
             : {}),
           ...(reason === 'consumed' ? { consumedAt: new Date() } : {}),
           ...(reason === 'locked' ? { lockedAt: new Date() } : {}),
-          ...(reason === 'attempts' ? { failedAttemptCount: 5 } : {}),
           ...(['consumed', 'locked', 'envelope'].includes(reason)
             ? {
                 encryptedProof: null,
@@ -368,6 +366,20 @@ describe('RESEND Delivery admission (PostgreSQL)', () => {
       expect(await state()).toEqual(before);
     },
   );
+
+  it('resolves existing work above the former attempt threshold without charging Delivery policies', async () => {
+    const delivery = await existing();
+    await prisma.authenticationChallenge.update({
+      where: { id: fixture.challengeId },
+      data: { failedAttemptCount: 9 },
+    });
+    const before = await state();
+    expect(await admit()).toMatchObject({
+      outcome: 'EXISTING',
+      delivery: { id: delivery.id },
+    });
+    expect(await state()).toEqual(before);
+  });
 
   it('rejects missing challenges without any persisted admission', async () => {
     expect(await admit({ ...fixture, challengeId: randomUUID() })).toEqual({

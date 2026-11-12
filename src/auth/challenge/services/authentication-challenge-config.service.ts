@@ -8,7 +8,6 @@ import type { VersionedKeyring } from '../../../config/types/versioned-keyring.t
 @Injectable()
 export class AuthenticationChallengeConfigService {
   readonly ttlSeconds: number;
-  readonly maxAttempts: number;
   readonly retentionSeconds: number;
   readonly cleanupIntervalSeconds: number;
   readonly cleanupBatchSize: number;
@@ -22,9 +21,6 @@ export class AuthenticationChallengeConfigService {
   constructor(configService: ConfigService) {
     this.ttlSeconds = configService.getOrThrow<number>(
       'AUTH_CHALLENGE_TTL_SECONDS',
-    );
-    this.maxAttempts = configService.getOrThrow<number>(
-      'AUTH_CHALLENGE_MAX_ATTEMPTS',
     );
     this.retentionSeconds = configService.getOrThrow<number>(
       'AUTH_CHALLENGE_RETENTION_SECONDS',

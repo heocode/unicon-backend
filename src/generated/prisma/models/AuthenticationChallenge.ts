@@ -32,7 +32,6 @@ export type AuthenticationChallengeAvgAggregateOutputType = {
   encryptionProtocolVersion: number | null
   encryptionKeyVersion: number | null
   failedAttemptCount: number | null
-  maxAttempts: number | null
 }
 
 export type AuthenticationChallengeSumAggregateOutputType = {
@@ -41,7 +40,6 @@ export type AuthenticationChallengeSumAggregateOutputType = {
   encryptionProtocolVersion: number | null
   encryptionKeyVersion: number | null
   failedAttemptCount: number | null
-  maxAttempts: number | null
 }
 
 export type AuthenticationChallengeMinAggregateOutputType = {
@@ -63,7 +61,6 @@ export type AuthenticationChallengeMinAggregateOutputType = {
   encryptionKeyVersion: number | null
   expiresAt: Date | null
   failedAttemptCount: number | null
-  maxAttempts: number | null
   consumedAt: Date | null
   lockedAt: Date | null
   retentionExpiresAt: Date | null
@@ -90,7 +87,6 @@ export type AuthenticationChallengeMaxAggregateOutputType = {
   encryptionKeyVersion: number | null
   expiresAt: Date | null
   failedAttemptCount: number | null
-  maxAttempts: number | null
   consumedAt: Date | null
   lockedAt: Date | null
   retentionExpiresAt: Date | null
@@ -117,7 +113,6 @@ export type AuthenticationChallengeCountAggregateOutputType = {
   encryptionKeyVersion: number
   expiresAt: number
   failedAttemptCount: number
-  maxAttempts: number
   consumedAt: number
   lockedAt: number
   retentionExpiresAt: number
@@ -133,7 +128,6 @@ export type AuthenticationChallengeAvgAggregateInputType = {
   encryptionProtocolVersion?: true
   encryptionKeyVersion?: true
   failedAttemptCount?: true
-  maxAttempts?: true
 }
 
 export type AuthenticationChallengeSumAggregateInputType = {
@@ -142,7 +136,6 @@ export type AuthenticationChallengeSumAggregateInputType = {
   encryptionProtocolVersion?: true
   encryptionKeyVersion?: true
   failedAttemptCount?: true
-  maxAttempts?: true
 }
 
 export type AuthenticationChallengeMinAggregateInputType = {
@@ -164,7 +157,6 @@ export type AuthenticationChallengeMinAggregateInputType = {
   encryptionKeyVersion?: true
   expiresAt?: true
   failedAttemptCount?: true
-  maxAttempts?: true
   consumedAt?: true
   lockedAt?: true
   retentionExpiresAt?: true
@@ -191,7 +183,6 @@ export type AuthenticationChallengeMaxAggregateInputType = {
   encryptionKeyVersion?: true
   expiresAt?: true
   failedAttemptCount?: true
-  maxAttempts?: true
   consumedAt?: true
   lockedAt?: true
   retentionExpiresAt?: true
@@ -218,7 +209,6 @@ export type AuthenticationChallengeCountAggregateInputType = {
   encryptionKeyVersion?: true
   expiresAt?: true
   failedAttemptCount?: true
-  maxAttempts?: true
   consumedAt?: true
   lockedAt?: true
   retentionExpiresAt?: true
@@ -332,7 +322,6 @@ export type AuthenticationChallengeGroupByOutputType = {
   encryptionKeyVersion: number
   expiresAt: Date
   failedAttemptCount: number
-  maxAttempts: number
   consumedAt: Date | null
   lockedAt: Date | null
   retentionExpiresAt: Date
@@ -382,7 +371,6 @@ export type AuthenticationChallengeWhereInput = {
   encryptionKeyVersion?: Prisma.IntFilter<"AuthenticationChallenge"> | number
   expiresAt?: Prisma.DateTimeFilter<"AuthenticationChallenge"> | Date | string
   failedAttemptCount?: Prisma.IntFilter<"AuthenticationChallenge"> | number
-  maxAttempts?: Prisma.IntFilter<"AuthenticationChallenge"> | number
   consumedAt?: Prisma.DateTimeNullableFilter<"AuthenticationChallenge"> | Date | string | null
   lockedAt?: Prisma.DateTimeNullableFilter<"AuthenticationChallenge"> | Date | string | null
   retentionExpiresAt?: Prisma.DateTimeFilter<"AuthenticationChallenge"> | Date | string
@@ -413,7 +401,6 @@ export type AuthenticationChallengeOrderByWithRelationInput = {
   encryptionKeyVersion?: Prisma.SortOrder
   expiresAt?: Prisma.SortOrder
   failedAttemptCount?: Prisma.SortOrder
-  maxAttempts?: Prisma.SortOrder
   consumedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   lockedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   retentionExpiresAt?: Prisma.SortOrder
@@ -447,7 +434,6 @@ export type AuthenticationChallengeWhereUniqueInput = Prisma.AtLeast<{
   encryptionKeyVersion?: Prisma.IntFilter<"AuthenticationChallenge"> | number
   expiresAt?: Prisma.DateTimeFilter<"AuthenticationChallenge"> | Date | string
   failedAttemptCount?: Prisma.IntFilter<"AuthenticationChallenge"> | number
-  maxAttempts?: Prisma.IntFilter<"AuthenticationChallenge"> | number
   consumedAt?: Prisma.DateTimeNullableFilter<"AuthenticationChallenge"> | Date | string | null
   lockedAt?: Prisma.DateTimeNullableFilter<"AuthenticationChallenge"> | Date | string | null
   retentionExpiresAt?: Prisma.DateTimeFilter<"AuthenticationChallenge"> | Date | string
@@ -478,7 +464,6 @@ export type AuthenticationChallengeOrderByWithAggregationInput = {
   encryptionKeyVersion?: Prisma.SortOrder
   expiresAt?: Prisma.SortOrder
   failedAttemptCount?: Prisma.SortOrder
-  maxAttempts?: Prisma.SortOrder
   consumedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   lockedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   retentionExpiresAt?: Prisma.SortOrder
@@ -513,7 +498,6 @@ export type AuthenticationChallengeScalarWhereWithAggregatesInput = {
   encryptionKeyVersion?: Prisma.IntWithAggregatesFilter<"AuthenticationChallenge"> | number
   expiresAt?: Prisma.DateTimeWithAggregatesFilter<"AuthenticationChallenge"> | Date | string
   failedAttemptCount?: Prisma.IntWithAggregatesFilter<"AuthenticationChallenge"> | number
-  maxAttempts?: Prisma.IntWithAggregatesFilter<"AuthenticationChallenge"> | number
   consumedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"AuthenticationChallenge"> | Date | string | null
   lockedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"AuthenticationChallenge"> | Date | string | null
   retentionExpiresAt?: Prisma.DateTimeWithAggregatesFilter<"AuthenticationChallenge"> | Date | string
@@ -537,7 +521,6 @@ export type AuthenticationChallengeCreateInput = {
   encryptionKeyVersion: number
   expiresAt: Date | string
   failedAttemptCount?: number
-  maxAttempts: number
   consumedAt?: Date | string | null
   lockedAt?: Date | string | null
   retentionExpiresAt: Date | string
@@ -568,7 +551,6 @@ export type AuthenticationChallengeUncheckedCreateInput = {
   encryptionKeyVersion: number
   expiresAt: Date | string
   failedAttemptCount?: number
-  maxAttempts: number
   consumedAt?: Date | string | null
   lockedAt?: Date | string | null
   retentionExpiresAt: Date | string
@@ -593,7 +575,6 @@ export type AuthenticationChallengeUpdateInput = {
   encryptionKeyVersion?: Prisma.IntFieldUpdateOperationsInput | number
   expiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   failedAttemptCount?: Prisma.IntFieldUpdateOperationsInput | number
-  maxAttempts?: Prisma.IntFieldUpdateOperationsInput | number
   consumedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   lockedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   retentionExpiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -624,7 +605,6 @@ export type AuthenticationChallengeUncheckedUpdateInput = {
   encryptionKeyVersion?: Prisma.IntFieldUpdateOperationsInput | number
   expiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   failedAttemptCount?: Prisma.IntFieldUpdateOperationsInput | number
-  maxAttempts?: Prisma.IntFieldUpdateOperationsInput | number
   consumedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   lockedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   retentionExpiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -652,7 +632,6 @@ export type AuthenticationChallengeCreateManyInput = {
   encryptionKeyVersion: number
   expiresAt: Date | string
   failedAttemptCount?: number
-  maxAttempts: number
   consumedAt?: Date | string | null
   lockedAt?: Date | string | null
   retentionExpiresAt: Date | string
@@ -676,7 +655,6 @@ export type AuthenticationChallengeUpdateManyMutationInput = {
   encryptionKeyVersion?: Prisma.IntFieldUpdateOperationsInput | number
   expiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   failedAttemptCount?: Prisma.IntFieldUpdateOperationsInput | number
-  maxAttempts?: Prisma.IntFieldUpdateOperationsInput | number
   consumedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   lockedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   retentionExpiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -703,7 +681,6 @@ export type AuthenticationChallengeUncheckedUpdateManyInput = {
   encryptionKeyVersion?: Prisma.IntFieldUpdateOperationsInput | number
   expiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   failedAttemptCount?: Prisma.IntFieldUpdateOperationsInput | number
-  maxAttempts?: Prisma.IntFieldUpdateOperationsInput | number
   consumedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   lockedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   retentionExpiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -740,7 +717,6 @@ export type AuthenticationChallengeCountOrderByAggregateInput = {
   encryptionKeyVersion?: Prisma.SortOrder
   expiresAt?: Prisma.SortOrder
   failedAttemptCount?: Prisma.SortOrder
-  maxAttempts?: Prisma.SortOrder
   consumedAt?: Prisma.SortOrder
   lockedAt?: Prisma.SortOrder
   retentionExpiresAt?: Prisma.SortOrder
@@ -754,7 +730,6 @@ export type AuthenticationChallengeAvgOrderByAggregateInput = {
   encryptionProtocolVersion?: Prisma.SortOrder
   encryptionKeyVersion?: Prisma.SortOrder
   failedAttemptCount?: Prisma.SortOrder
-  maxAttempts?: Prisma.SortOrder
 }
 
 export type AuthenticationChallengeMaxOrderByAggregateInput = {
@@ -776,7 +751,6 @@ export type AuthenticationChallengeMaxOrderByAggregateInput = {
   encryptionKeyVersion?: Prisma.SortOrder
   expiresAt?: Prisma.SortOrder
   failedAttemptCount?: Prisma.SortOrder
-  maxAttempts?: Prisma.SortOrder
   consumedAt?: Prisma.SortOrder
   lockedAt?: Prisma.SortOrder
   retentionExpiresAt?: Prisma.SortOrder
@@ -803,7 +777,6 @@ export type AuthenticationChallengeMinOrderByAggregateInput = {
   encryptionKeyVersion?: Prisma.SortOrder
   expiresAt?: Prisma.SortOrder
   failedAttemptCount?: Prisma.SortOrder
-  maxAttempts?: Prisma.SortOrder
   consumedAt?: Prisma.SortOrder
   lockedAt?: Prisma.SortOrder
   retentionExpiresAt?: Prisma.SortOrder
@@ -817,7 +790,6 @@ export type AuthenticationChallengeSumOrderByAggregateInput = {
   encryptionProtocolVersion?: Prisma.SortOrder
   encryptionKeyVersion?: Prisma.SortOrder
   failedAttemptCount?: Prisma.SortOrder
-  maxAttempts?: Prisma.SortOrder
 }
 
 export type AuthenticationChallengeScalarRelationFilter = {
@@ -993,7 +965,6 @@ export type AuthenticationChallengeCreateWithoutUserInput = {
   encryptionKeyVersion: number
   expiresAt: Date | string
   failedAttemptCount?: number
-  maxAttempts: number
   consumedAt?: Date | string | null
   lockedAt?: Date | string | null
   retentionExpiresAt: Date | string
@@ -1022,7 +993,6 @@ export type AuthenticationChallengeUncheckedCreateWithoutUserInput = {
   encryptionKeyVersion: number
   expiresAt: Date | string
   failedAttemptCount?: number
-  maxAttempts: number
   consumedAt?: Date | string | null
   lockedAt?: Date | string | null
   retentionExpiresAt: Date | string
@@ -1079,7 +1049,6 @@ export type AuthenticationChallengeScalarWhereInput = {
   encryptionKeyVersion?: Prisma.IntFilter<"AuthenticationChallenge"> | number
   expiresAt?: Prisma.DateTimeFilter<"AuthenticationChallenge"> | Date | string
   failedAttemptCount?: Prisma.IntFilter<"AuthenticationChallenge"> | number
-  maxAttempts?: Prisma.IntFilter<"AuthenticationChallenge"> | number
   consumedAt?: Prisma.DateTimeNullableFilter<"AuthenticationChallenge"> | Date | string | null
   lockedAt?: Prisma.DateTimeNullableFilter<"AuthenticationChallenge"> | Date | string | null
   retentionExpiresAt?: Prisma.DateTimeFilter<"AuthenticationChallenge"> | Date | string
@@ -1103,7 +1072,6 @@ export type AuthenticationChallengeCreateWithoutSubjectInput = {
   encryptionKeyVersion: number
   expiresAt: Date | string
   failedAttemptCount?: number
-  maxAttempts: number
   consumedAt?: Date | string | null
   lockedAt?: Date | string | null
   retentionExpiresAt: Date | string
@@ -1132,7 +1100,6 @@ export type AuthenticationChallengeUncheckedCreateWithoutSubjectInput = {
   encryptionKeyVersion: number
   expiresAt: Date | string
   failedAttemptCount?: number
-  maxAttempts: number
   consumedAt?: Date | string | null
   lockedAt?: Date | string | null
   retentionExpiresAt: Date | string
@@ -1183,7 +1150,6 @@ export type AuthenticationChallengeCreateWithoutDeliveriesInput = {
   encryptionKeyVersion: number
   expiresAt: Date | string
   failedAttemptCount?: number
-  maxAttempts: number
   consumedAt?: Date | string | null
   lockedAt?: Date | string | null
   retentionExpiresAt: Date | string
@@ -1213,7 +1179,6 @@ export type AuthenticationChallengeUncheckedCreateWithoutDeliveriesInput = {
   encryptionKeyVersion: number
   expiresAt: Date | string
   failedAttemptCount?: number
-  maxAttempts: number
   consumedAt?: Date | string | null
   lockedAt?: Date | string | null
   retentionExpiresAt: Date | string
@@ -1253,7 +1218,6 @@ export type AuthenticationChallengeUpdateWithoutDeliveriesInput = {
   encryptionKeyVersion?: Prisma.IntFieldUpdateOperationsInput | number
   expiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   failedAttemptCount?: Prisma.IntFieldUpdateOperationsInput | number
-  maxAttempts?: Prisma.IntFieldUpdateOperationsInput | number
   consumedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   lockedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   retentionExpiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1283,7 +1247,6 @@ export type AuthenticationChallengeUncheckedUpdateWithoutDeliveriesInput = {
   encryptionKeyVersion?: Prisma.IntFieldUpdateOperationsInput | number
   expiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   failedAttemptCount?: Prisma.IntFieldUpdateOperationsInput | number
-  maxAttempts?: Prisma.IntFieldUpdateOperationsInput | number
   consumedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   lockedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   retentionExpiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1307,7 +1270,6 @@ export type AuthenticationChallengeCreateWithoutBoundSessionInput = {
   encryptionKeyVersion: number
   expiresAt: Date | string
   failedAttemptCount?: number
-  maxAttempts: number
   consumedAt?: Date | string | null
   lockedAt?: Date | string | null
   retentionExpiresAt: Date | string
@@ -1336,7 +1298,6 @@ export type AuthenticationChallengeUncheckedCreateWithoutBoundSessionInput = {
   encryptionKeyVersion: number
   expiresAt: Date | string
   failedAttemptCount?: number
-  maxAttempts: number
   consumedAt?: Date | string | null
   lockedAt?: Date | string | null
   retentionExpiresAt: Date | string
@@ -1389,7 +1350,6 @@ export type AuthenticationChallengeCreateManyUserInput = {
   encryptionKeyVersion: number
   expiresAt: Date | string
   failedAttemptCount?: number
-  maxAttempts: number
   consumedAt?: Date | string | null
   lockedAt?: Date | string | null
   retentionExpiresAt: Date | string
@@ -1413,7 +1373,6 @@ export type AuthenticationChallengeUpdateWithoutUserInput = {
   encryptionKeyVersion?: Prisma.IntFieldUpdateOperationsInput | number
   expiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   failedAttemptCount?: Prisma.IntFieldUpdateOperationsInput | number
-  maxAttempts?: Prisma.IntFieldUpdateOperationsInput | number
   consumedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   lockedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   retentionExpiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1442,7 +1401,6 @@ export type AuthenticationChallengeUncheckedUpdateWithoutUserInput = {
   encryptionKeyVersion?: Prisma.IntFieldUpdateOperationsInput | number
   expiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   failedAttemptCount?: Prisma.IntFieldUpdateOperationsInput | number
-  maxAttempts?: Prisma.IntFieldUpdateOperationsInput | number
   consumedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   lockedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   retentionExpiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1469,7 +1427,6 @@ export type AuthenticationChallengeUncheckedUpdateManyWithoutUserInput = {
   encryptionKeyVersion?: Prisma.IntFieldUpdateOperationsInput | number
   expiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   failedAttemptCount?: Prisma.IntFieldUpdateOperationsInput | number
-  maxAttempts?: Prisma.IntFieldUpdateOperationsInput | number
   consumedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   lockedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   retentionExpiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1495,7 +1452,6 @@ export type AuthenticationChallengeCreateManySubjectInput = {
   encryptionKeyVersion: number
   expiresAt: Date | string
   failedAttemptCount?: number
-  maxAttempts: number
   consumedAt?: Date | string | null
   lockedAt?: Date | string | null
   retentionExpiresAt: Date | string
@@ -1519,7 +1475,6 @@ export type AuthenticationChallengeUpdateWithoutSubjectInput = {
   encryptionKeyVersion?: Prisma.IntFieldUpdateOperationsInput | number
   expiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   failedAttemptCount?: Prisma.IntFieldUpdateOperationsInput | number
-  maxAttempts?: Prisma.IntFieldUpdateOperationsInput | number
   consumedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   lockedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   retentionExpiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1548,7 +1503,6 @@ export type AuthenticationChallengeUncheckedUpdateWithoutSubjectInput = {
   encryptionKeyVersion?: Prisma.IntFieldUpdateOperationsInput | number
   expiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   failedAttemptCount?: Prisma.IntFieldUpdateOperationsInput | number
-  maxAttempts?: Prisma.IntFieldUpdateOperationsInput | number
   consumedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   lockedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   retentionExpiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1575,7 +1529,6 @@ export type AuthenticationChallengeUncheckedUpdateManyWithoutSubjectInput = {
   encryptionKeyVersion?: Prisma.IntFieldUpdateOperationsInput | number
   expiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   failedAttemptCount?: Prisma.IntFieldUpdateOperationsInput | number
-  maxAttempts?: Prisma.IntFieldUpdateOperationsInput | number
   consumedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   lockedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   retentionExpiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1601,7 +1554,6 @@ export type AuthenticationChallengeCreateManyBoundSessionInput = {
   encryptionKeyVersion: number
   expiresAt: Date | string
   failedAttemptCount?: number
-  maxAttempts: number
   consumedAt?: Date | string | null
   lockedAt?: Date | string | null
   retentionExpiresAt: Date | string
@@ -1625,7 +1577,6 @@ export type AuthenticationChallengeUpdateWithoutBoundSessionInput = {
   encryptionKeyVersion?: Prisma.IntFieldUpdateOperationsInput | number
   expiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   failedAttemptCount?: Prisma.IntFieldUpdateOperationsInput | number
-  maxAttempts?: Prisma.IntFieldUpdateOperationsInput | number
   consumedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   lockedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   retentionExpiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1654,7 +1605,6 @@ export type AuthenticationChallengeUncheckedUpdateWithoutBoundSessionInput = {
   encryptionKeyVersion?: Prisma.IntFieldUpdateOperationsInput | number
   expiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   failedAttemptCount?: Prisma.IntFieldUpdateOperationsInput | number
-  maxAttempts?: Prisma.IntFieldUpdateOperationsInput | number
   consumedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   lockedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   retentionExpiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1681,7 +1631,6 @@ export type AuthenticationChallengeUncheckedUpdateManyWithoutBoundSessionInput =
   encryptionKeyVersion?: Prisma.IntFieldUpdateOperationsInput | number
   expiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   failedAttemptCount?: Prisma.IntFieldUpdateOperationsInput | number
-  maxAttempts?: Prisma.IntFieldUpdateOperationsInput | number
   consumedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   lockedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   retentionExpiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1739,7 +1688,6 @@ export type AuthenticationChallengeSelect<ExtArgs extends runtime.Types.Extensio
   encryptionKeyVersion?: boolean
   expiresAt?: boolean
   failedAttemptCount?: boolean
-  maxAttempts?: boolean
   consumedAt?: boolean
   lockedAt?: boolean
   retentionExpiresAt?: boolean
@@ -1771,7 +1719,6 @@ export type AuthenticationChallengeSelectCreateManyAndReturn<ExtArgs extends run
   encryptionKeyVersion?: boolean
   expiresAt?: boolean
   failedAttemptCount?: boolean
-  maxAttempts?: boolean
   consumedAt?: boolean
   lockedAt?: boolean
   retentionExpiresAt?: boolean
@@ -1801,7 +1748,6 @@ export type AuthenticationChallengeSelectUpdateManyAndReturn<ExtArgs extends run
   encryptionKeyVersion?: boolean
   expiresAt?: boolean
   failedAttemptCount?: boolean
-  maxAttempts?: boolean
   consumedAt?: boolean
   lockedAt?: boolean
   retentionExpiresAt?: boolean
@@ -1831,7 +1777,6 @@ export type AuthenticationChallengeSelectScalar = {
   encryptionKeyVersion?: boolean
   expiresAt?: boolean
   failedAttemptCount?: boolean
-  maxAttempts?: boolean
   consumedAt?: boolean
   lockedAt?: boolean
   retentionExpiresAt?: boolean
@@ -1839,7 +1784,7 @@ export type AuthenticationChallengeSelectScalar = {
   updatedAt?: boolean
 }
 
-export type AuthenticationChallengeOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "subjectKey" | "identityType" | "normalizedIdentity" | "purpose" | "userId" | "boundSessionId" | "otpHash" | "linkTokenHash" | "hashProtocolVersion" | "hashKeyVersion" | "encryptedProof" | "proofEncryptionIv" | "proofEncryptionTag" | "encryptionProtocolVersion" | "encryptionKeyVersion" | "expiresAt" | "failedAttemptCount" | "maxAttempts" | "consumedAt" | "lockedAt" | "retentionExpiresAt" | "createdAt" | "updatedAt", ExtArgs["result"]["authenticationChallenge"]>
+export type AuthenticationChallengeOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "subjectKey" | "identityType" | "normalizedIdentity" | "purpose" | "userId" | "boundSessionId" | "otpHash" | "linkTokenHash" | "hashProtocolVersion" | "hashKeyVersion" | "encryptedProof" | "proofEncryptionIv" | "proofEncryptionTag" | "encryptionProtocolVersion" | "encryptionKeyVersion" | "expiresAt" | "failedAttemptCount" | "consumedAt" | "lockedAt" | "retentionExpiresAt" | "createdAt" | "updatedAt", ExtArgs["result"]["authenticationChallenge"]>
 export type AuthenticationChallengeInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   subject?: boolean | Prisma.AuthenticationChallengeSubjectDefaultArgs<ExtArgs>
   user?: boolean | Prisma.AuthenticationChallenge$userArgs<ExtArgs>
@@ -1884,8 +1829,10 @@ export type $AuthenticationChallengePayload<ExtArgs extends runtime.Types.Extens
     encryptionProtocolVersion: number
     encryptionKeyVersion: number
     expiresAt: Date
+    /**
+     * Diagnostic count of canonical OTP/link mismatches; never an eligibility threshold.
+     */
     failedAttemptCount: number
-    maxAttempts: number
     consumedAt: Date | null
     lockedAt: Date | null
     retentionExpiresAt: Date
@@ -2336,7 +2283,6 @@ export interface AuthenticationChallengeFieldRefs {
   readonly encryptionKeyVersion: Prisma.FieldRef<"AuthenticationChallenge", 'Int'>
   readonly expiresAt: Prisma.FieldRef<"AuthenticationChallenge", 'DateTime'>
   readonly failedAttemptCount: Prisma.FieldRef<"AuthenticationChallenge", 'Int'>
-  readonly maxAttempts: Prisma.FieldRef<"AuthenticationChallenge", 'Int'>
   readonly consumedAt: Prisma.FieldRef<"AuthenticationChallenge", 'DateTime'>
   readonly lockedAt: Prisma.FieldRef<"AuthenticationChallenge", 'DateTime'>
   readonly retentionExpiresAt: Prisma.FieldRef<"AuthenticationChallenge", 'DateTime'>

@@ -115,11 +115,13 @@ lockedAt = null
 expiresAt > now
 ```
 
-The target has no automatic attempt-count lock: failedAttemptCount, if retained,
-is diagnostic accounting, not a usability threshold. The currently persisted
-maxAttempts and attempt-limit constraints belong to the transitional Stage 2
-implementation. Existing terminal locked rows must not be silently reopened.
-See the accepted OTP-lock removal decision for the enforcement/migration gate.
+Stage 4 Iteration 5 block 2 removes the automatic attempt-count lock.
+`failedAttemptCount` records canonical OTP/link mismatches diagnostically; it
+never controls eligibility. `maxAttempts` and AUTH_CHALLENGE_MAX_ATTEMPTS are
+removed. The transition migration preserves existing terminal rows and marks
+legacy unconsumed/unlocked rows at the former threshold as locked, clearing
+only their proof envelope. Healthy rows, proof hashes, expiration and GCRA debt
+are preserved. Existing terminal locked rows never reopen automatically.
 
 Expiration is fixed when the challenge is created. Delivery retries never
 extend it. Terminal challenges are retained only for the configured short
@@ -501,8 +503,8 @@ rewrites historical data. This is a shared writer protocol, not a new unique
 database constraint; every application creation path must use it.
 
 Resend obtains fresh DB time after both kinds of row-lock wait and retains the
-existing transitional challenge eligibility checks. An unavailable challenge
-returns CHALLENGE_UNAVAILABLE even if unfinished work exists. Otherwise an
+challenge lifecycle and complete-envelope eligibility checks. An unavailable
+challenge returns CHALLENGE_UNAVAILABLE even if unfinished work exists. Otherwise an
 existing PENDING/PROCESSING Delivery returns EXISTING with its original ID,
 origin and provider idempotency key. No field changes: this includes updatedAt,
 retry schedule, attempt count and even an expired processing lease, whose
@@ -516,7 +518,7 @@ row or resolving a reusable challenge. Repeat-initial challenge resolution
 belongs to the domain coordinator. Sharing the challenge lock prevents mixed
 initial/resend races from inserting two unfinished Deliveries. These row locks
 are transaction serialization, not a change to challenge.lockedAt or proof
-failure semantics. The gated Stage 2 OTP-lock removal remains Iteration 5 work.
+failure semantics. Iteration 5 block 2 removes attempt-count eligibility.
 
 PostgreSQL tests use two independent Prisma clients to cover mixed creation
 and concurrent resend, unchanged pending retry/processing lease state, outer
@@ -550,7 +552,8 @@ rows in ID order, the complete four-policy advisory-lock union, GCRA rows, then
 cooldown rows. Unavailable challenges return CHALLENGE_UNAVAILABLE. Existing
 unfinished work returns EXISTING before touching rate policies; a closed
 new-Delivery window or active cooldown does not cancel or replace that work.
-Transitional lockedAt/failedAttemptCount checks are preserved until Iteration 5.
+Historical lockedAt remains terminal; diagnostic failure counts do not affect
+admission.
 
 For genuinely new work the auth-specific limiter accepts a captured Delivery
 window (exact expiresAt microseconds and the existing configured minimum
@@ -629,8 +632,7 @@ candidate returns REUSED with only ID/expiration: proof, failed attempts,
 expiration, deliveries and all rate/audit state remain unchanged. This includes
 a live challenge below the new-Delivery validity window. A legacy reuse may
 establish its canonical coordination row without rewriting the legacy subject.
-A live candidate with no envelope or the transitional exhausted-attempt state
-returns CHALLENGE_UNAVAILABLE rather than generating replacement proof.
+A live candidate with no envelope returns CHALLENGE_UNAVAILABLE rather than generating replacement proof.
 
 When no live candidate exists, the service generates a new UUID and uses the
 existing proof factory's persistence-only hashes/encrypted envelope. It does
@@ -639,7 +641,7 @@ expiration/retention deadlines use the fresh DB timestamp and validated
 challenge settings; the INITIAL Delivery inherits that retention deadline.
 Expired or terminal predecessors are never reopened, extended, rebound or
 modified. A new sign-in after consumption creates a distinct challenge.
-The gated removal of the old OTP-attempt lock remains Iteration 5 work.
+Iteration 5 block 2 removes the old OTP-attempt threshold from reuse eligibility.
 
 `AuthenticationDeliveryAdmissionService.admitInitialInTransaction` shares the
 existing-challenge admission transaction handling, window and four-policy
@@ -1040,26 +1042,32 @@ service must:
 4. create the session and security events.
 
 The challenge verification primitive is transaction-composable: it accepts a
-Prisma transaction client and never commits independently. It first locks the
-challenge row with `SELECT ... FOR UPDATE`, then obtains exactly one
-`clock_timestamp()` after the lock. This `operationNow` is used for the expiry
-comparison, failure accounting, `consumedAt`, and authenticated-at result. A
-challenge is expired when `expiresAt <= operationNow`; ordinary PostgreSQL
-transaction-start `now()` is not used after a potentially long lock wait.
+Prisma transaction client, commits nothing and performs no retries. It captures
+trusted canonical IP and expected purpose/session binding before the first
+await, then locks the challenge with `SELECT ... FOR UPDATE`. Missing, incorrectly
+bound, consumed, historically locked, expired and malformed inputs are excluded
+from failure budgets. An early DB timestamp supports lifecycle expiry cleanup;
+for canonical proof the limiter locks the full four-policy bucket union and
+samples a fresh microsecond DB timestamp after all waits. That admission time
+controls comparison eligibility, diagnostic accounting and consumption. Returned
+Date timestamps use its millisecond representation; GCRA preserves exact rational
+microseconds. A second expiry check after bucket waits prevents stale consumption.
 
-A malformed OTP does not consume a challenge attempt. Only a canonical
-six-digit OTP with a mismatching HMAC increments `failedAttemptCount`. Malformed
-proofs remain subject to request-level abuse limits. A canonical or malformed
-magic-link mismatch never changes the OTP attempt counter.
+Both canonical OTP and magic-link mismatches charge all four failure budgets and
+increment the diagnostic count once. Malformed proof and other exclusions do
+neither. Denial returns internal RATE_LIMITED with authoritative retry seconds,
+absolute microsecond boundary and denied policy IDs, without comparing proof or
+changing challenge/rate state. No count sets lockedAt, clears the proof envelope,
+or cancels Delivery. Purpose, binding, expiry, consumption and historical terminal
+state remain enforced. The expectedBoundSessionId input is explicit: null for
+SIGN_IN, the authorized bound session for STEP_UP. It is not client assertion.
 
-Target OTP mismatch handling preserves challenge usability and its delivery
-proof envelope while consistently charging applicable GCRA state and any retained
-diagnostic failure counter. It must not set lockedAt or clear proof merely
-because a failure count was reached. The existing Stage 2 conditional maximum-
-attempt lock/self-heal is transitional and must be retired through the gated
-Stage 4 integration, together with its schema/repository/delivery assumptions.
-Purpose, expiry, consumption, explicit invalidation, and historical terminal
-state continue to fail closed; removing an attempt lock does not relax them.
+The verifier has its own single-entry ReadCommitted/Serializable transaction
+guard and savepoint around challenge work; the limiter savepoint also includes
+proof comparison and its diagnostic/consumption mutations. An error caught by
+the owner cannot commit partial verifier changes. The owner supplies finite
+transaction/lock bounds and any bounded whole-transaction retry after confirmed
+abort. No external I/O belongs in comparison or these transactions.
 
 Expected verification outcomes are returned as values so their mutations can
 commit; throwing them inside the transaction would incorrectly roll back a
@@ -1359,13 +1367,13 @@ restrictions. Allowing a new challenge does not erase still-applicable
 verification abuse state.
 
 A verification-policy denial does not itself increment failedAttemptCount or
-perform a proof lifecycle transition. Stage 2's current five-wrong-OTP runtime
-lock is superseded by the accepted target decision below, with removal gated on
-working verification enforcement; it is not removed by documentation alone.
+perform a proof lifecycle transition. Stage 4 Iteration 5 block 2 replaces the
+five-wrong-OTP runtime lock with integrated four-policy verification admission.
 
 ### Accepted verification characteristics and failure-only accounting
 
-Status: **ACCEPTED / FIXED** as policy semantics, not implemented enforcement.
+Status: **ACCEPTED / FIXED**; internal enforcement is implemented in Stage 4
+Iteration 5 block 2. Public HTTP wiring remains Stage 6 work.
 
 Use independent normalized-identity and IP verification abuse buckets. The
 identity bucket aggregates applicable failures for the same normalized email
@@ -1438,8 +1446,8 @@ not exempt repeated invalid proofs as a blanket click-recovery measure.
 
 #### Accepted V1 short-term verification — GCRA
 
-Status: **ACCEPTED / FIXED** as configurable V1 policy semantics; enforcement is
-not implemented yet. GCRA replaces the previously selected short-term fixed
+Status: **ACCEPTED / FIXED**; configurable internal enforcement is implemented
+in Iteration 5 block 2, with public HTTP wiring pending. GCRA replaces the previously selected short-term fixed
 window, additional 60-second denial, and full-reset recovery. A sliding-window
 log is not required. Separate long-term identity and IP policies are fixed below.
 
@@ -1486,8 +1494,8 @@ For example, six nearly simultaneous identity failures consume its idle burst;
 one allowance returns approximately ten seconds later, rather than after an
 extra minute. In a pure GCRA failure stream, six at time zero and one at each
 of 10, 20, 30, 40, and 50 seconds permit eleven failures before one minute.
-Current Stage 2 runtime lock still constrains real flows until migration; the
-target uses GCRA and independent lifecycle/Delivery rules without attempt lock.
+Iteration 5 block 2 uses GCRA and independent lifecycle/Delivery rules without
+an attempt-count lock. Historical terminal records remain terminal.
 
 Accepted OTP and magic-link mismatches share each scope's budget across
 challenges. Successful proof consumes neither. Failures do not automatically
@@ -1513,7 +1521,8 @@ implementation iterations, as listed in the consolidated register.
 #### Accepted V1 long-term identity verification — GCRA
 
 Status: **ACCEPTED / FIXED** as initial configurable V1 policy values for later
-tuning from operational analytics; enforcement is not implemented yet.
+tuning from operational analytics; internal verifier enforcement is implemented
+in Iteration 5 block 2, with public HTTP wiring pending.
 
 | Scope | Full burst capacity | Sustained replenishment rate |
 | --- | --- | --- |
@@ -1546,16 +1555,17 @@ it is not a system-wide compromise probability or a bound for repeated attacks
 across identities/challenges. The former burst-twelve scenario admitted thirteen
 guesses (0.0013%); the existing per-challenge lock limits guesses to five
 (0.0005%). The burst-eight alternative therefore retains more per-proof guessing
-risk than the current lock, rather than demonstrating that the lock has no value.
+risk than the former lock, rather than demonstrating that the lock had no value.
 
 This risk trade-off is accepted for the target recovery UX in the decision
-below. Current runtime still has the Stage 2 lock until gated implementation.
+below. Iteration 5 block 2 implements this transition in the internal verifier.
 Six-digit proof, 600-second lifetime, and independent Delivery limits remain.
 
 #### Accepted V1 long-term IP verification — GCRA
 
 Status: **ACCEPTED / FIXED** as initial configurable V1 policy values, subject to
-later tuning from aggregate operational data; enforcement is not implemented.
+later tuning from aggregate operational data; internal enforcement is implemented
+in Iteration 5 block 2, with public HTTP wiring pending.
 
 | Scope | Full burst capacity | Sustained replenishment rate |
 | --- | --- | --- |
@@ -1576,8 +1586,8 @@ requests do not advance TAT. Compute one retry-after from the latest blocking
 eligibility time. No additional timed penalty or periodic full reset applies.
 Challenge replacement, identity changes within an IP, and short-term recovery
 do not erase long-term IP debt. Denial affects verification only, not request/
-resend by itself. Runtime lock remains until the accepted removal gate below is
-implemented and verified.
+resend by itself. Iteration 5 block 2 implements the removal gate below with
+internal verifier concurrency, rollback, fail-closed and state-retention checks.
 
 Apply shared GCRA authoritative-time, concurrency, opaque-key, privacy,
 configuration/rollout, safe-cleanup, and telemetry requirements. Size and tune
@@ -1588,8 +1598,8 @@ protection. No new request/Delivery/global/provider parameters are selected here
 
 ### Accepted verification transaction boundary
 
-Status: **ACCEPTED / FIXED target; internal limiter core implemented in Stage 4,
-Iteration 5 block 1; verifier integration pending.**
+Status: **ACCEPTED / FIXED; limiter core and internal verifier integration
+implemented in Stage 4 Iteration 5 blocks 1–2.**
 
 `AuthenticationVerificationRateLimitService.evaluateInTransaction` composes the
 four fixed verification policies with the existing GCRA repository, key
@@ -1611,16 +1621,18 @@ database mutations; a mismatch remains a normal result for the owner to commit.
 The helper opens no transaction, commits nothing and performs no retries. Shared
 guards require a caller-owned ReadCommitted/Serializable transaction and one
 limiter operation per transaction. The owner supplies finite transaction/lock
-bounds and any bounded retry of confirmed aborts. This is an internal core,
-not full proof/domain integration: the old verifier, attempt lock, consumption,
-Delivery paths and session creation are unchanged in this block.
+bounds and any bounded retry of confirmed aborts. Block 2 integrates this core
+with the challenge verifier and consumption, removes attempt thresholds from
+request/Delivery paths, and retains diagnostic counts and historical lockedAt.
+User/session issuance and public HTTP integration remain later-stage work.
 
 The complete integration target remains: use one short PostgreSQL
 transaction for verification abuse admission, proof comparison, and the resulting
 proof/domain mutations. Serialize the challenge and all applicable verification
 buckets in deterministic order, then obtain fresh DB-authoritative time after
 required serialization waits. The concrete lock order and composition with the
-Stage 2 primitive belong to Iteration 5; do not reuse a timestamp that predates
+Stage 2 primitive are implemented in Iteration 5 blocks 1–2; do not reuse a
+timestamp that predates
 subsequent bucket-lock waits.
 
 For an eligible, correctly bound live challenge, all four GCRA verification
@@ -1647,7 +1659,8 @@ and is not refunded by verification denial, failure, or rollback.
 
 ### Accepted removal of automatic OTP attempt lock
 
-Status: **ACCEPTED / FIXED target decision; not implemented.** Supersede the
+Status: **ACCEPTED / FIXED; internal transition implemented in Iteration 5
+block 2. Public HTTP/client integration remains Stage 6 work.** Supersede the
 five-wrong-canonical-OTP permanent challenge lock. Verification is controlled by
 the four accepted GCRA policies. When capacity is unavailable, return a stable
 429 with authoritative retry-after; the client disables verification submission
@@ -1692,6 +1705,16 @@ needed and regenerate Prisma; historical migrations stay immutable. Retained
 failure counts are diagnostics rather than eligibility thresholds. The exact
 retention/removal of legacy fields is an implementation design decision. Do not
 reset identity/IP TAT when replacing challenges or changing the schema.
+
+Implementation: the new transition migration first terminalizes only legacy
+unconsumed/unlocked rows with failedAttemptCount >= their old maxAttempts and
+clears those envelopes, then removes maxAttempts and replaces its bounded-count
+CHECK with failedAttemptCount >= 0. Existing locked/consumed/healthy rows remain
+unchanged; no GCRA rows are changed. This intentionally removes obsolete threshold
+metadata and requires a coordinated deployment: old application instances query
+maxAttempts and cannot run against the new schema. The Prisma client is regenerated;
+historical migrations remain immutable. Tests replay the historical table and
+this actual transition SQL in an isolated PostgreSQL schema.
 
 Required coverage: fifth and later OTP mismatches do not terminalize the target
 challenge; GCRA denies while proof remains intact; retry-after elapses and correct

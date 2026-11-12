@@ -151,10 +151,6 @@ export function validateEnvironment(
     environment.AUTH_CHALLENGE_TTL_SECONDS,
     'AUTH_CHALLENGE_TTL_SECONDS',
   );
-  validatedEnvironment.AUTH_CHALLENGE_MAX_ATTEMPTS = parsePositiveInteger(
-    environment.AUTH_CHALLENGE_MAX_ATTEMPTS,
-    'AUTH_CHALLENGE_MAX_ATTEMPTS',
-  );
   const challengeRetentionSeconds = parsePositiveInteger(
     environment.AUTH_CHALLENGE_RETENTION_SECONDS,
     'AUTH_CHALLENGE_RETENTION_SECONDS',

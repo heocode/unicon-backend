@@ -8,8 +8,6 @@ import type { ChallengeProofPersistenceData } from '../types/challenge-proof.typ
 export type SignInChallengeCandidate = {
   id: string;
   expiresAt: Date;
-  failedAttemptCount: number;
-  maxAttempts: number;
   hasProof: boolean;
 };
 
@@ -46,7 +44,7 @@ export class AuthenticationChallengeRequestRepository {
     normalizedIdentity: string,
   ): Promise<SignInChallengeCandidate[]> {
     return transaction.$queryRaw<SignInChallengeCandidate[]>`
-      SELECT "id", "expiresAt", "failedAttemptCount", "maxAttempts",
+      SELECT "id", "expiresAt",
         ("encryptedProof" IS NOT NULL AND "proofEncryptionIv" IS NOT NULL
           AND "proofEncryptionTag" IS NOT NULL) AS "hasProof"
       FROM "AuthenticationChallenge"
@@ -67,7 +65,6 @@ export class AuthenticationChallengeRequestRepository {
       createdAt: Date;
       expiresAt: Date;
       retentionExpiresAt: Date;
-      maxAttempts: number;
     },
   ): Promise<{ id: string; expiresAt: Date }> {
     const { hashing, encryption } = input.persistence;
@@ -85,7 +82,6 @@ export class AuthenticationChallengeRequestRepository {
         encryptedProof: Uint8Array.from(encryption.encryptedProof),
         proofEncryptionIv: Uint8Array.from(encryption.proofEncryptionIv),
         proofEncryptionTag: Uint8Array.from(encryption.proofEncryptionTag),
-        maxAttempts: input.maxAttempts,
         createdAt: input.createdAt,
         updatedAt: input.createdAt,
         expiresAt: input.expiresAt,

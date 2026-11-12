@@ -148,8 +148,8 @@ Implement focused services for:
 - clearing encrypted proof when a challenge becomes terminal;
 - fixed challenge lifetime;
 - purpose validation;
-- diagnostic OTP-failure accounting; the implemented Stage 2 five-failure lock
-  is transitional and must be retired only through the gated Stage 4 transition;
+- diagnostic canonical OTP/link-failure accounting; Stage 4 Iteration 5 block 2
+  replaces the Stage 2 five-failure lock with atomic four-policy GCRA admission;
 - atomic consume shared by OTP and magic link;
 - expired challenge cleanup.
 
@@ -167,9 +167,9 @@ encryption keys are independent from each other and from JWT and rate-limit
 secrets, and are validated at startup.
 
 Required unit tests include format, entropy source boundaries, hash binding,
-wrong purpose, expiry, replay, and concurrent consumption. Existing fifth-attempt
-lock tests document current runtime until replaced by Stage 4 GCRA/no-attempt-
-lock tests at the enforcement integration gate.
+wrong purpose, expiry, replay, and concurrent consumption. Stage 4 Iteration 5
+block 2 replaces fifth-attempt lock tests with real PostgreSQL GCRA/consumption,
+failure rollback and legacy-migration checks.
 
 ## Stage 3: Delivery abstraction and email
 
@@ -543,8 +543,8 @@ independent request/global/provider protections and the 60-second email interval
 verification operations covered by that policy. It does not itself block
 initial request/Resend/Request new code, change account status, revoke sessions,
 or lock/consume challenges. Independent request/Delivery policies still apply;
-new challenges do not reset applicable verification abuse state. The current Stage 2 lock stays only until the gated
-GCRA/no-attempt-lock transition below is implemented.
+new challenges do not reset applicable verification abuse state. Stage 4
+Iteration 5 block 2 implements the gated GCRA/no-attempt-lock transition below.
 
 **ACCEPTED / FIXED:** use independent normalized-identity and IP buckets, not
 only a composite (identity, IP) bucket. Identity aggregates applicable failures
@@ -1058,10 +1058,28 @@ and support evidence. Telemetry outages do not change enforcement.
    even when the owner catches an error. Focused unit and real PostgreSQL tests
    cover concurrency, retained aliases, rollback, retryable transaction aborts,
    real OTP/link comparison, and expiry during advisory/row-lock waits.
-   This helper is not yet connected to the Stage 2 verifier or public HTTP.
-   Legacy OTP counters/lock, Delivery eligibility, schema, consumption and session
-   creation remain unchanged. Block 2 owns verifier integration and the gated
-   legacy-lock transition; subsequent blocks cover cross-flow and final regression.
+   Block 2 connects this helper to the challenge verifier: trusted source IP and
+   explicit expected session binding are captured before waits; authoritative
+   identity comes from the locked challenge. Canonical OTP/link mismatches update
+   a diagnostic counter and all four budgets atomically. Successful comparison
+   consumes proof in the same transaction without failure charges. RATE_LIMITED
+   is an internal result; technical failure throws after savepoint rollback.
+   The old threshold is removed from verification, request/reuse and Delivery
+   eligibility. maxAttempts/AUTH_CHALLENGE_MAX_ATTEMPTS/attemptsRemaining are
+   removed; failedAttemptCount is diagnostic and lockedAt preserves historical
+   terminal state. The transition migration terminalizes previously exhausted
+   unconsumed/unlocked records and clears their envelopes before dropping the
+   old threshold column/check. It preserves healthy/consumed/locked records,
+   proof hashes, TTL and GCRA debt. Deploy schema and application coherently;
+   old application instances cannot query the removed column. Prisma is regenerated.
+   Real PostgreSQL tests cover fifth/later errors, actual timed recovery on the
+   same proof, mixed OTP/link and cross-challenge concurrency, SQL partial-write
+   rollback even when caught, fail-closed behavior, expiry during both bucket
+   lock kinds, migration replay and debt retention through challenge cleanup.
+   Request reuse and Delivery processing/resend tests no longer depend on a
+   failure-count threshold. Public HTTP and user/session issuance are unchanged.
+   Iteration 5 remains IN PROGRESS; subsequent blocks cover broader cross-flow
+   behavior and final concurrency/failure/regression checks.
    Keep abuse budgets conceptually separate from
    proof failure accounting, but compose admission, proof comparison, and result
    mutations in one short PostgreSQL transaction. Serialize challenge and all

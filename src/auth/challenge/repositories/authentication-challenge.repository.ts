@@ -20,14 +20,12 @@ export type LockedAuthenticationChallenge = {
   hashKeyVersion: number;
   expiresAt: Date;
   failedAttemptCount: number;
-  maxAttempts: number;
   consumedAt: Date | null;
   lockedAt: Date | null;
 };
 
-export type OtpFailureTransition = {
+export type ProofFailureTransition = {
   failedAttemptCount: number;
-  maxAttempts: number;
   lockedAt: Date | null;
 };
 
@@ -60,7 +58,6 @@ export class AuthenticationChallengeRepository {
         "hashKeyVersion",
         "expiresAt",
         "failedAttemptCount",
-        "maxAttempts",
         "consumedAt",
         "lockedAt"
       FROM "AuthenticationChallenge"
@@ -86,30 +83,6 @@ export class AuthenticationChallengeRepository {
     return operationNow;
   }
 
-  async enforceAttemptLimitLock(
-    transaction: Prisma.TransactionClient,
-    challengeId: string,
-    operationNow: Date,
-  ): Promise<void> {
-    const rows = await transaction.$queryRaw<TransitionIdRow[]>(Prisma.sql`
-      UPDATE "AuthenticationChallenge"
-      SET
-        "lockedAt" = ${operationNow},
-        "encryptedProof" = NULL,
-        "proofEncryptionIv" = NULL,
-        "proofEncryptionTag" = NULL,
-        "updatedAt" = ${operationNow}
-      WHERE
-        "id" = ${challengeId}
-        AND "consumedAt" IS NULL
-        AND "lockedAt" IS NULL
-        AND "failedAttemptCount" >= "maxAttempts"
-      RETURNING "id"
-    `);
-
-    this.assertSingleTransition(rows);
-  }
-
   async clearExpiredEnvelope(
     transaction: Prisma.TransactionClient,
     challengeId: string,
@@ -133,40 +106,24 @@ export class AuthenticationChallengeRepository {
     this.assertSingleTransition(rows);
   }
 
-  async recordOtpFailure(
+  async recordProofFailure(
     transaction: Prisma.TransactionClient,
     challengeId: string,
     operationNow: Date,
-  ): Promise<OtpFailureTransition> {
-    const rows = await transaction.$queryRaw<OtpFailureTransition[]>(Prisma.sql`
+  ): Promise<ProofFailureTransition> {
+    const rows = await transaction.$queryRaw<
+      ProofFailureTransition[]
+    >(Prisma.sql`
       UPDATE "AuthenticationChallenge"
       SET
         "failedAttemptCount" = "failedAttemptCount" + 1,
-        "lockedAt" = CASE
-          WHEN "failedAttemptCount" + 1 >= "maxAttempts"
-            THEN CAST(${operationNow} AS TIMESTAMP(3))
-          ELSE NULL
-        END,
-        "encryptedProof" = CASE
-          WHEN "failedAttemptCount" + 1 >= "maxAttempts" THEN NULL
-          ELSE "encryptedProof"
-        END,
-        "proofEncryptionIv" = CASE
-          WHEN "failedAttemptCount" + 1 >= "maxAttempts" THEN NULL
-          ELSE "proofEncryptionIv"
-        END,
-        "proofEncryptionTag" = CASE
-          WHEN "failedAttemptCount" + 1 >= "maxAttempts" THEN NULL
-          ELSE "proofEncryptionTag"
-        END,
         "updatedAt" = ${operationNow}
       WHERE
         "id" = ${challengeId}
         AND "consumedAt" IS NULL
         AND "lockedAt" IS NULL
         AND "expiresAt" > ${operationNow}
-        AND "failedAttemptCount" < "maxAttempts"
-      RETURNING "failedAttemptCount", "maxAttempts", "lockedAt"
+      RETURNING "failedAttemptCount", "lockedAt"
     `);
 
     if (rows.length !== 1) {
@@ -194,7 +151,6 @@ export class AuthenticationChallengeRepository {
         AND "consumedAt" IS NULL
         AND "lockedAt" IS NULL
         AND "expiresAt" > ${operationNow}
-        AND "failedAttemptCount" < "maxAttempts"
       RETURNING "id"
     `);
 

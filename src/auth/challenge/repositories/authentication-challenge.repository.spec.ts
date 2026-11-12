@@ -40,18 +40,17 @@ describe('AuthenticationChallengeRepository', () => {
     expect(query.strings.join(' ')).toContain('clock_timestamp()');
   });
 
-  it('records an OTP failure and terminal lock through one UPDATE RETURNING', async () => {
+  it('records a diagnostic proof failure through one UPDATE RETURNING', async () => {
     const transition = {
       failedAttemptCount: 5,
-      maxAttempts: 5,
-      lockedAt: operationNow,
+      lockedAt: null,
     };
     const transaction = {
       $queryRaw: jest.fn().mockResolvedValue([transition]),
     };
 
     await expect(
-      repository.recordOtpFailure(
+      repository.recordProofFailure(
         transaction as unknown as Prisma.TransactionClient,
         challengeId,
         operationNow,
@@ -64,20 +63,19 @@ describe('AuthenticationChallengeRepository', () => {
     )[0][0].strings.join(' ');
     expect(sql).toContain('UPDATE "AuthenticationChallenge"');
     expect(sql).toContain('"failedAttemptCount" + 1');
-    expect(sql).toContain('"encryptedProof" = CASE');
-    expect(sql).toContain(
-      'RETURNING "failedAttemptCount", "maxAttempts", "lockedAt"',
-    );
+    expect(sql).not.toContain('"encryptedProof" =');
+    expect(sql).not.toContain('"lockedAt" =');
+    expect(sql).toContain('RETURNING "failedAttemptCount", "lockedAt"');
   });
 
-  it.each(['recordOtpFailure', 'consume', 'clearExpiredEnvelope'] as const)(
+  it.each(['recordProofFailure', 'consume', 'clearExpiredEnvelope'] as const)(
     'rejects a lost %s transition',
     async (method) => {
       const transaction = { $queryRaw: jest.fn().mockResolvedValue([]) };
 
       await expect(
-        method === 'recordOtpFailure'
-          ? repository.recordOtpFailure(
+        method === 'recordProofFailure'
+          ? repository.recordProofFailure(
               transaction as unknown as Prisma.TransactionClient,
               challengeId,
               operationNow,

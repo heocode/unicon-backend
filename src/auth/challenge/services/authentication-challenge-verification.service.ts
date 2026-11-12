@@ -5,27 +5,26 @@ import { Injectable } from '@nestjs/common';
 import type { Prisma } from '../../../generated/prisma/client';
 import { AuthenticationMethod } from '../../../generated/prisma/enums';
 
-// Internal repositories
+// Internal repositories/services
+import { GcraAdmissionInfrastructureError } from '../../../rate-limit/errors/gcra-admission-infrastructure.error';
+import { isRetryableGcraTransactionError } from '../../../rate-limit/utils/is-retryable-gcra-transaction-error.util';
+import { AuthenticationVerificationRateLimitService } from '../../rate-limit/services/authentication-verification-rate-limit.service';
+import { AuthenticationVerificationProofOutcome as ProofOutcome } from '../../rate-limit/types/authentication-verification-rate-limit.type';
 import {
   AuthenticationChallengeRepository,
   type LockedAuthenticationChallenge,
 } from '../repositories/authentication-challenge.repository';
-
-// Internal services
 import { AuthenticationChallengeProofService } from './authentication-challenge-proof.service';
 
-// Internal types
-import type { ChallengeProofContext } from '../types/challenge-proof.type';
+// Internal types/utilities
 import {
   ChallengeVerificationStatus,
-  InternalChallengeUnavailabilityReason,
+  InternalChallengeUnavailabilityReason as Unavailable,
   InvalidChallengeProofKind,
   type AuthenticationChallengeVerificationInput,
   type AuthenticationChallengeVerificationResult,
   type InvalidChallengeProofResult,
 } from '../types/authentication-challenge-verification.type';
-
-// Internal utilities
 import {
   parseCanonicalMagicLinkToken,
   parseCanonicalOtp,
@@ -33,12 +32,18 @@ import {
 
 @Injectable()
 export class AuthenticationChallengeVerificationService {
+  private static readonly transactions =
+    new WeakSet<Prisma.TransactionClient>();
+
   constructor(
     private readonly repository: AuthenticationChallengeRepository,
     private readonly proofService: AuthenticationChallengeProofService,
+    private readonly limiter: AuthenticationVerificationRateLimitService,
   ) {}
 
-  async verifyAndConsumeOtpInTransaction(
+  /** Results remain provisional until the owner commits. The owner supplies
+   * finite transaction/lock bounds and any bounded whole-transaction retries. */
+  verifyAndConsumeOtpInTransaction(
     transaction: Prisma.TransactionClient,
     input: AuthenticationChallengeVerificationInput,
   ): Promise<AuthenticationChallengeVerificationResult> {
@@ -49,7 +54,7 @@ export class AuthenticationChallengeVerificationService {
     );
   }
 
-  async verifyAndConsumeMagicLinkInTransaction(
+  verifyAndConsumeMagicLinkInTransaction(
     transaction: Prisma.TransactionClient,
     input: AuthenticationChallengeVerificationInput,
   ): Promise<AuthenticationChallengeVerificationResult> {
@@ -63,200 +68,158 @@ export class AuthenticationChallengeVerificationService {
   private async verifyInTransaction(
     transaction: Prisma.TransactionClient,
     input: AuthenticationChallengeVerificationInput,
-    authenticationMethod: AuthenticationMethod,
+    method: AuthenticationMethod,
+  ): Promise<AuthenticationChallengeVerificationResult> {
+    if (
+      ('$connect' in transaction && transaction.$connect !== undefined) ||
+      AuthenticationChallengeVerificationService.transactions.has(transaction)
+    ) {
+      throw new GcraAdmissionInfrastructureError('INVALID_TRANSACTION');
+    }
+    AuthenticationChallengeVerificationService.transactions.add(transaction);
+    // Capture before the first await. Only trusted boundary metadata belongs here.
+    const captured = { ...input };
+    try {
+      const [row] = await transaction.$queryRaw<{ isolation: string }[]>`
+        SELECT current_setting('transaction_isolation') AS "isolation"
+      `;
+      if (
+        row?.isolation !== 'read committed' &&
+        row?.isolation !== 'serializable'
+      )
+        throw new GcraAdmissionInfrastructureError('INVALID_TRANSACTION');
+      await transaction.$executeRaw`SAVEPOINT unicon_challenge_verification`;
+    } catch (error) {
+      throw this.failure(error);
+    }
+    try {
+      const result = await this.verify(transaction, captured, method);
+      await transaction.$executeRaw`RELEASE SAVEPOINT unicon_challenge_verification`;
+      return result;
+    } catch (error) {
+      try {
+        await transaction.$executeRaw`ROLLBACK TO SAVEPOINT unicon_challenge_verification`;
+        await transaction.$executeRaw`RELEASE SAVEPOINT unicon_challenge_verification`;
+      } catch {
+        throw new GcraAdmissionInfrastructureError('STATE_UNAVAILABLE');
+      }
+      throw this.failure(error);
+    }
+  }
+
+  private async verify(
+    transaction: Prisma.TransactionClient,
+    input: AuthenticationChallengeVerificationInput,
+    method: AuthenticationMethod,
   ): Promise<AuthenticationChallengeVerificationResult> {
     const challenge = await this.repository.lockByIdForUpdate(
       transaction,
       input.challengeId,
     );
+    if (!challenge) return this.unavailable(Unavailable.NOT_FOUND);
+    if (challenge.purpose !== input.expectedPurpose)
+      return this.unavailable(Unavailable.PURPOSE_MISMATCH);
+    if (challenge.boundSessionId !== input.expectedBoundSessionId)
+      return this.unavailable(Unavailable.BINDING_MISMATCH);
+    if (challenge.consumedAt) return this.unavailable(Unavailable.CONSUMED);
+    if (challenge.lockedAt) return this.unavailable(Unavailable.LOCKED);
 
-    if (!challenge) {
-      return this.unavailable(InternalChallengeUnavailabilityReason.NOT_FOUND);
-    }
-
-    const operationNow =
-      await this.repository.getOperationTimestamp(transaction);
-    const unavailable = await this.resolveUnavailableState(
-      transaction,
-      challenge,
-      input.expectedPurpose,
-      operationNow,
-    );
-
-    if (unavailable) {
-      return unavailable;
-    }
-
-    const context: ChallengeProofContext = {
-      challengeId: challenge.id,
-      purpose: challenge.purpose,
-      normalizedIdentity: challenge.normalizedIdentity,
-    };
-
-    if (authenticationMethod === AuthenticationMethod.EMAIL_OTP) {
-      return this.verifyOtp(
-        transaction,
-        challenge,
-        context,
-        input.proof,
-        operationNow,
-      );
-    }
-
-    return this.verifyMagicLink(
-      transaction,
-      challenge,
-      context,
-      input.proof,
-      operationNow,
-    );
-  }
-
-  private async resolveUnavailableState(
-    transaction: Prisma.TransactionClient,
-    challenge: LockedAuthenticationChallenge,
-    expectedPurpose: LockedAuthenticationChallenge['purpose'],
-    operationNow: Date,
-  ): Promise<AuthenticationChallengeVerificationResult | null> {
-    if (challenge.purpose !== expectedPurpose) {
-      return this.unavailable(
-        InternalChallengeUnavailabilityReason.PURPOSE_MISMATCH,
-      );
-    }
-
-    if (challenge.consumedAt) {
-      return this.unavailable(InternalChallengeUnavailabilityReason.CONSUMED);
-    }
-
-    if (challenge.lockedAt) {
-      return this.unavailable(InternalChallengeUnavailabilityReason.LOCKED);
-    }
-
-    if (challenge.failedAttemptCount >= challenge.maxAttempts) {
-      await this.repository.enforceAttemptLimitLock(
-        transaction,
-        challenge.id,
-        operationNow,
-      );
-      return this.unavailable(InternalChallengeUnavailabilityReason.LOCKED);
-    }
-
-    if (challenge.expiresAt.getTime() <= operationNow.getTime()) {
+    const initialNow = await this.repository.getOperationTimestamp(transaction);
+    if (challenge.expiresAt <= initialNow) {
       await this.repository.clearExpiredEnvelope(
         transaction,
         challenge.id,
-        operationNow,
+        initialNow,
       );
-      return this.unavailable(InternalChallengeUnavailabilityReason.EXPIRED);
+      return this.unavailable(Unavailable.EXPIRED);
     }
-
-    return null;
-  }
-
-  private async verifyOtp(
-    transaction: Prisma.TransactionClient,
-    challenge: LockedAuthenticationChallenge,
-    context: ChallengeProofContext,
-    otp: string,
-    operationNow: Date,
-  ): Promise<AuthenticationChallengeVerificationResult> {
     try {
-      parseCanonicalOtp(otp);
+      if (method === AuthenticationMethod.EMAIL_OTP)
+        parseCanonicalOtp(input.proof);
+      else parseCanonicalMagicLinkToken(input.proof);
     } catch {
       return this.invalidProof(
         InvalidChallengeProofKind.MALFORMED,
         false,
         challenge.failedAttemptCount,
-        challenge.maxAttempts,
-        challenge.lockedAt,
       );
     }
 
-    const matches = this.proofService.verifyOtp(
-      context,
-      otp,
-      challenge.otpHash,
-      challenge.hashProtocolVersion,
-      challenge.hashKeyVersion,
+    let proofResult: AuthenticationChallengeVerificationResult | undefined;
+    const admission = await this.limiter.evaluateInTransaction(
+      transaction,
+      {
+        normalizedIdentity: challenge.normalizedIdentity,
+        ipAddress: input.ipAddress,
+        expiresAtMicros: BigInt(challenge.expiresAt.getTime()) * 1000n,
+      },
+      async (nowMicros) => {
+        const now = new Date(Number(nowMicros / 1000n));
+        const context = {
+          challengeId: challenge.id,
+          purpose: challenge.purpose,
+          normalizedIdentity: challenge.normalizedIdentity,
+        };
+        const matches =
+          method === AuthenticationMethod.EMAIL_OTP
+            ? this.proofService.verifyOtp(
+                context,
+                input.proof,
+                challenge.otpHash,
+                challenge.hashProtocolVersion,
+                challenge.hashKeyVersion,
+              )
+            : this.proofService.verifyMagicLinkToken(
+                context,
+                input.proof,
+                challenge.linkTokenHash,
+                challenge.hashProtocolVersion,
+                challenge.hashKeyVersion,
+              );
+        if (!matches) {
+          const transition = await this.repository.recordProofFailure(
+            transaction,
+            challenge.id,
+            now,
+          );
+          proofResult = this.invalidProof(
+            InvalidChallengeProofKind.MISMATCH,
+            true,
+            transition.failedAttemptCount,
+          );
+          return ProofOutcome.CANONICAL_MISMATCH;
+        }
+        await this.repository.consume(transaction, challenge.id, now);
+        proofResult = this.verified(challenge, method, now);
+        return ProofOutcome.MATCH;
+      },
     );
-
-    if (!matches) {
-      const transition = await this.repository.recordOtpFailure(
+    if (admission.outcome === 'RATE_LIMITED') {
+      return {
+        status: ChallengeVerificationStatus.RATE_LIMITED,
+        retryAfterSeconds: admission.retryAfterSeconds,
+        retryNotBeforeMicros: admission.retryNotBeforeMicros,
+        deniedPolicyIds: admission.deniedPolicyIds,
+      };
+    }
+    if (admission.outcome === 'EXPIRED') {
+      await this.repository.clearExpiredEnvelope(
         transaction,
         challenge.id,
-        operationNow,
+        new Date(Number(admission.operationNowMicros / 1000n)),
       );
-
-      return this.invalidProof(
-        InvalidChallengeProofKind.MISMATCH,
-        true,
-        transition.failedAttemptCount,
-        transition.maxAttempts,
-        transition.lockedAt,
-      );
+      return this.unavailable(Unavailable.EXPIRED);
     }
-
-    return this.consume(
-      transaction,
-      challenge,
-      operationNow,
-      AuthenticationMethod.EMAIL_OTP,
-    );
+    if (!proofResult)
+      throw new GcraAdmissionInfrastructureError('INVALID_STATE');
+    return proofResult;
   }
 
-  private async verifyMagicLink(
-    transaction: Prisma.TransactionClient,
+  private verified(
     challenge: LockedAuthenticationChallenge,
-    context: ChallengeProofContext,
-    token: string,
-    operationNow: Date,
-  ): Promise<AuthenticationChallengeVerificationResult> {
-    try {
-      parseCanonicalMagicLinkToken(token);
-    } catch {
-      return this.invalidProof(
-        InvalidChallengeProofKind.MALFORMED,
-        false,
-        challenge.failedAttemptCount,
-        challenge.maxAttempts,
-        challenge.lockedAt,
-      );
-    }
-
-    const matches = this.proofService.verifyMagicLinkToken(
-      context,
-      token,
-      challenge.linkTokenHash,
-      challenge.hashProtocolVersion,
-      challenge.hashKeyVersion,
-    );
-
-    if (!matches) {
-      return this.invalidProof(
-        InvalidChallengeProofKind.MISMATCH,
-        false,
-        challenge.failedAttemptCount,
-        challenge.maxAttempts,
-        challenge.lockedAt,
-      );
-    }
-
-    return this.consume(
-      transaction,
-      challenge,
-      operationNow,
-      AuthenticationMethod.EMAIL_MAGIC_LINK,
-    );
-  }
-
-  private async consume(
-    transaction: Prisma.TransactionClient,
-    challenge: LockedAuthenticationChallenge,
-    operationNow: Date,
-    authenticationMethod: AuthenticationMethod,
-  ): Promise<AuthenticationChallengeVerificationResult> {
-    await this.repository.consume(transaction, challenge.id, operationNow);
-
+    method: AuthenticationMethod,
+    now: Date,
+  ): AuthenticationChallengeVerificationResult {
     return {
       status: ChallengeVerificationStatus.VERIFIED,
       challenge: {
@@ -265,9 +228,9 @@ export class AuthenticationChallengeVerificationService {
         purpose: challenge.purpose,
         userId: challenge.userId,
         boundSessionId: challenge.boundSessionId,
-        authenticationMethod,
-        authenticatedAt: operationNow,
-        consumedAt: operationNow,
+        authenticationMethod: method,
+        authenticatedAt: now,
+        consumedAt: now,
       },
     };
   }
@@ -276,26 +239,28 @@ export class AuthenticationChallengeVerificationService {
     kind: InvalidChallengeProofKind,
     attemptConsumed: boolean,
     failedAttemptCount: number,
-    maxAttempts: number,
-    lockedAt: Date | null,
   ): InvalidChallengeProofResult {
     return {
       status: ChallengeVerificationStatus.INVALID_PROOF,
       kind,
       attemptConsumed,
       failedAttemptCount,
-      attemptsRemaining: Math.max(0, maxAttempts - failedAttemptCount),
-      locked: lockedAt !== null,
-      lockedAt,
+      locked: false,
+      lockedAt: null,
     };
   }
 
   private unavailable(
-    internalReason: InternalChallengeUnavailabilityReason,
+    internalReason: Unavailable,
   ): AuthenticationChallengeVerificationResult {
-    return {
-      status: ChallengeVerificationStatus.UNAVAILABLE,
-      internalReason,
-    };
+    return { status: ChallengeVerificationStatus.UNAVAILABLE, internalReason };
+  }
+
+  private failure(error: unknown): GcraAdmissionInfrastructureError {
+    if (isRetryableGcraTransactionError(error))
+      return new GcraAdmissionInfrastructureError('TRANSACTION_ABORTED');
+    return error instanceof GcraAdmissionInfrastructureError
+      ? error
+      : new GcraAdmissionInfrastructureError('STATE_UNAVAILABLE');
   }
 }

@@ -267,8 +267,8 @@ model AuthenticationChallenge {
   encryptionKeyVersion      Int
 
   expiresAt          DateTime
+  /// Diagnostic count of canonical OTP/link mismatches; never an eligibility threshold.
   failedAttemptCount Int       @default(0)
-  maxAttempts        Int
   consumedAt         DateTime?
   lockedAt           DateTime?
   retentionExpiresAt DateTime

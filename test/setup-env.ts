@@ -29,7 +29,6 @@ process.env.ACCOUNT_DELETION_CANCEL_LIMIT_PER_IP ??= '20';
 process.env.ACCOUNT_DELETION_CANCEL_RATE_LIMIT_SECRET ??=
   'test-account-deletion-cancel-rate-secret';
 process.env.AUTH_CHALLENGE_TTL_SECONDS ??= '600';
-process.env.AUTH_CHALLENGE_MAX_ATTEMPTS ??= '5';
 process.env.AUTH_CHALLENGE_RETENTION_SECONDS ??= '86400';
 process.env.AUTH_CHALLENGE_CLEANUP_INTERVAL_SECONDS ??= '60';
 process.env.AUTH_CHALLENGE_CLEANUP_BATCH_SIZE ??= '100';

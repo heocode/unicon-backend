@@ -279,7 +279,6 @@ describe('Delivery admission, retention and account finalization (PostgreSQL)', 
         proofEncryptionTag: Uint8Array.from(
           proof.persistence.encryption.proofEncryptionTag,
         ),
-        maxAttempts: 5,
         expiresAt: new Date(Date.now() + (options.expired ? -1000 : 600_000)),
         retentionExpiresAt: new Date(
           Date.now() + (options.retained ? -1 : 86_400_000),

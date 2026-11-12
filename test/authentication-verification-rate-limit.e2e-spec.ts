@@ -476,7 +476,6 @@ describe('Conditional verification GCRA core (PostgreSQL)', () => {
         ),
         expiresAt: new Date(Date.now() + 600_000),
         retentionExpiresAt: new Date(Date.now() + 86_400_000),
-        maxAttempts: 5,
       },
     });
     const before = await prisma.authenticationChallenge.findUniqueOrThrow({

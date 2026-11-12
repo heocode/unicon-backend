@@ -56,7 +56,6 @@ function setup(candidates: SignInChallengeCandidate[] = []) {
     {
       ttlSeconds: 600,
       retentionSeconds: 86_400,
-      maxAttempts: 5,
     } as AuthenticationChallengeConfigService,
     proofs as unknown as AuthenticationChallengeProofFactoryService,
     deliveries as unknown as AuthenticationDeliveryAdmissionService,
@@ -70,8 +69,6 @@ function candidate(
   return {
     id: 'existing',
     expiresAt: new Date(now.getTime() + 60_000),
-    failedAttemptCount: 3,
-    maxAttempts: 5,
     hasProof: true,
     ...overrides,
   };
@@ -117,7 +114,6 @@ describe('AuthenticationChallengeRequestService (unit)', () => {
         createdAt: now,
         expiresAt: new Date(now.getTime() + 600_000),
         retentionExpiresAt: new Date(now.getTime() + 86_400_000),
-        maxAttempts: 5,
       });
       expect(created.id).not.toBe('existing');
       expect(created.persistence).toEqual({ hashing: {}, encryption: {} });
@@ -152,8 +148,8 @@ describe('AuthenticationChallengeRequestService (unit)', () => {
     expect(deliveries.admitInitialInTransaction).not.toHaveBeenCalled();
   });
 
-  it.each([{ hasProof: false }, { failedAttemptCount: 5 }])(
-    'preserves transitional unavailable live state (%j)',
+  it.each([{ hasProof: false }])(
+    'preserves unavailable live proof state (%j)',
     async (overrides) => {
       const { service, transaction, proofs } = setup([candidate(overrides)]);
       expect(

@@ -469,7 +469,6 @@ describe('Authentication Delivery cooldown and GCRA (PostgreSQL)', () => {
     const challengeConfig = new AuthenticationChallengeConfigService(
       new ConfigService({
         AUTH_CHALLENGE_TTL_SECONDS: 600,
-        AUTH_CHALLENGE_MAX_ATTEMPTS: 5,
         AUTH_CHALLENGE_RETENTION_SECONDS: 86400,
         AUTH_CHALLENGE_CLEANUP_INTERVAL_SECONDS: 60,
         AUTH_CHALLENGE_CLEANUP_BATCH_SIZE: 100,
@@ -504,9 +503,19 @@ describe('Authentication Delivery cooldown and GCRA (PostgreSQL)', () => {
         normalizedIdentity: value.normalizedIdentity,
         ...proof.persistence.hashing,
         ...proof.persistence.encryption,
+        otpHash: Uint8Array.from(proof.persistence.hashing.otpHash),
+        linkTokenHash: Uint8Array.from(proof.persistence.hashing.linkTokenHash),
+        encryptedProof: Uint8Array.from(
+          proof.persistence.encryption.encryptedProof,
+        ),
+        proofEncryptionIv: Uint8Array.from(
+          proof.persistence.encryption.proofEncryptionIv,
+        ),
+        proofEncryptionTag: Uint8Array.from(
+          proof.persistence.encryption.proofEncryptionTag,
+        ),
         expiresAt: new Date(Date.now() + 600_000),
         retentionExpiresAt: new Date(Date.now() + 86_400_000),
-        maxAttempts: 5,
       },
     });
     expect((await admit(value)).allowed).toBe(true);

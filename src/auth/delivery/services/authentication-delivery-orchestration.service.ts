@@ -329,7 +329,6 @@ export class AuthenticationDeliveryOrchestrationService {
     if (
       challenge.consumedAt !== null ||
       challenge.lockedAt !== null ||
-      challenge.failedAttemptCount >= challenge.maxAttempts ||
       challenge.expiresAt <= operationNow
     ) {
       return AuthenticationDeliveryCancellationReason.CHALLENGE_UNAVAILABLE;
