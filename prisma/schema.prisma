@@ -224,6 +224,7 @@ enum AuthenticationOperationDenial {
   CHALLENGE_UNAVAILABLE
   DELIVERY_WINDOW_CLOSED
   DELIVERY_CAPACITY_UNAVAILABLE
+  GLOBAL_RATE_DENIED
 }
 
 // Independent receipt: domain retention must not cascade-delete replay protection.

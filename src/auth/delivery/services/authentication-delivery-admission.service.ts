@@ -6,6 +6,7 @@ import { assertCanonicalUuid } from '../../../common/utils/assert-canonical-uuid
 import { canonicalizeIp } from '../../../common/utils/canonicalize-ip.util';
 import { GcraAdmissionInfrastructureError } from '../../../rate-limit/errors/gcra-admission-infrastructure.error';
 import { isRetryableGcraTransactionError } from '../../../rate-limit/utils/is-retryable-gcra-transaction-error.util';
+import { AUTHENTICATION_GLOBAL_DELIVERY_ADMISSION as globalAdmission } from '../../rate-limit/constants/authentication-global-delivery-admission.constants';
 import { AuthenticationDeliveryRateLimitService } from '../../rate-limit/services/authentication-delivery-rate-limit.service';
 import { authenticationDeliveryWindowOutcome } from '../../rate-limit/utils/authentication-delivery-window.util';
 import { AuthenticationDeliveryBacklogRepository } from '../repositories/authentication-delivery-backlog.repository';
@@ -140,7 +141,9 @@ export class AuthenticationDeliveryAdmissionService {
     if ('windowOutcome' in rate) return { outcome: rate.windowOutcome };
     if (!rate.allowed)
       return {
-        outcome: 'RATE_LIMITED',
+        outcome: rate.deniedPolicyIds.includes(globalAdmission.policyId)
+          ? 'GLOBAL_RATE_DENIED'
+          : 'RATE_LIMITED',
         operationNowMicros: rate.operationNowMicros,
         retryNotBeforeMicros: rate.retryNotBeforeMicros,
         retryAfterSeconds: rate.retryAfterSeconds,

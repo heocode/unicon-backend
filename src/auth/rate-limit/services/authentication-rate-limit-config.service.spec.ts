@@ -5,6 +5,9 @@ import { AuthenticationRateLimitConfigService } from './authentication-rate-limi
 const values = {
   AUTH_CHALLENGE_DELIVERY_COOLDOWN_SECONDS: 60,
   AUTH_IDENTITY_DELIVERY_COOLDOWN_SECONDS: 60,
+  AUTH_DELIVERY_GLOBAL_BURST: 10000,
+  AUTH_DELIVERY_GLOBAL_RATE: 10000,
+  AUTH_DELIVERY_GLOBAL_PERIOD_SECONDS: 60,
   AUTH_DELIVERY_IDENTITY_BURST: 10,
   AUTH_DELIVERY_IDENTITY_RATE: 7,
   AUTH_DELIVERY_IDENTITY_PERIOD_SECONDS: 3600,
@@ -37,6 +40,12 @@ describe('AuthenticationRateLimitConfigService', () => {
     const service = new AuthenticationRateLimitConfigService(config);
     expect(service.challengeDeliveryCooldownSeconds).toBe(60);
     expect(service.identityDeliveryCooldownSeconds).toBe(60);
+    expect(service.deliveryGlobal).toEqual({
+      burst: 10000,
+      rate: 10000,
+      periodSeconds: 60,
+    });
+    expect(Object.isFrozen(service.deliveryGlobal)).toBe(true);
     expect(service.deliveryIdentity).toEqual({
       burst: 10,
       rate: 7,
@@ -82,6 +91,9 @@ describe('AuthenticationRateLimitConfigService', () => {
     const overrides: Record<string, number> = {
       AUTH_CHALLENGE_DELIVERY_COOLDOWN_SECONDS: 101,
       AUTH_IDENTITY_DELIVERY_COOLDOWN_SECONDS: 102,
+      AUTH_DELIVERY_GLOBAL_BURST: 91,
+      AUTH_DELIVERY_GLOBAL_RATE: 92,
+      AUTH_DELIVERY_GLOBAL_PERIOD_SECONDS: 93,
       AUTH_DELIVERY_IDENTITY_BURST: 103,
       AUTH_DELIVERY_IDENTITY_RATE: 104,
       AUTH_DELIVERY_IDENTITY_PERIOD_SECONDS: 105,
@@ -110,6 +122,11 @@ describe('AuthenticationRateLimitConfigService', () => {
     expect(service.identityDeliveryCooldownSeconds).toBe(
       overrides.AUTH_IDENTITY_DELIVERY_COOLDOWN_SECONDS,
     );
+    expect(service.deliveryGlobal).toEqual({
+      burst: 91,
+      rate: 92,
+      periodSeconds: 93,
+    });
     expect(service.deliveryIdentity).toEqual({
       burst: overrides.AUTH_DELIVERY_IDENTITY_BURST,
       rate: overrides.AUTH_DELIVERY_IDENTITY_RATE,

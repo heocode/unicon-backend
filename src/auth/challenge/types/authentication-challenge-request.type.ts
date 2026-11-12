@@ -23,7 +23,7 @@ export type AuthenticationSignInRequestResult =
         | 'DELIVERY_CAPACITY_UNAVAILABLE';
     }
   | {
-      outcome: 'RATE_LIMITED';
+      outcome: 'RATE_LIMITED' | 'GLOBAL_RATE_DENIED';
       operationNowMicros: bigint;
       retryNotBeforeMicros: bigint;
       retryAfterSeconds: bigint;

@@ -299,4 +299,21 @@ describe('AuthenticationDeliveryAdmissionService (unit)', () => {
     ).rejects.toMatchObject({ reason: 'STATE_UNAVAILABLE' });
     expect(rateLimits.admitInTransaction).not.toHaveBeenCalled();
   });
+  it('classifies global denial while preserving joint retry and all policy attribution', async () => {
+    const { service, rateLimits, transaction } = setup();
+    rateLimits.admitInTransaction.mockResolvedValue({
+      allowed: false,
+      operationNowMicros: 5n,
+      retryAfterSeconds: 90n,
+      retryNotBeforeMicros: 90_000_005n,
+      deniedPolicyIds: ['AUTH_DELIVERY_GLOBAL', 'AUTH_DELIVERY_IDENTITY'],
+    });
+    expect(await service.admitResendInTransaction(transaction, input)).toEqual({
+      outcome: 'GLOBAL_RATE_DENIED',
+      operationNowMicros: 5n,
+      retryAfterSeconds: 90n,
+      retryNotBeforeMicros: 90_000_005n,
+      deniedPolicyIds: ['AUTH_DELIVERY_GLOBAL', 'AUTH_DELIVERY_IDENTITY'],
+    });
+  });
 });

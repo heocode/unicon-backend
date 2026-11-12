@@ -23,6 +23,7 @@ import type {
   AuthenticationOperationResponse,
 } from '../src/auth/operations/types/authentication-operation.type';
 import { AuthenticationDeliveryCooldownRepository } from '../src/auth/rate-limit/repositories/authentication-delivery-cooldown.repository';
+import { AUTHENTICATION_GLOBAL_DELIVERY_ADMISSION as globalAdmission } from '../src/auth/rate-limit/constants/authentication-global-delivery-admission.constants';
 import { AUTHENTICATION_RATE_LIMIT_POLICIES as policies } from '../src/auth/rate-limit/constants/authentication-rate-limit-policies.constants';
 import { validateEnvironment } from '../src/config/environment.validation';
 import { HttpRateLimitModule } from '../src/http-rate-limit/http-rate-limit.module';
@@ -105,6 +106,7 @@ describe('Auth Delivery backlog admission (PostgreSQL)', () => {
   beforeEach(async () => {
     ip = `2001:db8:${randomUUID().slice(0, 4)}:${randomUUID().slice(0, 4)}::1`;
     provider.submit.mockReset().mockResolvedValue({ outcome: 'ACCEPTED' });
+    ownedKeys.add(globalAdmission.key);
     expect(await outstanding()).toBe(0);
   });
   afterEach(async () => {

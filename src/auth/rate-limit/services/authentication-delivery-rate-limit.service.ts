@@ -9,11 +9,15 @@ import {
   prepareGcraAdmissions,
   assessGcraAdmissions,
 } from '../../../rate-limit/utils/gcra-admission-plan.util';
-import { chargeGcra } from '../../../rate-limit/utils/gcra-state.util';
+import {
+  chargeGcra,
+  createGcraState,
+} from '../../../rate-limit/utils/gcra-state.util';
 import {
   reserveRateLimitTransaction,
   withRateLimitSavepoint,
 } from '../../../rate-limit/utils/rate-limit-transaction.util';
+import { AUTHENTICATION_GLOBAL_DELIVERY_ADMISSION as globalAdmission } from '../constants/authentication-global-delivery-admission.constants';
 import { AUTHENTICATION_RATE_LIMIT_POLICIES as policies } from '../constants/authentication-rate-limit-policies.constants';
 import { AuthenticationDeliveryCooldownRepository } from '../repositories/authentication-delivery-cooldown.repository';
 import type {
@@ -169,7 +173,7 @@ export class AuthenticationDeliveryRateLimitService {
 
   private prepare(input: AuthenticationDeliveryRateLimitInput) {
     try {
-      const gcra = prepareGcraAdmissions(
+      const personal = prepareGcraAdmissions(
         [
           {
             policy: policies.deliveryIdentity,
@@ -183,6 +187,23 @@ export class AuthenticationDeliveryRateLimitService {
           },
         ],
         this.derivation,
+      );
+      const gcra = [
+        ...personal,
+        {
+          policyId: globalAdmission.policyId,
+          keys: [globalAdmission.key],
+          settings: createGcraState(
+            { numerator: 0n, denominator: 1n },
+            this.config.deliveryGlobal,
+          ).policy,
+        },
+      ].sort((left, right) =>
+        left.policyId < right.policyId
+          ? -1
+          : left.policyId > right.policyId
+            ? 1
+            : 0,
       );
       const cooldowns = [
         {

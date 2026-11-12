@@ -47,6 +47,11 @@ process.env.AUTH_DELIVERY_WORKER_MAX_DELIVERIES_PER_CYCLE ??= '20';
 process.env.AUTH_DELIVERY_WORKER_EXHAUSTED_LEASE_BATCH_SIZE ??= '100';
 process.env.AUTH_CHALLENGE_DELIVERY_COOLDOWN_SECONDS ??= '60';
 process.env.AUTH_IDENTITY_DELIVERY_COOLDOWN_SECONDS ??= '60';
+// Large shared test defaults avoid coupling unrelated service suites. Focused
+// global-admission tests use a small explicit budget and clean its fixed test key.
+process.env.AUTH_DELIVERY_GLOBAL_BURST ??= '10000';
+process.env.AUTH_DELIVERY_GLOBAL_RATE ??= '10000';
+process.env.AUTH_DELIVERY_GLOBAL_PERIOD_SECONDS ??= '60';
 process.env.AUTH_DELIVERY_IDENTITY_BURST ??= '10';
 process.env.AUTH_DELIVERY_IDENTITY_RATE ??= '7';
 process.env.AUTH_DELIVERY_IDENTITY_PERIOD_SECONDS ??= '3600';

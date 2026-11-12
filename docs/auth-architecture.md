@@ -2573,8 +2573,56 @@ the production window is now correctly rejected at the earlier backlog checkpoin
 
 ### Accepted Global Delivery Admission outcomes and commit uncertainty
 
-Status: **ACCEPTED / FIXED target; capacity denial and durable receipt handling
-implemented in Iteration 6 block 1; global-rate admission remains pending.** Distinguish these internal
+Iteration 6 block 2 adds the global creation budget to
+AuthenticationDeliveryRateLimitService's fixed plan alongside identity/IP and
+both cooldowns. It shares the full advisory-lock union, existing row lock order,
+fresh microsecond timestamp, exact GCRA arithmetic and savepoint. Successful new
+INITIAL/RESEND charges each applicable policy once in the same transaction as
+Delivery insertion. Any denial/failure leaves no partial global/personal charge,
+cooldown movement or coordinator touch. Reuse, unfinished-work resolution and
+provider retries do not enter new-Delivery admission and do not spend this budget.
+
+Global state is one existing GcraRateLimit row at the fixed technical key
+gcra:auth:delivery-admission:v1 with policyId AUTH_DELIVERY_GLOBAL. It contains no
+user characteristic and has no HMAC aliases. The v1 HMAC derivation protocol is
+unchanged; rotation of user-characteristic keys does not select a fresh global
+bucket. The DB key CHECK permits exactly this fixed key/policy pair in addition
+to the original HMAC-key form; arbitrary system keys are not admitted. Active
+global state must obey the same exact persistence, explicit-retuning and safe
+retention rules as other GCRA state. Lifecycle replacement, Delivery terminalization
+and challenge retention cleanup do not refund it.
+
+Required AUTH_DELIVERY_GLOBAL_BURST, AUTH_DELIVERY_GLOBAL_RATE and
+AUTH_DELIVERY_GLOBAL_PERIOD_SECONDS are validated positive safe integers and
+captured in a frozen config snapshot. Example 100 burst / 120 per 60 seconds is
+experimental, independent of backlog 1000 and provider permission spacing. It is
+not a strict fixed-window quota or a production capacity recommendation. Test
+defaults are larger to isolate unrelated suites; focused tests explicitly use
+burst/rate 3 and reset only the fixed global key in the dedicated test DB.
+
+If global state denies, internal admission returns GLOBAL_RATE_DENIED; otherwise
+personal/cooldown denial remains RATE_LIMITED. Both report all denying policy IDs
+and the latest joint absolute eligibility boundary, with positive waits rounded
+up only at reporting. No extra penalty or full-period reset is applied. Operation
+receipts persist this boundary rather than resetting a duration on replay; a
+historical denial never turns into new admission when its remaining wait reaches
+zero. Key/policy binding and rate-outcome attribution are also DB constrained.
+An enum migration is committed before the following receipt CHECK migration;
+a third additive migration narrows the key exception. No old data is rewritten
+and Prisma is regenerated. Configure all three new settings on rollout.
+
+Unit and test/authentication-global-delivery-admission.e2e-spec.ts exercise real
+crypto, services, receipts, worker and PostgreSQL; only external email submission
+is replaced. They cover shared capacity across clients/identities/IPs, mixed
+denial precedence/max-wait, global immutability on personal denial, partial-write
+rollback, actual persisted-boundary recovery, expiry/window during global bucket
+waits, retry/reuse bypass, retention and DB constraints. Historical cooldown/global
+state fixtures are explicit and do not claim production throughput. Provider
+permissions, pressure/Retry-After and durable notification deferral remain later
+blocks; no provider gate is introduced by this creation budget.
+
+Status: **ACCEPTED / FIXED; internal capacity/global-rate admission and durable
+receipt handling implemented in Iteration 6 blocks 1–2.** Distinguish these internal
 outcomes without conflating policy decisions and availability failures:
 
 | Internal outcome | Meaning | Retry information |

@@ -14,6 +14,7 @@ import { AuthenticationChallengeRequestService } from '../../challenge/services/
 import type { AuthenticationSignInRequestResult } from '../../challenge/types/authentication-challenge-request.type';
 import { AuthenticationDeliveryAdmissionService } from '../../delivery/services/authentication-delivery-admission.service';
 import type { AuthenticationResendAdmissionResult } from '../../delivery/types/authentication-delivery-admission.type';
+import { AUTHENTICATION_GLOBAL_DELIVERY_ADMISSION as globalAdmission } from '../../rate-limit/constants/authentication-global-delivery-admission.constants';
 import { AUTHENTICATION_RATE_LIMIT_POLICIES as policies } from '../../rate-limit/constants/authentication-rate-limit-policies.constants';
 import { AuthenticationOperationError } from '../errors/authentication-operation.error';
 import { AuthenticationOperationRepository } from '../repositories/authentication-operation.repository';
@@ -219,7 +220,7 @@ export class AuthenticationOperationService {
     return {
       ...data,
       denial: raw.outcome,
-      ...(raw.outcome === 'RATE_LIMITED'
+      ...(raw.outcome === 'RATE_LIMITED' || raw.outcome === 'GLOBAL_RATE_DENIED'
         ? {
             evaluatedAtMicros: raw.operationNowMicros,
             retryNotBeforeMicros: raw.retryNotBeforeMicros.toString(),
@@ -275,13 +276,19 @@ export class AuthenticationOperationService {
       )
         throw new AuthenticationOperationError('INVALID_STATE');
       const knownPolicies = [
+        globalAdmission.policyId,
         policies.challengeDeliveryCooldown.id,
         policies.identityDeliveryCooldown.id,
         policies.deliveryIdentity.id,
         policies.deliveryIp.id,
       ] as readonly string[];
-      if (row.denial === 'RATE_LIMITED') {
+      if (
+        row.denial === 'RATE_LIMITED' ||
+        row.denial === 'GLOBAL_RATE_DENIED'
+      ) {
         if (
+          row.deniedPolicyIds.includes(globalAdmission.policyId) !==
+            (row.denial === 'GLOBAL_RATE_DENIED') ||
           retryBoundary === null ||
           retryBoundary <= row.evaluatedAtMicros ||
           !row.deniedPolicyIds.length ||

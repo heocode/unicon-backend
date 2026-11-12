@@ -1168,8 +1168,29 @@ and support evidence. Telemetry outages do not change enforcement.
    Unit and 20 real PostgreSQL checks cover strict cross-client capacity, rollback,
    missing-state fail-closed behavior, stale Serializable snapshots, retry/lease
    accounting, lifecycle waits, full-capacity reuse/resolution, terminal/cleanup
-   release, receipt replay and independent request accounting. HTTP mappings,
-   global creation-rate admission and provider gate/deferral remain later blocks.
+   release, receipt replay and independent request accounting.
+   Block 2 implements the global creation budget as a third GCRA policy in the
+   same fixed Delivery admission plan: all retained personal aliases, the single
+   global key and both cooldowns are locked/evaluated together at one fresh DB
+   time. All three GCRA policies and cooldowns charge only on new admission;
+   existing work/reuse/provider retries do not spend global creation capacity.
+   AUTH_DELIVERY_GLOBAL_BURST/RATE/PERIOD_SECONDS are required positive safe
+   integers; .env.example uses experimental burst 100, rate 120 per 60 seconds.
+   General test defaults are deliberately larger; focused tests use burst/rate 3.
+   The fixed non-identifying key gcra:auth:delivery-admission:v1 belongs only to
+   AUTH_DELIVERY_GLOBAL; the immutable v1 HMAC key protocol is unchanged.
+   GLOBAL_RATE_DENIED takes internal precedence when the global policy denies,
+   retaining all denying policy IDs and the latest joint eligibility boundary.
+   Personal-only denial stays RATE_LIMITED and leaves global state untouched.
+   Receipts persist/replay both rate outcomes with an absolute retry boundary
+   and decreasing remaining wait. Three additive migrations commit the enum,
+   update receipt checks, and allow exactly the bound global-key/policy exception
+   in GcraRateLimit. Existing rows are not rewritten. Unit and 17 PostgreSQL
+   checks cover cross-client/identity/IP sharing, mixed denial, no partial charges,
+   actual timed recovery, rollback/late SQL failure, unchanged proof, key/receipt
+   checks, lifecycle expiry during global-key waits, provider retry and retention.
+   HTTP mappings and provider gate/deferral remain later blocks. Production
+   creation-rate tuning remains measurement-gated; no provider quota is selected.
    Separate aggregate admission of new Deliveries
    from actual provider submission capacity, including retries. Enforce the
    accepted auth backlog model atomically with admission, counting all PENDING/PROCESSING

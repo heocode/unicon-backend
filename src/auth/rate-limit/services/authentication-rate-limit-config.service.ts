@@ -9,6 +9,7 @@ import type { GcraPolicyConfig } from '../../../common/types/gcra-policy-config.
 export class AuthenticationRateLimitConfigService {
   readonly challengeDeliveryCooldownSeconds: number;
   readonly identityDeliveryCooldownSeconds: number;
+  readonly deliveryGlobal: GcraPolicyConfig;
   readonly deliveryIdentity: GcraPolicyConfig;
   readonly deliveryIp: GcraPolicyConfig;
   readonly verificationIdentityShortTerm: GcraPolicyConfig;
@@ -23,6 +24,13 @@ export class AuthenticationRateLimitConfigService {
     this.identityDeliveryCooldownSeconds = configService.getOrThrow<number>(
       'AUTH_IDENTITY_DELIVERY_COOLDOWN_SECONDS',
     );
+    this.deliveryGlobal = Object.freeze({
+      burst: configService.getOrThrow<number>('AUTH_DELIVERY_GLOBAL_BURST'),
+      rate: configService.getOrThrow<number>('AUTH_DELIVERY_GLOBAL_RATE'),
+      periodSeconds: configService.getOrThrow<number>(
+        'AUTH_DELIVERY_GLOBAL_PERIOD_SECONDS',
+      ),
+    });
     this.deliveryIdentity = Object.freeze({
       burst: configService.getOrThrow<number>('AUTH_DELIVERY_IDENTITY_BURST'),
       rate: configService.getOrThrow<number>('AUTH_DELIVERY_IDENTITY_RATE'),

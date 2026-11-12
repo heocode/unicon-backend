@@ -4,6 +4,7 @@ import { Prisma, type GcraRateLimit } from '../../../generated/prisma/client';
 import { RateLimitBucketKeyService } from '../../../rate-limit/services/rate-limit-bucket-key.service';
 import { createGcraState } from '../../../rate-limit/utils/gcra-state.util';
 import { toGcraPersistenceData } from '../../../rate-limit/utils/gcra-state-persistence.util';
+import { AUTHENTICATION_GLOBAL_DELIVERY_ADMISSION as globalAdmission } from '../constants/authentication-global-delivery-admission.constants';
 import { AUTHENTICATION_RATE_LIMIT_POLICIES as policies } from '../constants/authentication-rate-limit-policies.constants';
 import type { AuthenticationDeliveryCooldownAlias } from '../types/authentication-delivery-rate-limit.type';
 import { AuthenticationDeliveryRateLimitService } from './authentication-delivery-rate-limit.service';
@@ -18,6 +19,9 @@ function configValues() {
     ]),
     AUTH_CHALLENGE_DELIVERY_COOLDOWN_SECONDS: 60,
     AUTH_IDENTITY_DELIVERY_COOLDOWN_SECONDS: 60,
+    AUTH_DELIVERY_GLOBAL_BURST: 10000,
+    AUTH_DELIVERY_GLOBAL_RATE: 10000,
+    AUTH_DELIVERY_GLOBAL_PERIOD_SECONDS: 60,
     AUTH_DELIVERY_IDENTITY_BURST: 10,
     AUTH_DELIVERY_IDENTITY_RATE: 7,
     AUTH_DELIVERY_IDENTITY_PERIOD_SECONDS: 3600,
@@ -55,7 +59,17 @@ function setup(now = 0n) {
     lockAliases: jest.fn(() => Promise.resolve()),
     readAliases: jest.fn(() => Promise.resolve<GcraRateLimit[]>([])),
     operationNowMicros: jest.fn(() => Promise.resolve(now)),
-    writeAliases: jest.fn(() => Promise.resolve()),
+    writeAliases: jest
+      .fn<
+        Promise<void>,
+        [
+          Prisma.TransactionClient,
+          readonly string[],
+          string,
+          ReturnType<typeof createGcraState>,
+        ]
+      >()
+      .mockResolvedValue(undefined),
   };
   const cooldown = {
     readAliases: jest.fn(() =>
@@ -110,7 +124,7 @@ describe('AuthenticationDeliveryRateLimitService (unit)', () => {
           allowed: true,
           operationNowMicros: 1_234_567n,
         });
-        expect(gcra.writeAliases).toHaveBeenCalledTimes(2);
+        expect(gcra.writeAliases).toHaveBeenCalledTimes(3);
         expect(cooldown.writeAliases).toHaveBeenCalledTimes(2);
       } else {
         expect(result).toEqual({
@@ -149,7 +163,7 @@ describe('AuthenticationDeliveryRateLimitService (unit)', () => {
     expect(gcra.operationNowMicros.mock.invocationCallOrder[0]).toBeLessThan(
       gcra.writeAliases.mock.invocationCallOrder[0],
     );
-    expect(gcra.writeAliases).toHaveBeenCalledTimes(2);
+    expect(gcra.writeAliases).toHaveBeenCalledTimes(3);
     expect(cooldown.writeAliases).toHaveBeenCalledTimes(2);
     expect(cooldown.writeAliases).toHaveBeenCalledWith(
       transaction,
@@ -294,7 +308,7 @@ describe('AuthenticationDeliveryRateLimitService (unit)', () => {
     await expect(
       service.admitInTransaction(transaction, input),
     ).rejects.toMatchObject({ reason: 'STATE_UNAVAILABLE' });
-    expect(gcra.writeAliases).toHaveBeenCalledTimes(2);
+    expect(gcra.writeAliases).toHaveBeenCalledTimes(3);
     expect(cooldown.writeAliases).toHaveBeenCalledTimes(2);
     expect(transaction.$executeRaw).toHaveBeenCalledWith(
       expect.arrayContaining(['ROLLBACK TO SAVEPOINT unicon_gcra_admission']),
@@ -311,5 +325,80 @@ describe('AuthenticationDeliveryRateLimitService (unit)', () => {
       service.admitInTransaction(transaction, value),
     ).rejects.toMatchObject({ reason: 'INVALID_INPUT' });
     expect(gcra.lockAliases).not.toHaveBeenCalled();
+  });
+  function globalRow(boundary: bigint): GcraRateLimit {
+    const settings = { burst: 10000, rate: 10000, periodSeconds: 60 };
+    const data = toGcraPersistenceData(
+      createGcraState(
+        {
+          numerator:
+            boundary * BigInt(settings.rate) +
+            BigInt(settings.burst - 1) * 60_000_000n,
+          denominator: BigInt(settings.rate),
+        },
+        settings,
+      ),
+    );
+    return {
+      key: globalAdmission.key,
+      policyId: globalAdmission.policyId,
+      ...data,
+      tatNumerator: new Prisma.Decimal(data.tatNumerator),
+      tatDenominator: new Prisma.Decimal(data.tatDenominator),
+      idleAfterMicros: new Prisma.Decimal(data.idleAfterMicros),
+      updatedAt: new Date(0),
+    };
+  }
+  it('locks and charges one fixed global state with the same timestamp as personal policies', async () => {
+    const { service, transaction, gcra, policyConfig } = setup(123456n);
+    expect((await service.admitInTransaction(transaction, input)).allowed).toBe(
+      true,
+    );
+    expect(gcra.lockAliases).toHaveBeenCalledWith(
+      transaction,
+      expect.arrayContaining([globalAdmission.key]),
+    );
+    expect(gcra.writeAliases).toHaveBeenCalledWith(
+      transaction,
+      [globalAdmission.key],
+      globalAdmission.policyId,
+      expect.objectContaining({ policy: policyConfig.deliveryGlobal }),
+    );
+    expect(
+      gcra.writeAliases.mock.calls.filter(
+        (call) => call[2] === globalAdmission.policyId,
+      ),
+    ).toHaveLength(1);
+  });
+  it('aggregates global denial with cooldown using the latest boundary and never partially charges', async () => {
+    const { service, transaction, gcra, cooldown, identityKeys } = setup(1n);
+    gcra.readAliases.mockResolvedValue([globalRow(3_000_001n)]);
+    cooldown.readAliases.mockResolvedValue([
+      { key: identityKeys[0], count: 1, windowEndAtMicros: '90000001' },
+    ]);
+    expect(await service.admitInTransaction(transaction, input)).toMatchObject({
+      allowed: false,
+      retryAfterSeconds: 90n,
+      retryNotBeforeMicros: 90_000_001n,
+      deniedPolicyIds: [
+        globalAdmission.policyId,
+        policies.identityDeliveryCooldown.id,
+      ],
+    });
+    expect(gcra.writeAliases).not.toHaveBeenCalled();
+    expect(cooldown.writeAliases).not.toHaveBeenCalled();
+  });
+  it('does not hide corrupted global state behind a personal cooldown denial', async () => {
+    const { service, transaction, gcra, cooldown, identityKeys } = setup(1n);
+    gcra.readAliases.mockResolvedValue([
+      { ...globalRow(3_000_001n), policyId: 'WRONG_POLICY' },
+    ]);
+    cooldown.readAliases.mockResolvedValue([
+      { key: identityKeys[0], count: 1, windowEndAtMicros: '90000001' },
+    ]);
+    await expect(
+      service.admitInTransaction(transaction, input),
+    ).rejects.toMatchObject({ reason: 'INVALID_STATE' });
+    expect(gcra.writeAliases).not.toHaveBeenCalled();
   });
 });

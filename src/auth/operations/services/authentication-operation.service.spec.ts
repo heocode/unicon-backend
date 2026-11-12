@@ -238,4 +238,25 @@ describe('AuthenticationOperationService (unit)', () => {
     });
     expect(repository.insert).not.toHaveBeenCalled();
   });
+  it('persists and replays a global denial with its absolute boundary and remaining wait', async () => {
+    const { id, service, repository, requests } = setup();
+    requests.requestSignInInTransaction.mockResolvedValue({
+      outcome: 'GLOBAL_RATE_DENIED',
+      operationNowMicros: now,
+      retryAfterSeconds: 10n,
+      retryNotBeforeMicros: now + 10_000_000n,
+      deniedPolicyIds: ['AUTH_DELIVERY_GLOBAL'],
+    });
+    expect((await service.execute(id, request)).result).toMatchObject({
+      outcome: 'DENIED',
+      denial: 'GLOBAL_RATE_DENIED',
+      remainingWaitSeconds: 10n,
+    });
+    repository.nowMicros.mockResolvedValue(now + 11_000_000n);
+    expect((await service.execute(id, request)).result).toMatchObject({
+      denial: 'GLOBAL_RATE_DENIED',
+      remainingWaitSeconds: 0n,
+    });
+    expect(requests.requestSignInInTransaction).toHaveBeenCalledTimes(1);
+  });
 });
