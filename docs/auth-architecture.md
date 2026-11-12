@@ -1588,7 +1588,34 @@ protection. No new request/Delivery/global/provider parameters are selected here
 
 ### Accepted verification transaction boundary
 
-Status: **ACCEPTED / FIXED target; not implemented.** Use one short PostgreSQL
+Status: **ACCEPTED / FIXED target; internal limiter core implemented in Stage 4,
+Iteration 5 block 1; verifier integration pending.**
+
+`AuthenticationVerificationRateLimitService.evaluateInTransaction` composes the
+four fixed verification policies with the existing GCRA repository, key
+derivation, exact arithmetic and shared transaction savepoint. The owner must
+resolve and lock the authoritative challenge and validate canonical input,
+purpose/binding and terminal eligibility before calling it. Identity and captured
+expiry come from that challenge. The helper locks all retained bucket aliases,
+reads state and samples one DB microsecond timestamp after serialization waits.
+It rechecks expiry before admission/comparison. Denial returns the latest absolute
+eligibility boundary, rounded retry seconds and policy IDs, without invoking proof
+comparison or changing aliases.
+
+The internal callback receives that timestamp and returns MATCH,
+CANONICAL_MISMATCH or EXCLUDED. It must perform no external I/O. Only canonical
+mismatch writes all four policy states at that timestamp; all charges are
+calculated before the first write. Success/exclusion/expiry/denial neither advance
+TAT nor repair missing aliases. Errors roll back the savepoint including callback
+database mutations; a mismatch remains a normal result for the owner to commit.
+The helper opens no transaction, commits nothing and performs no retries. Shared
+guards require a caller-owned ReadCommitted/Serializable transaction and one
+limiter operation per transaction. The owner supplies finite transaction/lock
+bounds and any bounded retry of confirmed aborts. This is an internal core,
+not full proof/domain integration: the old verifier, attempt lock, consumption,
+Delivery paths and session creation are unchanged in this block.
+
+The complete integration target remains: use one short PostgreSQL
 transaction for verification abuse admission, proof comparison, and the resulting
 proof/domain mutations. Serialize the challenge and all applicable verification
 buckets in deterministic order, then obtain fresh DB-authoritative time after

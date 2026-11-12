@@ -17,7 +17,7 @@ export type PreparedGcraAdmission = Readonly<{
   keys: readonly string[];
 }>;
 
-/** Shared preparation for request GCRA and the fixed auth Delivery rate policies. */
+/** Shared preparation for request GCRA and the fixed auth rate policies. */
 export function prepareGcraAdmissions(
   inputs: readonly GcraAdmissionInput[],
   derivation: RateLimitBucketKeyService,

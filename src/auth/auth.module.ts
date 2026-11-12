@@ -57,6 +57,7 @@ import { AuthenticationDeliveryCleanupSchedulerService } from './delivery/servic
 import { AuthenticationRateLimitConfigService } from './rate-limit/services/authentication-rate-limit-config.service';
 import { AuthenticationDeliveryCooldownRepository } from './rate-limit/repositories/authentication-delivery-cooldown.repository';
 import { AuthenticationDeliveryRateLimitService } from './rate-limit/services/authentication-delivery-rate-limit.service';
+import { AuthenticationVerificationRateLimitService } from './rate-limit/services/authentication-verification-rate-limit.service';
 import { AuthenticationOperationRepository } from './operations/repositories/authentication-operation.repository';
 import { AuthenticationOperationService } from './operations/services/authentication-operation.service';
 import { AuthenticationOperationCleanupService } from './operations/services/authentication-operation-cleanup.service';
@@ -91,6 +92,7 @@ import { AuthenticationOperationCleanupSchedulerService } from './operations/ser
     AuthenticationRateLimitConfigService,
     AuthenticationDeliveryCooldownRepository,
     AuthenticationDeliveryRateLimitService,
+    AuthenticationVerificationRateLimitService,
     AuthenticationOperationRepository,
     AuthenticationOperationService,
     AuthenticationOperationCleanupService,

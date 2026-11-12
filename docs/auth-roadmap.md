@@ -1046,7 +1046,23 @@ and support evidence. Telemetry outages do not change enforcement.
    results that do not modify cooldown. Include expiry replacement with the
    same email, 00:06 Resend returning 54 seconds after a 00:00 admission, concurrent
    admissions across different challenges, and atomic replacement rollback.
-5. **Verification admission.** Keep abuse budgets conceptually separate from
+5. **Verification admission — IN PROGRESS.** Block 1 implements the internal
+   `AuthenticationVerificationRateLimitService`: the caller owns the transaction
+   and resolves/locks the authoritative challenge before entry. The helper locks
+   the union of aliases for all four fixed verification policies, samples fresh
+   DB time after waits, rechecks captured expiry, and admits proof comparison
+   only when all four policies allow. The fixed comparison outcomes are MATCH,
+   CANONICAL_MISMATCH, and EXCLUDED. Only canonical mismatch charges all four
+   policies, as a returned value; success/exclusion/expiry/denial write nothing.
+   The shared single-operation transaction guard and savepoint preserve atomicity
+   even when the owner catches an error. Focused unit and real PostgreSQL tests
+   cover concurrency, retained aliases, rollback, retryable transaction aborts,
+   real OTP/link comparison, and expiry during advisory/row-lock waits.
+   This helper is not yet connected to the Stage 2 verifier or public HTTP.
+   Legacy OTP counters/lock, Delivery eligibility, schema, consumption and session
+   creation remain unchanged. Block 2 owns verifier integration and the gated
+   legacy-lock transition; subsequent blocks cover cross-flow and final regression.
+   Keep abuse budgets conceptually separate from
    proof failure accounting, but compose admission, proof comparison, and result
    mutations in one short PostgreSQL transaction. Serialize challenge and all
    four buckets in deterministic order; obtain fresh DB time after required
