@@ -1046,7 +1046,7 @@ and support evidence. Telemetry outages do not change enforcement.
    results that do not modify cooldown. Include expiry replacement with the
    same email, 00:06 Resend returning 54 seconds after a 00:00 admission, concurrent
    admissions across different challenges, and atomic replacement rollback.
-5. **Verification admission — IN PROGRESS.** Block 1 implements the internal
+5. **Verification admission — COMPLETE (internal Stage 4 scope).** Block 1 implements the internal
    `AuthenticationVerificationRateLimitService`: the caller owns the transaction
    and resolves/locks the authoritative challenge before entry. The helper locks
    the union of aliases for all four fixed verification policies, samples fresh
@@ -1095,8 +1095,32 @@ and support evidence. Telemetry outages do not change enforcement.
    fixtures, not elapsed-time or production-capacity measurements. Block 2 owns
    the actual timed same-challenge recovery check. No production code, schema,
    HTTP wiring or session issuance changes are needed for block 3.
-   Iteration 5 remains IN PROGRESS; block 4 owns final concurrency/failure and
-   regression checks.
+   Block 4 adds 12 PostgreSQL checks in the same lifecycle suite. Separate DB
+   clients and observed lock waits force both orders of verification/resend and
+   verification/request-driven replacement. Cleanup skips verifier-held rows;
+   when actual retention cleanup owns the row first, verification waits and
+   returns NOT_FOUND after deletion without a failure charge. Committed proof
+   consumption prevents later resend admission; a resend admitted first is
+   cancelled by the worker before submission if the challenge was then consumed.
+   Canonical mismatch preserves stable proof in either resend order.
+   Injected SQLSTATE 40001/40P01 on the final bucket write rolls back diagnostics,
+   partial charges and owner work; a new whole-owner attempt commits exactly one
+   diagnostic increment and one charge per policy. Simulated acknowledgement
+   loss after commit is not classified as a confirmed abort and is not blindly
+   retried. This is not a real network-fault test; those remain Iteration 7 work.
+   Ninety identities concurrently share the real IP verification buckets across
+   two DB clients. Test-only transactional SQL observations validate each accepted
+   IP charge against its actual admission-time interval and previous state;
+   replenishment during the batch is allowed, not mistaken for overspending.
+   Denied identities have no diagnostic increment or partial identity charges.
+   Exact idle bursts/rates, microsecond boundaries and retry rounding remain
+   covered by the common GCRA arithmetic tests; this is not a production load
+   or capacity measurement. Block 4 needs no production code or schema changes.
+   The existing retention lifecycle fixture uses DB-clock deadlines rather than
+   a Date.now()-1ms cutoff, matching the cleanup owner's authoritative clock.
+   Iteration 5's internal enforcement and legacy-lock transition are complete.
+   Public HTTP mappings, user/session orchestration, real network-fault/load
+   validation and later cleanup/retention work retain their roadmap owners.
    Keep abuse budgets conceptually separate from
    proof failure accounting, but compose admission, proof comparison, and result
    mutations in one short PostgreSQL transaction. Serialize challenge and all

@@ -460,23 +460,25 @@ describe('Delivery admission, retention and account finalization (PostgreSQL)', 
         expected = chargeGcra(expected, policy, at);
       expect(fromGcraPersistenceData(row)).toEqual(expected);
     }
-    await prisma.authenticationChallenge.update({
-      where: { id: original.id },
-      data: { retentionExpiresAt: new Date(Date.now() - 1) },
-    });
+    // Retention is DB-authoritative; an application-clock deadline one
+    // millisecond in the past is not guaranteed to precede the DB clock.
+    await prisma.$executeRaw`
+      UPDATE "AuthenticationChallenge"
+      SET "retentionExpiresAt"=clock_timestamp()-INTERVAL '1 second'
+      WHERE "id"=${original.id}
+    `;
     expect(await cleanup.deleteOneRetainedChallengeBatch(100)).toBe(1);
     expect(await cleanup.deleteOneOrphanedSubjectBatch(100)).toBe(0);
     expect(await operations.execute(resendId, resendInput(original))).toEqual({
       ...resend,
       replayed: true,
     });
-    await prisma.authenticationChallenge.update({
-      where: { id: replacement.result.challengeId },
-      data: {
-        expiresAt: new Date(Date.now() - 1000),
-        retentionExpiresAt: new Date(Date.now() - 1),
-      },
-    });
+    await prisma.$executeRaw`
+      UPDATE "AuthenticationChallenge"
+      SET "expiresAt"=clock_timestamp()-INTERVAL '2 seconds',
+          "retentionExpiresAt"=clock_timestamp()-INTERVAL '1 second'
+      WHERE "id"=${replacement.result.challengeId}
+    `;
     const preserved = await state();
     expect(await cleanup.deleteOneRetainedChallengeBatch(100)).toBe(1);
     expect(await cleanup.deleteOneOrphanedSubjectBatch(100)).toBe(1);

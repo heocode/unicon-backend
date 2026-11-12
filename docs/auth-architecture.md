@@ -1337,7 +1337,7 @@ reopened. These are target changes, not claims about current Stage 2/3 runtime.
 | Dedicated key ownership, canonical encoding, rotation preserving active debt, strict IP parser implementation, validated configuration and replica rollout/active-TAT semantics | Iteration 2, before affected enforcement is enabled |
 | GCRA TAT persistence/schema needs, lock order, exact arithmetic, bounded transaction retries and safe expiry | Iterations 2–3, database-backed verification |
 | Transaction-composable Delivery repository, one-unfinished invariant, admission reconciliation/idempotency and concrete operation identity | Iterations 4/6, verified in Iteration 7 |
-| Verification integration, legacy OTP-lock/schema transition | Iteration 5 with Iterations 3/7 checks before lock removal |
+| Verification integration, legacy OTP-lock/schema transition | Internal integration/transition complete in Iteration 5 after concurrency, rollback, fail-closed and retention checks; real network/load validation remains Iteration 7 work |
 | Global rate algorithm parameterization and numeric rate/burst/backlog values | Iterations 6–7 measurements before production; preserve accepted denial/atomicity contracts |
 | Gate/claim/defer composition, notification deferral, permission/crash accounting, provider daily/monthly quota handling | Iteration 6, integration verification in Iteration 7 |
 | HTTP mappings, source-resolution failures, combined-error precedence, response fields and retry UX | Stages 5–6; no undocumented public fields added here |
@@ -1644,7 +1644,41 @@ an owner precondition; public validation/guard wiring is not claimed here.
 Explicit historical cooldown/expiry and partial-recovery bucket fixtures isolate
 the boundaries without claiming elapsed wall time or production load. The actual
 timed same-challenge recovery test remains in block 2. Block 3 adds tests and
-documentation only; final concurrency/failure closure remains block 4 work.
+documentation only. Block 4 completes internal concurrency/failure closure below.
+
+Iteration 5 block 4 adds 12 PostgreSQL checks in the lifecycle suite, using two
+independent DB clients and observing actual lock waits before releasing the first
+owner. Both verification/resend orders preserve mismatch proof or enforce
+consumption; resend created before consumption is cancelled by the worker before
+provider submission. Both verification/expiry-replacement orders leave the new
+proof independent and preserve identity/IP debt. Cleanup skips verifier-held
+rows; a test-only PostgreSQL trigger pauses actual retention deletion while it
+owns the row, proving that waiting verification resolves NOT_FOUND after commit.
+
+Test-only final-write SQLSTATE 40001/40P01 injection exercises the integrated
+verifier and whole-owner rollback/retry. The failed owner leaves no diagnostic,
+partial bucket charge or owner marker; the new attempt commits one diagnostic
+and one charge per policy at one admission time. A simulated caller
+acknowledgement failure after commit is not a confirmed abort and is not blindly
+retried. Actual transport/commit-ambiguity fault tests remain Iteration 7 work.
+
+The shared-IP check runs canonical OTP/link mismatches for 90 distinct identities
+through the real verifier across two clients. Temporary transactional SQL audit
+rows observe committed IP TAT and the diagnostic timestamp's one-millisecond
+admission-time interval, validating eligibility and exact charge bounds in actual
+serialization order. It allows genuine replenishment during the batch; exact
+72-at-one-instant arithmetic remains covered by the common GCRA tests. A separate
+future-boundary fixture verifies denial without partial identity charges or IP
+state movement. No service, crypto implementation or clock is replaced. These
+checks establish internal behavior, not production throughput or a general proof
+that every possible interleaving is deadlock-free.
+
+Stage 4 Iteration 5 is complete for internal verification admission and the
+legacy attempt-lock transition. Block 4 changes tests/documentation only. Public
+HTTP integration and user/session issuance remain Stage 5–6 work; production
+capacity/network-fault and later cleanup gates remain in Iterations 6–7.
+The older retention lifecycle test also uses explicit DB-clock expiry/retention
+fixtures, avoiding an application-clock Date.now()-1ms cutoff for DB cleanup.
 
 The complete integration target remains: use one short PostgreSQL
 transaction for verification abuse admission, proof comparison, and the resulting
