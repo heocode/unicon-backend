@@ -143,6 +143,8 @@ export type AccountDeletionCancellationRateLimitScalarFieldEnum = (typeof Accoun
 
 export const AuthenticationChallengeSubjectScalarFieldEnum = {
   key: 'key',
+  normalizedIdentity: 'normalizedIdentity',
+  purpose: 'purpose',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
 } as const

@@ -1552,6 +1552,8 @@ export type AccountDeletionCancellationRateLimitScalarFieldEnum = (typeof Accoun
 
 export const AuthenticationChallengeSubjectScalarFieldEnum = {
   key: 'key',
+  normalizedIdentity: 'normalizedIdentity',
+  purpose: 'purpose',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
 } as const
@@ -1842,20 +1844,6 @@ export type ListIntFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel,
 
 
 /**
- * Reference to a field of type 'AuthenticationIdentityType'
- */
-export type EnumAuthenticationIdentityTypeFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'AuthenticationIdentityType'>
-    
-
-
-/**
- * Reference to a field of type 'AuthenticationIdentityType[]'
- */
-export type ListEnumAuthenticationIdentityTypeFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'AuthenticationIdentityType[]'>
-    
-
-
-/**
  * Reference to a field of type 'AuthenticationChallengePurpose'
  */
 export type EnumAuthenticationChallengePurposeFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'AuthenticationChallengePurpose'>
@@ -1866,6 +1854,20 @@ export type EnumAuthenticationChallengePurposeFieldRefInput<$PrismaModel> = Fiel
  * Reference to a field of type 'AuthenticationChallengePurpose[]'
  */
 export type ListEnumAuthenticationChallengePurposeFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'AuthenticationChallengePurpose[]'>
+    
+
+
+/**
+ * Reference to a field of type 'AuthenticationIdentityType'
+ */
+export type EnumAuthenticationIdentityTypeFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'AuthenticationIdentityType'>
+    
+
+
+/**
+ * Reference to a field of type 'AuthenticationIdentityType[]'
+ */
+export type ListEnumAuthenticationIdentityTypeFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'AuthenticationIdentityType[]'>
     
 
 

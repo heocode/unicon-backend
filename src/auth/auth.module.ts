@@ -36,6 +36,8 @@ import { AuthenticationChallengeRandomSourceService } from './challenge/services
 import { AuthenticationChallengeProofEncryptionService } from './challenge/services/authentication-challenge-proof-encryption.service';
 import { AuthenticationChallengeProofFactoryService } from './challenge/services/authentication-challenge-proof-factory.service';
 import { AuthenticationChallengeRepository } from './challenge/repositories/authentication-challenge.repository';
+import { AuthenticationChallengeRequestRepository } from './challenge/repositories/authentication-challenge-request.repository';
+import { AuthenticationChallengeRequestService } from './challenge/services/authentication-challenge-request.service';
 import { AuthenticationChallengeVerificationService } from './challenge/services/authentication-challenge-verification.service';
 import { AuthenticationChallengeCleanupRepository } from './challenge/repositories/authentication-challenge-cleanup.repository';
 import { AuthenticationChallengeCleanupService } from './challenge/services/authentication-challenge-cleanup.service';
@@ -89,6 +91,8 @@ import { AuthenticationDeliveryRateLimitService } from './rate-limit/services/au
     AuthenticationChallengeProofEncryptionService,
     AuthenticationChallengeProofFactoryService,
     AuthenticationChallengeRepository,
+    AuthenticationChallengeRequestRepository,
+    AuthenticationChallengeRequestService,
     AuthenticationChallengeVerificationService,
     AuthenticationChallengeCleanupRepository,
     AuthenticationChallengeCleanupService,

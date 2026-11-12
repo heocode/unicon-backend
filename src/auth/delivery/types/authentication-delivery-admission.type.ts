@@ -8,6 +8,9 @@ export type AuthenticationResendAdmissionInput = Readonly<{
   retentionExpiresAt: Date;
 }>;
 
+export type AuthenticationInitialAdmissionInput =
+  AuthenticationResendAdmissionInput;
+
 /** Internal result; provisional until the caller commits. No public HTTP mapping. */
 export type AuthenticationResendAdmissionResult =
   | {
@@ -22,3 +25,8 @@ export type AuthenticationResendAdmissionResult =
       retryAfterSeconds: bigint;
       deniedPolicyIds: readonly string[];
     };
+
+export type AuthenticationInitialAdmissionResult = Exclude<
+  AuthenticationResendAdmissionResult,
+  { outcome: 'EXISTING' }
+>;

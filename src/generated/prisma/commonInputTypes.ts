@@ -209,6 +209,23 @@ export type DateTimeWithAggregatesFilter<$PrismaModel = never> = {
   _max?: Prisma.NestedDateTimeFilter<$PrismaModel>
 }
 
+export type EnumAuthenticationChallengePurposeNullableFilter<$PrismaModel = never> = {
+  equals?: $Enums.AuthenticationChallengePurpose | Prisma.EnumAuthenticationChallengePurposeFieldRefInput<$PrismaModel> | null
+  in?: $Enums.AuthenticationChallengePurpose[] | Prisma.ListEnumAuthenticationChallengePurposeFieldRefInput<$PrismaModel> | null
+  notIn?: $Enums.AuthenticationChallengePurpose[] | Prisma.ListEnumAuthenticationChallengePurposeFieldRefInput<$PrismaModel> | null
+  not?: Prisma.NestedEnumAuthenticationChallengePurposeNullableFilter<$PrismaModel> | $Enums.AuthenticationChallengePurpose | null
+}
+
+export type EnumAuthenticationChallengePurposeNullableWithAggregatesFilter<$PrismaModel = never> = {
+  equals?: $Enums.AuthenticationChallengePurpose | Prisma.EnumAuthenticationChallengePurposeFieldRefInput<$PrismaModel> | null
+  in?: $Enums.AuthenticationChallengePurpose[] | Prisma.ListEnumAuthenticationChallengePurposeFieldRefInput<$PrismaModel> | null
+  notIn?: $Enums.AuthenticationChallengePurpose[] | Prisma.ListEnumAuthenticationChallengePurposeFieldRefInput<$PrismaModel> | null
+  not?: Prisma.NestedEnumAuthenticationChallengePurposeNullableWithAggregatesFilter<$PrismaModel> | $Enums.AuthenticationChallengePurpose | null
+  _count?: Prisma.NestedIntNullableFilter<$PrismaModel>
+  _min?: Prisma.NestedEnumAuthenticationChallengePurposeNullableFilter<$PrismaModel>
+  _max?: Prisma.NestedEnumAuthenticationChallengePurposeNullableFilter<$PrismaModel>
+}
+
 export type EnumAuthenticationIdentityTypeFilter<$PrismaModel = never> = {
   equals?: $Enums.AuthenticationIdentityType | Prisma.EnumAuthenticationIdentityTypeFieldRefInput<$PrismaModel>
   in?: $Enums.AuthenticationIdentityType[] | Prisma.ListEnumAuthenticationIdentityTypeFieldRefInput<$PrismaModel>
@@ -795,6 +812,23 @@ export type NestedDateTimeWithAggregatesFilter<$PrismaModel = never> = {
   _count?: Prisma.NestedIntFilter<$PrismaModel>
   _min?: Prisma.NestedDateTimeFilter<$PrismaModel>
   _max?: Prisma.NestedDateTimeFilter<$PrismaModel>
+}
+
+export type NestedEnumAuthenticationChallengePurposeNullableFilter<$PrismaModel = never> = {
+  equals?: $Enums.AuthenticationChallengePurpose | Prisma.EnumAuthenticationChallengePurposeFieldRefInput<$PrismaModel> | null
+  in?: $Enums.AuthenticationChallengePurpose[] | Prisma.ListEnumAuthenticationChallengePurposeFieldRefInput<$PrismaModel> | null
+  notIn?: $Enums.AuthenticationChallengePurpose[] | Prisma.ListEnumAuthenticationChallengePurposeFieldRefInput<$PrismaModel> | null
+  not?: Prisma.NestedEnumAuthenticationChallengePurposeNullableFilter<$PrismaModel> | $Enums.AuthenticationChallengePurpose | null
+}
+
+export type NestedEnumAuthenticationChallengePurposeNullableWithAggregatesFilter<$PrismaModel = never> = {
+  equals?: $Enums.AuthenticationChallengePurpose | Prisma.EnumAuthenticationChallengePurposeFieldRefInput<$PrismaModel> | null
+  in?: $Enums.AuthenticationChallengePurpose[] | Prisma.ListEnumAuthenticationChallengePurposeFieldRefInput<$PrismaModel> | null
+  notIn?: $Enums.AuthenticationChallengePurpose[] | Prisma.ListEnumAuthenticationChallengePurposeFieldRefInput<$PrismaModel> | null
+  not?: Prisma.NestedEnumAuthenticationChallengePurposeNullableWithAggregatesFilter<$PrismaModel> | $Enums.AuthenticationChallengePurpose | null
+  _count?: Prisma.NestedIntNullableFilter<$PrismaModel>
+  _min?: Prisma.NestedEnumAuthenticationChallengePurposeNullableFilter<$PrismaModel>
+  _max?: Prisma.NestedEnumAuthenticationChallengePurposeNullableFilter<$PrismaModel>
 }
 
 export type NestedEnumAuthenticationIdentityTypeFilter<$PrismaModel = never> = {

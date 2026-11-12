@@ -11,6 +11,8 @@ import { AuthenticationDeliveryRepository } from '../repositories/authentication
 import type {
   AuthenticationResendAdmissionInput,
   AuthenticationResendAdmissionResult,
+  AuthenticationInitialAdmissionInput,
+  AuthenticationInitialAdmissionResult,
 } from '../types/authentication-delivery-admission.type';
 import { AuthenticationDeliveryPolicyService } from './authentication-delivery-policy.service';
 
@@ -30,6 +32,30 @@ export class AuthenticationDeliveryAdmissionService {
     transaction: Prisma.TransactionClient,
     input: AuthenticationResendAdmissionInput,
   ): Promise<AuthenticationResendAdmissionResult> {
+    const captured = this.capture(input);
+    return this.withAdmission(transaction, () =>
+      this.admit(transaction, captured, 'RESEND'),
+    );
+  }
+
+  /** Strict INITIAL admission for a newly created challenge in the same transaction. */
+  async admitInitialInTransaction(
+    transaction: Prisma.TransactionClient,
+    input: AuthenticationInitialAdmissionInput,
+  ): Promise<AuthenticationInitialAdmissionResult> {
+    const captured = this.capture(input);
+    return this.withAdmission(transaction, async () => {
+      const result = await this.admit(transaction, captured, 'INITIAL');
+      if (result.outcome === 'EXISTING')
+        throw new GcraAdmissionInfrastructureError('INVALID_STATE');
+      return result;
+    });
+  }
+
+  private async withAdmission<T>(
+    transaction: Prisma.TransactionClient,
+    operation: () => Promise<T>,
+  ): Promise<T> {
     if (
       ('$connect' in transaction && transaction.$connect !== undefined) ||
       AuthenticationDeliveryAdmissionService.transactions.has(transaction)
@@ -37,7 +63,6 @@ export class AuthenticationDeliveryAdmissionService {
       throw new GcraAdmissionInfrastructureError('INVALID_TRANSACTION');
     }
     AuthenticationDeliveryAdmissionService.transactions.add(transaction);
-    const captured = this.capture(input);
     try {
       const [row] = await transaction.$queryRaw<{ isolation: string }[]>`
         SELECT current_setting('transaction_isolation') AS "isolation"
@@ -53,7 +78,7 @@ export class AuthenticationDeliveryAdmissionService {
       throw this.failure(error);
     }
     try {
-      const result = await this.admit(transaction, captured);
+      const result = await operation();
       await transaction.$executeRaw`RELEASE SAVEPOINT unicon_delivery_admission`;
       return result;
     } catch (error) {
@@ -70,12 +95,17 @@ export class AuthenticationDeliveryAdmissionService {
   private async admit(
     transaction: Prisma.TransactionClient,
     input: AuthenticationResendAdmissionInput,
+    origin: 'INITIAL' | 'RESEND',
   ): Promise<AuthenticationResendAdmissionResult> {
     const context = await this.repository.getResendContextInTransaction(
       transaction,
       input.challengeId,
     );
-    if (context.outcome !== 'READY') return context;
+    if (context.outcome !== 'READY') {
+      if (origin === 'INITIAL' && context.outcome === 'EXISTING')
+        throw new GcraAdmissionInfrastructureError('INVALID_STATE');
+      return context;
+    }
     const rate = await this.rateLimits.admitInTransaction(
       transaction,
       {
@@ -97,10 +127,19 @@ export class AuthenticationDeliveryAdmissionService {
       };
     // Reuses the strict persistence path under the locks already held. It cannot
     // become EXISTING/unavailable without an invariant violation in this operation.
-    const created = await this.repository.createResendDeliveryInTransaction(
-      transaction,
-      input,
-    );
+    const created =
+      origin === 'INITIAL'
+        ? {
+            outcome: 'CREATED' as const,
+            delivery: await this.repository.createInitialDelivery(transaction, {
+              ...input,
+              recipientSnapshot: context.normalizedIdentity,
+            }),
+          }
+        : await this.repository.createResendDeliveryInTransaction(
+            transaction,
+            input,
+          );
     if (created.outcome !== 'CREATED')
       throw new GcraAdmissionInfrastructureError('INVALID_STATE');
     return { ...created, operationNowMicros: rate.operationNowMicros };

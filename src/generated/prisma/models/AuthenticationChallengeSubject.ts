@@ -26,18 +26,24 @@ export type AggregateAuthenticationChallengeSubject = {
 
 export type AuthenticationChallengeSubjectMinAggregateOutputType = {
   key: string | null
+  normalizedIdentity: string | null
+  purpose: $Enums.AuthenticationChallengePurpose | null
   createdAt: Date | null
   updatedAt: Date | null
 }
 
 export type AuthenticationChallengeSubjectMaxAggregateOutputType = {
   key: string | null
+  normalizedIdentity: string | null
+  purpose: $Enums.AuthenticationChallengePurpose | null
   createdAt: Date | null
   updatedAt: Date | null
 }
 
 export type AuthenticationChallengeSubjectCountAggregateOutputType = {
   key: number
+  normalizedIdentity: number
+  purpose: number
   createdAt: number
   updatedAt: number
   _all: number
@@ -46,18 +52,24 @@ export type AuthenticationChallengeSubjectCountAggregateOutputType = {
 
 export type AuthenticationChallengeSubjectMinAggregateInputType = {
   key?: true
+  normalizedIdentity?: true
+  purpose?: true
   createdAt?: true
   updatedAt?: true
 }
 
 export type AuthenticationChallengeSubjectMaxAggregateInputType = {
   key?: true
+  normalizedIdentity?: true
+  purpose?: true
   createdAt?: true
   updatedAt?: true
 }
 
 export type AuthenticationChallengeSubjectCountAggregateInputType = {
   key?: true
+  normalizedIdentity?: true
+  purpose?: true
   createdAt?: true
   updatedAt?: true
   _all?: true
@@ -137,6 +149,8 @@ export type AuthenticationChallengeSubjectGroupByArgs<ExtArgs extends runtime.Ty
 
 export type AuthenticationChallengeSubjectGroupByOutputType = {
   key: string
+  normalizedIdentity: string | null
+  purpose: $Enums.AuthenticationChallengePurpose | null
   createdAt: Date
   updatedAt: Date
   _count: AuthenticationChallengeSubjectCountAggregateOutputType | null
@@ -164,6 +178,8 @@ export type AuthenticationChallengeSubjectWhereInput = {
   OR?: Prisma.AuthenticationChallengeSubjectWhereInput[]
   NOT?: Prisma.AuthenticationChallengeSubjectWhereInput | Prisma.AuthenticationChallengeSubjectWhereInput[]
   key?: Prisma.StringFilter<"AuthenticationChallengeSubject"> | string
+  normalizedIdentity?: Prisma.StringNullableFilter<"AuthenticationChallengeSubject"> | string | null
+  purpose?: Prisma.EnumAuthenticationChallengePurposeNullableFilter<"AuthenticationChallengeSubject"> | $Enums.AuthenticationChallengePurpose | null
   createdAt?: Prisma.DateTimeFilter<"AuthenticationChallengeSubject"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"AuthenticationChallengeSubject"> | Date | string
   challenges?: Prisma.AuthenticationChallengeListRelationFilter
@@ -171,6 +187,8 @@ export type AuthenticationChallengeSubjectWhereInput = {
 
 export type AuthenticationChallengeSubjectOrderByWithRelationInput = {
   key?: Prisma.SortOrder
+  normalizedIdentity?: Prisma.SortOrderInput | Prisma.SortOrder
+  purpose?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   challenges?: Prisma.AuthenticationChallengeOrderByRelationAggregateInput
@@ -178,16 +196,21 @@ export type AuthenticationChallengeSubjectOrderByWithRelationInput = {
 
 export type AuthenticationChallengeSubjectWhereUniqueInput = Prisma.AtLeast<{
   key?: string
+  normalizedIdentity_purpose?: Prisma.AuthenticationChallengeSubjectNormalizedIdentityPurposeCompoundUniqueInput
   AND?: Prisma.AuthenticationChallengeSubjectWhereInput | Prisma.AuthenticationChallengeSubjectWhereInput[]
   OR?: Prisma.AuthenticationChallengeSubjectWhereInput[]
   NOT?: Prisma.AuthenticationChallengeSubjectWhereInput | Prisma.AuthenticationChallengeSubjectWhereInput[]
+  normalizedIdentity?: Prisma.StringNullableFilter<"AuthenticationChallengeSubject"> | string | null
+  purpose?: Prisma.EnumAuthenticationChallengePurposeNullableFilter<"AuthenticationChallengeSubject"> | $Enums.AuthenticationChallengePurpose | null
   createdAt?: Prisma.DateTimeFilter<"AuthenticationChallengeSubject"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"AuthenticationChallengeSubject"> | Date | string
   challenges?: Prisma.AuthenticationChallengeListRelationFilter
-}, "key">
+}, "key" | "normalizedIdentity_purpose">
 
 export type AuthenticationChallengeSubjectOrderByWithAggregationInput = {
   key?: Prisma.SortOrder
+  normalizedIdentity?: Prisma.SortOrderInput | Prisma.SortOrder
+  purpose?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   _count?: Prisma.AuthenticationChallengeSubjectCountOrderByAggregateInput
@@ -200,12 +223,16 @@ export type AuthenticationChallengeSubjectScalarWhereWithAggregatesInput = {
   OR?: Prisma.AuthenticationChallengeSubjectScalarWhereWithAggregatesInput[]
   NOT?: Prisma.AuthenticationChallengeSubjectScalarWhereWithAggregatesInput | Prisma.AuthenticationChallengeSubjectScalarWhereWithAggregatesInput[]
   key?: Prisma.StringWithAggregatesFilter<"AuthenticationChallengeSubject"> | string
+  normalizedIdentity?: Prisma.StringNullableWithAggregatesFilter<"AuthenticationChallengeSubject"> | string | null
+  purpose?: Prisma.EnumAuthenticationChallengePurposeNullableWithAggregatesFilter<"AuthenticationChallengeSubject"> | $Enums.AuthenticationChallengePurpose | null
   createdAt?: Prisma.DateTimeWithAggregatesFilter<"AuthenticationChallengeSubject"> | Date | string
   updatedAt?: Prisma.DateTimeWithAggregatesFilter<"AuthenticationChallengeSubject"> | Date | string
 }
 
 export type AuthenticationChallengeSubjectCreateInput = {
   key: string
+  normalizedIdentity?: string | null
+  purpose?: $Enums.AuthenticationChallengePurpose | null
   createdAt?: Date | string
   updatedAt?: Date | string
   challenges?: Prisma.AuthenticationChallengeCreateNestedManyWithoutSubjectInput
@@ -213,6 +240,8 @@ export type AuthenticationChallengeSubjectCreateInput = {
 
 export type AuthenticationChallengeSubjectUncheckedCreateInput = {
   key: string
+  normalizedIdentity?: string | null
+  purpose?: $Enums.AuthenticationChallengePurpose | null
   createdAt?: Date | string
   updatedAt?: Date | string
   challenges?: Prisma.AuthenticationChallengeUncheckedCreateNestedManyWithoutSubjectInput
@@ -220,6 +249,8 @@ export type AuthenticationChallengeSubjectUncheckedCreateInput = {
 
 export type AuthenticationChallengeSubjectUpdateInput = {
   key?: Prisma.StringFieldUpdateOperationsInput | string
+  normalizedIdentity?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  purpose?: Prisma.NullableEnumAuthenticationChallengePurposeFieldUpdateOperationsInput | $Enums.AuthenticationChallengePurpose | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   challenges?: Prisma.AuthenticationChallengeUpdateManyWithoutSubjectNestedInput
@@ -227,6 +258,8 @@ export type AuthenticationChallengeSubjectUpdateInput = {
 
 export type AuthenticationChallengeSubjectUncheckedUpdateInput = {
   key?: Prisma.StringFieldUpdateOperationsInput | string
+  normalizedIdentity?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  purpose?: Prisma.NullableEnumAuthenticationChallengePurposeFieldUpdateOperationsInput | $Enums.AuthenticationChallengePurpose | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   challenges?: Prisma.AuthenticationChallengeUncheckedUpdateManyWithoutSubjectNestedInput
@@ -234,36 +267,53 @@ export type AuthenticationChallengeSubjectUncheckedUpdateInput = {
 
 export type AuthenticationChallengeSubjectCreateManyInput = {
   key: string
+  normalizedIdentity?: string | null
+  purpose?: $Enums.AuthenticationChallengePurpose | null
   createdAt?: Date | string
   updatedAt?: Date | string
 }
 
 export type AuthenticationChallengeSubjectUpdateManyMutationInput = {
   key?: Prisma.StringFieldUpdateOperationsInput | string
+  normalizedIdentity?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  purpose?: Prisma.NullableEnumAuthenticationChallengePurposeFieldUpdateOperationsInput | $Enums.AuthenticationChallengePurpose | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
 export type AuthenticationChallengeSubjectUncheckedUpdateManyInput = {
   key?: Prisma.StringFieldUpdateOperationsInput | string
+  normalizedIdentity?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  purpose?: Prisma.NullableEnumAuthenticationChallengePurposeFieldUpdateOperationsInput | $Enums.AuthenticationChallengePurpose | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
+export type AuthenticationChallengeSubjectNormalizedIdentityPurposeCompoundUniqueInput = {
+  normalizedIdentity: string
+  purpose: $Enums.AuthenticationChallengePurpose
+}
+
 export type AuthenticationChallengeSubjectCountOrderByAggregateInput = {
   key?: Prisma.SortOrder
+  normalizedIdentity?: Prisma.SortOrder
+  purpose?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
 }
 
 export type AuthenticationChallengeSubjectMaxOrderByAggregateInput = {
   key?: Prisma.SortOrder
+  normalizedIdentity?: Prisma.SortOrder
+  purpose?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
 }
 
 export type AuthenticationChallengeSubjectMinOrderByAggregateInput = {
   key?: Prisma.SortOrder
+  normalizedIdentity?: Prisma.SortOrder
+  purpose?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
 }
@@ -271,6 +321,10 @@ export type AuthenticationChallengeSubjectMinOrderByAggregateInput = {
 export type AuthenticationChallengeSubjectScalarRelationFilter = {
   is?: Prisma.AuthenticationChallengeSubjectWhereInput
   isNot?: Prisma.AuthenticationChallengeSubjectWhereInput
+}
+
+export type NullableEnumAuthenticationChallengePurposeFieldUpdateOperationsInput = {
+  set?: $Enums.AuthenticationChallengePurpose | null
 }
 
 export type AuthenticationChallengeSubjectCreateNestedOneWithoutChallengesInput = {
@@ -289,12 +343,16 @@ export type AuthenticationChallengeSubjectUpdateOneRequiredWithoutChallengesNest
 
 export type AuthenticationChallengeSubjectCreateWithoutChallengesInput = {
   key: string
+  normalizedIdentity?: string | null
+  purpose?: $Enums.AuthenticationChallengePurpose | null
   createdAt?: Date | string
   updatedAt?: Date | string
 }
 
 export type AuthenticationChallengeSubjectUncheckedCreateWithoutChallengesInput = {
   key: string
+  normalizedIdentity?: string | null
+  purpose?: $Enums.AuthenticationChallengePurpose | null
   createdAt?: Date | string
   updatedAt?: Date | string
 }
@@ -317,12 +375,16 @@ export type AuthenticationChallengeSubjectUpdateToOneWithWhereWithoutChallengesI
 
 export type AuthenticationChallengeSubjectUpdateWithoutChallengesInput = {
   key?: Prisma.StringFieldUpdateOperationsInput | string
+  normalizedIdentity?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  purpose?: Prisma.NullableEnumAuthenticationChallengePurposeFieldUpdateOperationsInput | $Enums.AuthenticationChallengePurpose | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
 export type AuthenticationChallengeSubjectUncheckedUpdateWithoutChallengesInput = {
   key?: Prisma.StringFieldUpdateOperationsInput | string
+  normalizedIdentity?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  purpose?: Prisma.NullableEnumAuthenticationChallengePurposeFieldUpdateOperationsInput | $Enums.AuthenticationChallengePurpose | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -360,6 +422,8 @@ export type AuthenticationChallengeSubjectCountOutputTypeCountChallengesArgs<Ext
 
 export type AuthenticationChallengeSubjectSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   key?: boolean
+  normalizedIdentity?: boolean
+  purpose?: boolean
   createdAt?: boolean
   updatedAt?: boolean
   challenges?: boolean | Prisma.AuthenticationChallengeSubject$challengesArgs<ExtArgs>
@@ -368,23 +432,29 @@ export type AuthenticationChallengeSubjectSelect<ExtArgs extends runtime.Types.E
 
 export type AuthenticationChallengeSubjectSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   key?: boolean
+  normalizedIdentity?: boolean
+  purpose?: boolean
   createdAt?: boolean
   updatedAt?: boolean
 }, ExtArgs["result"]["authenticationChallengeSubject"]>
 
 export type AuthenticationChallengeSubjectSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   key?: boolean
+  normalizedIdentity?: boolean
+  purpose?: boolean
   createdAt?: boolean
   updatedAt?: boolean
 }, ExtArgs["result"]["authenticationChallengeSubject"]>
 
 export type AuthenticationChallengeSubjectSelectScalar = {
   key?: boolean
+  normalizedIdentity?: boolean
+  purpose?: boolean
   createdAt?: boolean
   updatedAt?: boolean
 }
 
-export type AuthenticationChallengeSubjectOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"key" | "createdAt" | "updatedAt", ExtArgs["result"]["authenticationChallengeSubject"]>
+export type AuthenticationChallengeSubjectOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"key" | "normalizedIdentity" | "purpose" | "createdAt" | "updatedAt", ExtArgs["result"]["authenticationChallengeSubject"]>
 export type AuthenticationChallengeSubjectInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   challenges?: boolean | Prisma.AuthenticationChallengeSubject$challengesArgs<ExtArgs>
   _count?: boolean | Prisma.AuthenticationChallengeSubjectCountOutputTypeDefaultArgs<ExtArgs>
@@ -399,6 +469,8 @@ export type $AuthenticationChallengeSubjectPayload<ExtArgs extends runtime.Types
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     key: string
+    normalizedIdentity: string | null
+    purpose: $Enums.AuthenticationChallengePurpose | null
     createdAt: Date
     updatedAt: Date
   }, ExtArgs["result"]["authenticationChallengeSubject"]>
@@ -826,6 +898,8 @@ export interface Prisma__AuthenticationChallengeSubjectClient<T, Null = never, E
  */
 export interface AuthenticationChallengeSubjectFieldRefs {
   readonly key: Prisma.FieldRef<"AuthenticationChallengeSubject", 'String'>
+  readonly normalizedIdentity: Prisma.FieldRef<"AuthenticationChallengeSubject", 'String'>
+  readonly purpose: Prisma.FieldRef<"AuthenticationChallengeSubject", 'AuthenticationChallengePurpose'>
   readonly createdAt: Prisma.FieldRef<"AuthenticationChallengeSubject", 'DateTime'>
   readonly updatedAt: Prisma.FieldRef<"AuthenticationChallengeSubject", 'DateTime'>
 }

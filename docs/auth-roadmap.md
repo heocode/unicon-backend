@@ -1000,10 +1000,20 @@ and support evidence. Telemetry outages do not change enforcement.
    window closure/expiry during bucket waits, outer rollback, actual insert
    failure and whole-owner confirmed-abort retry; provider transitions preserve
    rate state. No schema change, HTTP wiring or self-owned retry/commit flow is
-   introduced. Next: initial/replacement composition, durable operation
-   reconciliation and integrated concurrency/failure tests. Unknown commit
-   reconciliation remains required before public use. Existing transitional OTP
-   eligibility remains until Iteration 5's gated replacement.
+   introduced by block 2. Block 3 is complete: SIGN_IN initial/replacement uses
+   identity/purpose subject serialization, discovers legacy challenges and
+   reuses live proof without another Delivery or charge. A value-preserving
+   additive migration identifies new subjects by a unique nullable identity/
+   purpose pair with random keys; legacy rows remain intact. New challenge,
+   INITIAL Delivery and all charges share an outer savepoint, including rollback
+   on returned business denial. Real PostgreSQL tests cover initial/replacement
+   races, legacy reuse, inherited identity/IP debt, contradictory live state,
+   unchanged predecessors, late insert failure, lock waits and whole-owner
+   confirmed-abort retries. No HTTP/User/Session creation is introduced.
+   Next: durable operation reconciliation and integrated concurrency/failure
+   tests. Unknown commit reconciliation and identified-subject retention/
+   finalization integration remain gates before public use. Existing
+   transitional OTP eligibility remains until Iteration 5's gated replacement.
    Introduce the common next-Delivery path
    and transaction-composable resend persistence. Check lifecycle, Delivery
    window, cooldown, and applicable policies before new-admission mutation.

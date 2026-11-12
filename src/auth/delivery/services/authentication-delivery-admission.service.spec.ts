@@ -33,6 +33,9 @@ function setup() {
     createResendDeliveryInTransaction: jest
       .fn()
       .mockResolvedValue({ outcome: 'CREATED', delivery }),
+    createInitialDelivery: jest
+      .fn()
+      .mockResolvedValue({ ...delivery, origin: 'INITIAL' }),
   };
   const rateLimits = {
     admitInTransaction: jest
@@ -55,6 +58,35 @@ function setup() {
 }
 
 describe('AuthenticationDeliveryAdmissionService (unit)', () => {
+  it('composes INITIAL with the same window/policies and authoritative recipient', async () => {
+    const { service, repository, rateLimits, transaction } = setup();
+    expect(
+      await service.admitInitialInTransaction(transaction, input),
+    ).toMatchObject({ outcome: 'CREATED', delivery: { origin: 'INITIAL' } });
+    expect(repository.createInitialDelivery).toHaveBeenCalledWith(
+      transaction,
+      expect.objectContaining({ recipientSnapshot: 'student@example.edu' }),
+    );
+    expect(
+      rateLimits.admitInTransaction.mock.invocationCallOrder[0],
+    ).toBeLessThan(
+      repository.createInitialDelivery.mock.invocationCallOrder[0],
+    );
+    expect(repository.createResendDeliveryInTransaction).not.toHaveBeenCalled();
+  });
+
+  it('does not turn existing work into a second INITIAL admission', async () => {
+    const { service, repository, transaction, rateLimits } = setup();
+    repository.getResendContextInTransaction.mockResolvedValue({
+      outcome: 'EXISTING',
+      delivery,
+    });
+    await expect(
+      service.admitInitialInTransaction(transaction, input),
+    ).rejects.toMatchObject({ reason: 'INVALID_STATE' });
+    expect(rateLimits.admitInTransaction).not.toHaveBeenCalled();
+    expect(repository.createInitialDelivery).not.toHaveBeenCalled();
+  });
   it('uses authoritative context and normalizes IP before jointly charging and inserting', async () => {
     const { service, repository, rateLimits, transaction, ready } = setup();
     expect(await service.admitResendInTransaction(transaction, input)).toEqual({

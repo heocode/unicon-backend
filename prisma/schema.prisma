@@ -196,11 +196,15 @@ model AccountDeletionCancellationRateLimit {
 }
 
 model AuthenticationChallengeSubject {
-  key       String   @id
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  key                String                          @id
+  normalizedIdentity String?
+  purpose            AuthenticationChallengePurpose?
+  createdAt          DateTime                        @default(now())
+  updatedAt          DateTime                        @updatedAt
 
   challenges AuthenticationChallenge[]
+
+  @@unique([normalizedIdentity, purpose])
 }
 
 model AuthenticationChallenge {
@@ -237,6 +241,7 @@ model AuthenticationChallenge {
   deliveries   AuthenticationChallengeDelivery[]
 
   @@index([subjectKey, createdAt])
+  @@index([normalizedIdentity, purpose])
   @@index([userId, createdAt])
   @@index([boundSessionId])
   @@index([expiresAt])

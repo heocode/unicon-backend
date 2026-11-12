@@ -471,8 +471,8 @@ checks and creation under the same authoritative serialization boundary.
 This ACCEPTED / FIXED V1 target replaces automatic resend supersession. Stage 4
 Iteration 4 block 1 implements unfinished-work resolution in persistence; block 2
 composes existing-challenge resend with the Delivery window and four auth rate
-policies. Initial/replacement and global/backlog composition retain their later
-owners. The historical
+policies. Block 3 adds SIGN_IN initial/replacement composition below;
+global/backlog enforcement retains its later owner. The historical
 SUPERSEDED_BY_RESEND cancellation reason remains readable, but manual resend no
 longer emits it or revokes leases. Historical supersession cannot guarantee
 physical cancellation of provider I/O; stable proof and provider idempotency
@@ -590,11 +590,84 @@ post-bucket-wait expiry/window closure, outer rollback, actual insert-constraint
 failure caught by the owner, injected 40001 insertion abort and whole-owner
 retry, and unchanged rate state after worker sent/failed/retry transitions.
 
-This block is not wired to HTTP and does not introduce initial/replacement
-admission, global/backlog enforcement, provider I/O or an operation receipt.
+This block is not wired to HTTP. Block 3 adds initial/replacement admission;
+global/backlog enforcement, provider I/O and an operation receipt remain outside
+this coordinator.
 Durable reconciliation of an unknown commit remains mandatory before exposing
 the owning domain flow. Returning existing unfinished work or relying on
 provider idempotency alone is not that reconciliation.
+
+#### Iteration 4 block 3 — SIGN_IN initial and replacement admission
+
+`AuthenticationChallengeRequestService.requestSignInInTransaction` resolves an
+internal initial request after the caller has validated institutional-email
+syntax and allowed-domain eligibility. It requires an already normalized
+identity and strict source IP, supports READ COMMITTED/SERIALIZABLE interactive
+transactions and permits one request operation per transaction. It does not
+query/create a User or Session, expose proof or connect a public endpoint.
+STEP_UP is not implemented by this SIGN_IN-specific entry point.
+
+The additive migration identifies new `AuthenticationChallengeSubject` rows
+with nullable normalizedIdentity/purpose fields and a unique pair, plus a
+both-present-or-both-null check. Their key is a random UUID, independent of
+rate-limit HMAC key rotation. Legacy rows keep their existing keys, null new
+fields, timestamps and relations; no backfill, rebinding or deletion occurs.
+An identity/purpose challenge index supports discovery across legacy subjects.
+These identity fields are domain coordination data, not opaque rate buckets;
+they must not appear in telemetry labels or logs. Subject retention/finalization
+integration remains a rollout gate before public use; this block does not add
+a subject sweeper or change existing retention jobs.
+
+`AuthenticationChallengeRequestRepository` inserts the coordination subject
+with ON CONFLICT DO NOTHING and locks the resolved row. It then locks all
+unconsumed/unlocked SIGN_IN candidates for the normalized identity in ID order,
+including challenges linked to legacy subjects. Fresh DB time is sampled only
+after subject/challenge waits. More than one live candidate is INVALID_STATE,
+without choosing a winner or repairing historical data. One usable live
+candidate returns REUSED with only ID/expiration: proof, failed attempts,
+expiration, deliveries and all rate/audit state remain unchanged. This includes
+a live challenge below the new-Delivery validity window. A legacy reuse may
+establish its canonical coordination row without rewriting the legacy subject.
+A live candidate with no envelope or the transitional exhausted-attempt state
+returns CHALLENGE_UNAVAILABLE rather than generating replacement proof.
+
+When no live candidate exists, the service generates a new UUID and uses the
+existing proof factory's persistence-only hashes/encrypted envelope. It does
+not persist/return the factory's transient deliveryProof. CreatedAt and fixed
+expiration/retention deadlines use the fresh DB timestamp and validated
+challenge settings; the INITIAL Delivery inherits that retention deadline.
+Expired or terminal predecessors are never reopened, extended, rebound or
+modified. A new sign-in after consumption creates a distinct challenge.
+The gated removal of the old OTP-attempt lock remains Iteration 5 work.
+
+`AuthenticationDeliveryAdmissionService.admitInitialInTransaction` shares the
+existing-challenge admission transaction handling, window and four-policy
+checks with RESEND, then calls strict initial persistence. A newly created
+challenge unexpectedly resolving unfinished work is an invariant failure,
+not another INITIAL charge. Subject -> candidate/new challenge -> Delivery ->
+complete bucket union -> GCRA/cooldown rows is the lock order. No path acquires
+the subject after a challenge/bucket lock. Resend retains its challenge-first
+order and never acquires a subject lock.
+
+A distinct outer `unicon_challenge_request` savepoint encloses coordination,
+new challenge, INITIAL admission and all charges. Both returned business
+denials and exceptions roll back candidate creation and all admission writes,
+even if the owner commits earlier unrelated work. Successful CREATED/REUSED
+results remain provisional until outer commit. No self-owned transaction,
+automatic retry or uncertain-commit reconciliation is added. Confirmed aborts
+remain eligible only for a fresh whole-owner transaction; unknown outcomes
+must not trigger blind replay or refunds.
+
+Unit and real PostgreSQL tests cover fixed proof/lifetime persistence, legacy
+reuse, exact absence of reuse mutations, concurrent first requests and
+replacements across clients, mixed initial/resend, inherited cooldown and
+identity/IP GCRA debt, contradictory live rows, unchanged predecessors, owner
+rollback, actual INITIAL insert failure caught by the owner, expiry during
+subject/candidate waits, a new challenge's window closing during a bucket wait,
+and injected 40001 abort followed by one committed INITIAL/charge. Migration
+verification preserves synthetic legacy keys, timestamps, relations and hashes.
+Durable operation reconciliation, global/backlog composition and public HTTP
+eligibility/error mapping retain their later owners.
 
 ### Stage 3 decision log
 
