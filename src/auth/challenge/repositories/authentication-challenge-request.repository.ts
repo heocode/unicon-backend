@@ -22,18 +22,22 @@ export class AuthenticationChallengeRequestRepository {
     key: string,
     normalizedIdentity: string,
   ): Promise<string> {
-    await transaction.$executeRaw`
+    // RC orphan cleanup/finalization can delete an empty row after ON CONFLICT
+    // but before SELECT locks it. Repeat only this coordination step, bounded.
+    for (let attempt = 0; attempt < 3; attempt++) {
+      await transaction.$executeRaw`
       INSERT INTO "AuthenticationChallengeSubject" ("key", "normalizedIdentity", "purpose", "updatedAt")
       VALUES (${key}, ${normalizedIdentity}, 'SIGN_IN', clock_timestamp())
       ON CONFLICT ("normalizedIdentity", "purpose") DO NOTHING
     `;
-    const [subject] = await transaction.$queryRaw<{ key: string }[]>`
+      const [subject] = await transaction.$queryRaw<{ key: string }[]>`
       SELECT "key" FROM "AuthenticationChallengeSubject"
       WHERE "normalizedIdentity" = ${normalizedIdentity} AND "purpose" = 'SIGN_IN'
       FOR UPDATE
     `;
-    if (!subject) throw new AuthenticationChallengeTransitionConflictError();
-    return subject.key;
+      if (subject) return subject.key;
+    }
+    throw new AuthenticationChallengeTransitionConflictError();
   }
 
   /** Include legacy subjects; identity/purpose is authoritative for resolution. */

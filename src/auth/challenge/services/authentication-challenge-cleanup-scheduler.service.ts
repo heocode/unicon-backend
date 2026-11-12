@@ -59,17 +59,15 @@ export class AuthenticationChallengeCleanupSchedulerService
         !result.skippedAlreadyRunning &&
         (result.clearedExpiredProofCount > 0 ||
           result.deletedRetainedChallengeCount > 0 ||
+          result.deletedOrphanedSubjectCount > 0 ||
           result.reachedBatchLimit)
       ) {
         this.logger.log(
-          `Authentication challenge cleanup cleared ${result.clearedExpiredProofCount} expired proof envelope(s), deleted ${result.deletedRetainedChallengeCount} retained challenge(s), and executed ${result.executedBatchCount} batch(es).`,
+          `Authentication challenge cleanup cleared ${result.clearedExpiredProofCount} expired proof envelope(s), deleted ${result.deletedRetainedChallengeCount} retained challenge(s) and ${result.deletedOrphanedSubjectCount} orphaned subject(s), and executed ${result.executedBatchCount} batch(es).`,
         );
       }
-    } catch (error) {
-      this.logger.error(
-        'Authentication challenge cleanup failed; a later scheduled run will retry remaining records.',
-        error instanceof Error ? error.stack : undefined,
-      );
+    } catch {
+      this.logger.error({ event: 'AUTHENTICATION_CHALLENGE_CLEANUP_FAILED' });
     }
   }
 }

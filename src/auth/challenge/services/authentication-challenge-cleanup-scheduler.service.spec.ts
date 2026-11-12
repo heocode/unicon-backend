@@ -27,6 +27,7 @@ describe('AuthenticationChallengeCleanupSchedulerService', () => {
     cleanupService.runOnce.mockResolvedValue({
       clearedExpiredProofCount: 0,
       deletedRetainedChallengeCount: 0,
+      deletedOrphanedSubjectCount: 0,
       executedBatchCount: 2,
       reachedBatchLimit: false,
       skippedAlreadyRunning: false,
@@ -50,6 +51,7 @@ describe('AuthenticationChallengeCleanupSchedulerService', () => {
           resolve({
             clearedExpiredProofCount: 0,
             deletedRetainedChallengeCount: 0,
+            deletedOrphanedSubjectCount: 0,
             executedBatchCount: 2,
             reachedBatchLimit: false,
             skippedAlreadyRunning: false,
@@ -77,14 +79,19 @@ describe('AuthenticationChallengeCleanupSchedulerService', () => {
     const logger = jest
       .spyOn(Logger.prototype, 'error')
       .mockImplementation(() => undefined);
-    cleanupService.runOnce.mockRejectedValue(new Error('Database unavailable'));
+    cleanupService.runOnce.mockRejectedValue(
+      new Error('Sensitive database details.'),
+    );
 
     service.onModuleInit();
     await jest.advanceTimersByTimeAsync(60_000);
 
-    expect(logger).toHaveBeenCalledWith(
-      'Authentication challenge cleanup failed; a later scheduled run will retry remaining records.',
-      expect.any(String),
+    expect(logger).toHaveBeenCalledWith({
+      event: 'AUTHENTICATION_CHALLENGE_CLEANUP_FAILED',
+    });
+    expect(JSON.stringify(logger.mock.calls)).not.toContain(
+      'Sensitive database details.',
     );
+    logger.mockRestore();
   });
 });

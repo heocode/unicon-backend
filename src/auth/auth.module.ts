@@ -37,6 +37,7 @@ import { AuthenticationChallengeProofEncryptionService } from './challenge/servi
 import { AuthenticationChallengeProofFactoryService } from './challenge/services/authentication-challenge-proof-factory.service';
 import { AuthenticationChallengeRepository } from './challenge/repositories/authentication-challenge.repository';
 import { AuthenticationChallengeRequestRepository } from './challenge/repositories/authentication-challenge-request.repository';
+import { AuthenticationChallengeFinalizationRepository } from './challenge/repositories/authentication-challenge-finalization.repository';
 import { AuthenticationChallengeRequestService } from './challenge/services/authentication-challenge-request.service';
 import { AuthenticationChallengeVerificationService } from './challenge/services/authentication-challenge-verification.service';
 import { AuthenticationChallengeCleanupRepository } from './challenge/repositories/authentication-challenge-cleanup.repository';
@@ -100,6 +101,7 @@ import { AuthenticationOperationCleanupSchedulerService } from './operations/ser
     AuthenticationChallengeProofFactoryService,
     AuthenticationChallengeRepository,
     AuthenticationChallengeRequestRepository,
+    AuthenticationChallengeFinalizationRepository,
     AuthenticationChallengeRequestService,
     AuthenticationChallengeVerificationService,
     AuthenticationChallengeCleanupRepository,
@@ -118,6 +120,10 @@ import { AuthenticationOperationCleanupSchedulerService } from './operations/ser
     AuthenticationDeliveryCleanupSchedulerService,
     RefreshTokenGuard,
   ],
-  exports: [AuthService, SessionCreationService],
+  exports: [
+    AuthService,
+    SessionCreationService,
+    AuthenticationChallengeFinalizationRepository,
+  ],
 })
 export class AuthModule {}

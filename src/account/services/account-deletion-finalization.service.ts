@@ -9,6 +9,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { isTransactionConflict } from '../../prisma/utils/is-transaction-conflict.util';
 import { SecurityEventService } from '../../security/services/security-event.service';
 import { PasswordService } from '../../auth/password/services/password.service';
+import { AuthenticationChallengeFinalizationRepository } from '../../auth/challenge/repositories/authentication-challenge-finalization.repository';
 
 type FinalizationCandidate = {
   id: string;
@@ -32,6 +33,7 @@ export class AccountDeletionFinalizationService {
     private readonly securityEventService: SecurityEventService,
     private readonly notificationService: AccountDeletionNotificationService,
     configService: ConfigService,
+    private readonly authenticationFinalization: AuthenticationChallengeFinalizationRepository,
   ) {
     this.batchSize = configService.getOrThrow<number>(
       'ACCOUNT_DELETION_FINALIZATION_BATCH_SIZE',
@@ -120,10 +122,13 @@ export class AccountDeletionFinalizationService {
                 },
               );
 
+            // STEP_UP requires boundSessionId: remove challenges before Session's SET NULL.
+            await this.authenticationFinalization.deleteForAccount(
+              transaction,
+              candidate.id,
+              candidate.email,
+            );
             await transaction.session.deleteMany({
-              where: { userId: candidate.id },
-            });
-            await transaction.authenticationChallenge.deleteMany({
               where: { userId: candidate.id },
             });
             await transaction.passwordResetToken.deleteMany({

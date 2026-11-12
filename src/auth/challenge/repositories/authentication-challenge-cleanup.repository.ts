@@ -68,6 +68,45 @@ export class AuthenticationChallengeCleanupRepository {
     });
   }
 
+  deleteOneOrphanedSubjectBatch(batchSize: number): Promise<number> {
+    return this.prisma.$transaction(
+      async (transaction) => {
+        const candidates = await transaction.$queryRaw<
+          { key: string }[]
+        >(Prisma.sql`
+        SELECT subject."key" FROM "AuthenticationChallengeSubject" AS subject
+        WHERE subject."normalizedIdentity" IS NOT NULL AND NOT EXISTS (
+          SELECT 1 FROM "AuthenticationChallenge" AS challenge
+          WHERE challenge."subjectKey"=subject."key" OR (
+            challenge."normalizedIdentity"=subject."normalizedIdentity"
+            AND challenge."purpose"=subject."purpose"
+          )
+        )
+        ORDER BY subject."key" FOR UPDATE OF subject SKIP LOCKED LIMIT ${batchSize}
+      `);
+        if (!candidates.length) return 0;
+        // A separate RC statement sees children committed before the subject lock.
+        // The held parent FOR UPDATE locks prevent subsequent FK insertions.
+        const deleted = await transaction.$queryRaw<
+          { key: string }[]
+        >(Prisma.sql`
+        DELETE FROM "AuthenticationChallengeSubject" AS subject
+        WHERE subject."key" IN (${Prisma.join(candidates.map((row) => row.key))})
+          AND subject."normalizedIdentity" IS NOT NULL AND NOT EXISTS (
+            SELECT 1 FROM "AuthenticationChallenge" AS challenge
+            WHERE challenge."subjectKey"=subject."key" OR (
+              challenge."normalizedIdentity"=subject."normalizedIdentity"
+              AND challenge."purpose"=subject."purpose"
+            )
+          )
+        RETURNING subject."key"
+      `);
+        return deleted.length;
+      },
+      { isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted },
+    );
+  }
+
   private async getOperationTimestamp(
     transaction: Prisma.TransactionClient,
   ): Promise<Date> {

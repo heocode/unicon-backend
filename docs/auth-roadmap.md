@@ -409,14 +409,14 @@ remaining open decisions before Iteration 1.
 
 ## Stage 4: Database-backed abuse protection
 
-**Iterations 1–2: COMPLETE — policy semantics, configuration, key derivation,
-and exact GCRA state foundations; no Stage 4 limiter enforcement is claimed.**
+**Iterations 1–4: COMPLETE — policy/state foundations, atomic limiter and
+internal Delivery admission/lifecycle. Public HTTP integration remains Stage 5–6.**
 The canonical consolidated register is
 [Stage 4 Iteration 1 — consolidated policy register](auth-architecture.md#stage-4-iteration-1--consolidated-policy-register).
 It records 12 accepted protection rules, shared charge/denial/transaction/privacy
 contracts, lifecycle prerequisites, and explicit deferred owners. The seven
-iterations below are unchanged. Iteration 3 atomic PostgreSQL limiter is complete;
-next is Iteration 4 Delivery admission integration. Global capacity numbers remain measurement-gated before
+iterations below are unchanged. Next is Iteration 5 verification admission and
+its gated no-attempt-lock transition. Global capacity numbers remain measurement-gated before
 production; deferral is intentional and does not mark them as chosen defaults.
 
 Stage 4 delivers layered auth abuse protection before public Stage 5–6 flows.
@@ -984,7 +984,7 @@ and support evidence. Telemetry outages do not change enforcement.
    and boundary behavior against PostgreSQL. Implement atomic GCRA eligibility
    and TAT updates with exact burst and subsecond rate arithmetic; keep this
    separate from admission-anchored cooldown counters.
-4. **Delivery admission and cooldown — IN PROGRESS.** Block 1 is complete:
+4. **Delivery admission and cooldown — COMPLETE.** Block 1 is complete:
    transaction-composable resend persistence returns existing unfinished work,
    preserving leases/retries and all audit fields. Initial/resend writers share
    challenge-row serialization, and resend samples time after challenge and
@@ -1023,9 +1023,18 @@ and support evidence. Telemetry outages do not change enforcement.
    PostgreSQL tests establish races, rollback, confirmed abort retries, receipt
    retention and lock waits; acknowledgement-loss tests wrap real commits and
    simulate transport responses, not actual network faults. No HTTP integration
-   is introduced. Next: integrated concurrency/failure verification and
-   identified-subject retention/finalization integration before public use.
-   Iteration 7 retains real network-fault/load tests. Existing
+   is introduced. Block 5 is complete: identified-orphan cleanup shares the
+   finite challenge-cleanup budget and rotates fairly across runs. Parent locks
+   and fresh reference checks protect linked and legacy challenges; anonymous
+   legacy subjects remain unchanged. Account finalization removes owned and
+   email-matched unbound SIGN_IN challenges/empty identified subjects atomically
+   with the tombstone, preserving foreign ownership, rate debt and receipts.
+   Bounded coordination-only retry handles empty-row deletion races. PostgreSQL
+   integration verifies the internal lifecycle, both orders of initial/finalization,
+   cleanup/replay, rollback, legacy reference races and 50 INITIAL + 50 eligible
+   RESEND on one IP. Historical time fixtures are explicit, not production load
+   measurements. No block 5 schema change or HTTP wiring is introduced.
+   Iteration 7 retains real network-fault/load tests. Next is Iteration 5. Existing
    transitional OTP eligibility remains until Iteration 5's gated replacement.
    Introduce the common next-Delivery path
    and transaction-composable resend persistence. Check lifecycle, Delivery

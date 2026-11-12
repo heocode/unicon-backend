@@ -13,6 +13,7 @@ import type { AuthenticationChallengeCleanupSummary } from '../types/authenticat
 @Injectable()
 export class AuthenticationChallengeCleanupService {
   private runInProgress = false;
+  private nextPhase = 0;
 
   constructor(
     private readonly repository: AuthenticationChallengeCleanupRepository,
@@ -24,6 +25,7 @@ export class AuthenticationChallengeCleanupService {
       return {
         clearedExpiredProofCount: 0,
         deletedRetainedChallengeCount: 0,
+        deletedOrphanedSubjectCount: 0,
         executedBatchCount: 0,
         reachedBatchLimit: false,
         skippedAlreadyRunning: true,
@@ -40,47 +42,42 @@ export class AuthenticationChallengeCleanupService {
   }
 
   private async runBatches(): Promise<AuthenticationChallengeCleanupSummary> {
-    let clearedExpiredProofCount = 0;
-    let deletedRetainedChallengeCount = 0;
+    const counts = [0, 0, 0];
+    const exhausted = [false, false, false];
     let executedBatchCount = 0;
-    let envelopeCleanupExhausted = false;
-    let retentionDeletionExhausted = false;
-    let clearEnvelopeNext = true;
 
     while (
       executedBatchCount < this.config.cleanupMaxBatchesPerRun &&
-      (!envelopeCleanupExhausted || !retentionDeletionExhausted)
+      exhausted.some((phase) => !phase)
     ) {
-      const shouldClearEnvelope =
-        !envelopeCleanupExhausted &&
-        (clearEnvelopeNext || retentionDeletionExhausted);
-
-      if (shouldClearEnvelope) {
-        const affected = await this.repository.clearOneExpiredEnvelopeBatch(
-          this.config.cleanupBatchSize,
-        );
-        clearedExpiredProofCount += affected;
-        envelopeCleanupExhausted = affected < this.config.cleanupBatchSize;
-        clearEnvelopeNext = false;
-      } else {
-        const affected = await this.repository.deleteOneRetainedChallengeBatch(
-          this.config.cleanupBatchSize,
-        );
-        deletedRetainedChallengeCount += affected;
-        retentionDeletionExhausted = affected < this.config.cleanupBatchSize;
-        clearEnvelopeNext = true;
-      }
-
+      const phase = this.nextPhase;
+      this.nextPhase = (phase + 1) % 3;
+      if (exhausted[phase]) continue;
+      const affected =
+        phase === 0
+          ? await this.repository.clearOneExpiredEnvelopeBatch(
+              this.config.cleanupBatchSize,
+            )
+          : phase === 1
+            ? await this.repository.deleteOneRetainedChallengeBatch(
+                this.config.cleanupBatchSize,
+              )
+            : await this.repository.deleteOneOrphanedSubjectBatch(
+                this.config.cleanupBatchSize,
+              );
+      counts[phase] += affected;
+      exhausted[phase] = affected < this.config.cleanupBatchSize;
       executedBatchCount++;
     }
 
     return {
-      clearedExpiredProofCount,
-      deletedRetainedChallengeCount,
+      clearedExpiredProofCount: counts[0],
+      deletedRetainedChallengeCount: counts[1],
+      deletedOrphanedSubjectCount: counts[2],
       executedBatchCount,
       reachedBatchLimit:
         executedBatchCount === this.config.cleanupMaxBatchesPerRun &&
-        (!envelopeCleanupExhausted || !retentionDeletionExhausted),
+        exhausted.some((phase) => !phase),
       skippedAlreadyRunning: false,
     };
   }

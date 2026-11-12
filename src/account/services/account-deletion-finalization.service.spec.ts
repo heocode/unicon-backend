@@ -19,7 +19,6 @@ describe('AccountDeletionFinalizationService', () => {
     $transaction: jest.fn(),
     $queryRaw: jest.fn(),
     session: { deleteMany: jest.fn() },
-    authenticationChallenge: { deleteMany: jest.fn() },
     passwordResetToken: { deleteMany: jest.fn() },
     user: { updateMany: jest.fn() },
   };
@@ -31,6 +30,9 @@ describe('AccountDeletionFinalizationService', () => {
     retryDeletionCompleted: jest.fn(),
   };
   const configService = { getOrThrow: jest.fn(() => 2) };
+  const authenticationFinalization = {
+    deleteForAccount: jest.fn().mockResolvedValue(undefined),
+  };
 
   let service: AccountDeletionFinalizationService;
 
@@ -66,6 +68,7 @@ describe('AccountDeletionFinalizationService', () => {
       securityEventService as unknown as SecurityEventService,
       notificationService as unknown as AccountDeletionNotificationService,
       configService as unknown as ConfigService,
+      authenticationFinalization,
     );
   });
 
@@ -93,12 +96,17 @@ describe('AccountDeletionFinalizationService', () => {
     expect(prisma.session.deleteMany).toHaveBeenCalledWith({
       where: { userId: 'user-id' },
     });
-    expect(prisma.authenticationChallenge.deleteMany).toHaveBeenCalledWith({
-      where: { userId: 'user-id' },
-    });
+    expect(authenticationFinalization.deleteForAccount).toHaveBeenCalledWith(
+      prisma,
+      'user-id',
+      'student@example.edu',
+    );
     expect(prisma.passwordResetToken.deleteMany).toHaveBeenCalledWith({
       where: { userId: 'user-id' },
     });
+    expect(
+      authenticationFinalization.deleteForAccount.mock.invocationCallOrder[0],
+    ).toBeLessThan(prisma.session.deleteMany.mock.invocationCallOrder[0]);
     expect(prisma.user.updateMany).toHaveBeenCalledWith({
       where: {
         id: 'user-id',

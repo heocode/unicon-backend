@@ -214,9 +214,10 @@ repairs.
 Retention deletion uses the immutable `retentionExpiresAt` saved on each
 challenge. This preserves the lifecycle assigned at creation even if the
 configured retention changes later. Deleting a retained challenge cascades to
-its Delivery rows. Cleanup alternates envelope clearing and retention deletion
-under one configurable per-run batch budget so neither phase can starve the
-other. Empty database checks consume that budget, overlapping runs in one
+its Delivery rows. Cleanup cycles envelope clearing, retention deletion and
+identified-orphan subject deletion under one configurable per-run batch budget.
+The phase cursor persists across runs, including a one-batch budget, so no phase
+starves. Empty database checks consume that budget, overlapping runs in one
 process are skipped, and multiple application instances safely divide work
 through `SKIP LOCKED`. A failed batch rolls back independently; earlier batches
 remain committed and a later scheduled run retries the remaining work.
@@ -614,9 +615,9 @@ rate-limit HMAC key rotation. Legacy rows keep their existing keys, null new
 fields, timestamps and relations; no backfill, rebinding or deletion occurs.
 An identity/purpose challenge index supports discovery across legacy subjects.
 These identity fields are domain coordination data, not opaque rate buckets;
-they must not appear in telemetry labels or logs. Subject retention/finalization
-integration remains a rollout gate before public use; this block does not add
-a subject sweeper or change existing retention jobs.
+they must not appear in telemetry labels or logs. Block 5 below completes
+identified-subject retention/finalization integration; the block 3 migration
+itself does not sweep or rewrite existing domain records.
 
 `AuthenticationChallengeRequestRepository` inserts the coordination subject
 with ON CONFLICT DO NOTHING and locks the resolved row. It then locks all
@@ -763,8 +764,82 @@ and expiry during both operation and downstream bucket waits. Lost commit
 acknowledgement tests delegate real SQL transactions and commits/rollbacks and
 simulate only transport acknowledgement delivery; they are not real network-
 fault tests. Iteration 7 retains actual network/commit-fault injection and
-capacity measurements. Public mapping, subject retention/finalization and
-global/backlog integration remain later gates; Iteration 4 is still in progress.
+capacity measurements. Block 5 below completes subject retention/finalization
+and integrated verification. Public mapping and global/backlog integration
+retain their later owners.
+
+#### Iteration 4 block 5 — integrated lifecycle and subject retention
+
+The challenge cleanup service fairly cycles three independently committed batch
+phases: clear expired envelopes, delete retention-expired challenges (with the
+existing Delivery cascade), then delete orphaned identified subjects. All three
+share the existing batch size and maximum batches per run. A cursor survives
+between runs so a budget of one does not starve any phase. Runs remain
+non-overlapping and shutdown-drained; summary/log includes the orphan count and
+failures log a safe event without raw database exception details.
+
+`deleteOneOrphanedSubjectBatch` targets only rows with identified metadata.
+It retains a subject whenever any challenge references its key, or a legacy
+challenge has the same normalized identity/purpose. This includes expired or
+terminal challenges still within retention. Anonymous legacy subjects are not
+swept. The first READ COMMITTED statement locks candidate subjects in key order
+with FOR UPDATE SKIP LOCKED. A second, fresh statement repeats both reference
+checks: children committed before the lock must not be missed by an older
+snapshot. Held parent FOR UPDATE locks prevent new FK children during deletion.
+It never intentionally uses cascade to remove work and never modifies rate
+state or operation receipts.
+
+An empty subject can disappear after an initial request's ON CONFLICT DO NOTHING
+but before SELECT FOR UPDATE. `lockSignInSubject` makes at most three insert/read
+coordination attempts for that confirmed missing-row case only. It does not
+retry database errors inside an aborted transaction, regenerate proof or repeat
+admission. Confirmed serialization/deadlock aborts still belong to the outer
+transaction owner.
+
+`AuthenticationChallengeFinalizationRepository` runs in account finalization's
+existing transaction under its User lock, before session deletion. It establishes the canonical
+SIGN_IN subject even when absent, locks relevant subjects in key order, then
+challenges in ID order. The deletion query scopes owned challenges by userId
+and additionally matches unbound institutional SIGN_IN challenges for the
+locked account's original email. Another user's bound record is not deleted
+merely because its email matches. Empty identified subjects are removed only
+after fresh FK and identity/purpose checks. Existing anonymous legacy rows
+retain their prior behavior. Tombstone transition, challenge/Delivery deletion
+and notification preparation remain atomic; later failure rolls back all of
+them. Owned session-bound STEP_UP challenges are removed before Session's SET
+NULL action can violate their purpose-binding constraint. This does not add
+STEP_UP admission. Provider notification dispatch remains outside the transaction. Receipts
+and identity/IP debt are preserved, not refunded or deleted with the account.
+
+The User lock remains account finalization's existing prefix; within auth the
+order is subject -> challenge -> Delivery/buckets. No admission path takes
+User/subject locks after bucket locks. Retention phases use separate transactions
+and orphan cleanup takes no child row locks, avoiding a cleanup
+challenge->subject inversion. If initial commits first, Serializable finalization
+retries confirmed snapshot conflicts as necessary and deletes pending old-account
+work. If finalization commits first, a later request is a fresh sign-in intent
+for the now-released email, subject to preserved limits; it does not reopen the
+deleted account or create a User/Session without proof.
+
+Integrated PostgreSQL tests use real operation/admission owners, proof factory,
+repositories, limiter, worker orchestration, retention and account finalization.
+Only external auth-email and notification-email integrations are fake. They
+cover initial/reuse/resend, stable application-level submissions, expiry
+replacement, inherited debt, late rollback, cleanup/replay, both orders of
+initial/finalization, orphan SKIP LOCKED, the conflict/read deletion race and a
+legacy reference committed between the two orphan queries. Boundary wrappers
+only pause real SQL, never replace its results. Fifty INITIAL and fifty
+interval-eligible RESEND admissions on one IP retain exactly 100 charges.
+Historical interval/expiry fixtures are explicit; these are not elapsed-wall-
+clock experiments or production-capacity measurements. The exact ten-Delivery/
+fractional-recovery reference remains covered by GCRA arithmetic tests, with
+production load/network-fault gates in Iteration 7.
+
+This completes Iteration 4's internal Delivery admission/lifecycle scope. Public
+HTTP, global/backlog capacity and the transitional OTP-lock removal retain their
+later owners; this does not establish full passwordless readiness. Iteration 5
+owns verification admission and its gated no-attempt-lock transition; Stage 5–6
+own the public flow. Block 5 adds no schema change or data-rewriting migration.
 
 ### Stage 3 decision log
 

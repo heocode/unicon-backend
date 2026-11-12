@@ -6,6 +6,7 @@ describe('AuthenticationChallengeCleanupService', () => {
   const repository = {
     clearOneExpiredEnvelopeBatch: jest.fn(),
     deleteOneRetainedChallengeBatch: jest.fn(),
+    deleteOneOrphanedSubjectBatch: jest.fn(),
   };
   const config = {
     cleanupBatchSize: 100,
@@ -15,23 +16,30 @@ describe('AuthenticationChallengeCleanupService', () => {
   let service: AuthenticationChallengeCleanupService;
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    jest.resetAllMocks();
+    config.cleanupBatchSize = 100;
+    config.cleanupMaxBatchesPerRun = 10;
+    repository.clearOneExpiredEnvelopeBatch.mockResolvedValue(0);
+    repository.deleteOneRetainedChallengeBatch.mockResolvedValue(0);
+    repository.deleteOneOrphanedSubjectBatch.mockResolvedValue(0);
     service = new AuthenticationChallengeCleanupService(
       repository as unknown as AuthenticationChallengeCleanupRepository,
       config as AuthenticationChallengeConfigService,
     );
   });
 
-  it('alternates bounded batches and shares one budget across both phases', async () => {
+  it('cycles bounded batches under one shared budget across all three phases', async () => {
     config.cleanupBatchSize = 100;
-    config.cleanupMaxBatchesPerRun = 4;
+    config.cleanupMaxBatchesPerRun = 6;
     repository.clearOneExpiredEnvelopeBatch.mockResolvedValue(100);
     repository.deleteOneRetainedChallengeBatch.mockResolvedValue(100);
+    repository.deleteOneOrphanedSubjectBatch.mockResolvedValue(100);
 
     await expect(service.runOnce()).resolves.toEqual({
       clearedExpiredProofCount: 200,
       deletedRetainedChallengeCount: 200,
-      executedBatchCount: 4,
+      deletedOrphanedSubjectCount: 200,
+      executedBatchCount: 6,
       reachedBatchLimit: true,
       skippedAlreadyRunning: false,
     });
@@ -65,7 +73,8 @@ describe('AuthenticationChallengeCleanupService', () => {
     await expect(service.runOnce()).resolves.toEqual({
       clearedExpiredProofCount: 0,
       deletedRetainedChallengeCount: 125,
-      executedBatchCount: 3,
+      deletedOrphanedSubjectCount: 0,
+      executedBatchCount: 4,
       reachedBatchLimit: false,
       skippedAlreadyRunning: false,
     });
@@ -77,7 +86,7 @@ describe('AuthenticationChallengeCleanupService', () => {
     repository.deleteOneRetainedChallengeBatch.mockResolvedValueOnce(0);
 
     await expect(service.runOnce()).resolves.toMatchObject({
-      executedBatchCount: 2,
+      executedBatchCount: 3,
       reachedBatchLimit: false,
     });
   });
@@ -104,6 +113,28 @@ describe('AuthenticationChallengeCleanupService', () => {
     await expect(service.runOnce()).resolves.toMatchObject({
       skippedAlreadyRunning: false,
     });
+  });
+
+  it('does not starve any phase when the per-run budget is one batch', async () => {
+    config.cleanupMaxBatchesPerRun = 1;
+    repository.clearOneExpiredEnvelopeBatch.mockResolvedValue(100);
+    repository.deleteOneRetainedChallengeBatch.mockResolvedValue(100);
+    repository.deleteOneOrphanedSubjectBatch.mockResolvedValue(100);
+    expect(await service.runOnce()).toMatchObject({
+      clearedExpiredProofCount: 100,
+      executedBatchCount: 1,
+    });
+    expect(await service.runOnce()).toMatchObject({
+      deletedRetainedChallengeCount: 100,
+      executedBatchCount: 1,
+    });
+    expect(await service.runOnce()).toMatchObject({
+      deletedOrphanedSubjectCount: 100,
+      executedBatchCount: 1,
+    });
+    expect(repository.clearOneExpiredEnvelopeBatch).toHaveBeenCalledTimes(1);
+    expect(repository.deleteOneRetainedChallengeBatch).toHaveBeenCalledTimes(1);
+    expect(repository.deleteOneOrphanedSubjectBatch).toHaveBeenCalledTimes(1);
   });
 
   it('preserves committed work and releases the guard after a later batch fails', async () => {
