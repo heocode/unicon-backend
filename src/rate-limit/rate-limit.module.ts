@@ -15,6 +15,7 @@ import { RateLimitBucketKeyService } from './services/rate-limit-bucket-key.serv
     GcraAdmissionService,
   ],
   exports: [
+    GcraAdmissionRepository,
     RateLimitBucketKeyService,
     GcraAdmissionService,
     GcraAdmissionConfigService,

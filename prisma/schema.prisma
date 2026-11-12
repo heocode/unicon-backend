@@ -277,7 +277,7 @@ model AuthenticationChallengeDelivery {
 model AuthenticationRateLimit {
   key         String   @id
   count       Int
-  windowEndAt DateTime
+  windowEndAt DateTime @db.Timestamp(6)
   updatedAt   DateTime @updatedAt
 
   @@index([windowEndAt])

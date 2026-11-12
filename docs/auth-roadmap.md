@@ -413,8 +413,8 @@ The canonical consolidated register is
 [Stage 4 Iteration 1 — consolidated policy register](auth-architecture.md#stage-4-iteration-1--consolidated-policy-register).
 It records 12 accepted protection rules, shared charge/denial/transaction/privacy
 contracts, lifecycle prerequisites, and explicit deferred owners. The seven
-iterations below are unchanged. Current: Iteration 3 atomic PostgreSQL limiter,
-without another policy-design round. Global capacity numbers remain measurement-gated before
+iterations below are unchanged. Iteration 3 atomic PostgreSQL limiter is complete;
+next is Iteration 4 Delivery admission integration. Global capacity numbers remain measurement-gated before
 production; deferral is intentional and does not mark them as chosen defaults.
 
 Stage 4 delivers layered auth abuse protection before public Stage 5–6 flows.
@@ -945,7 +945,7 @@ and support evidence. Telemetry outages do not change enforcement.
    validated policy snapshots, exact GCRA persistence/arithmetic and rollout/
    tuning/rotation contracts. Unit and PostgreSQL persistence tests pass;
    runtime enforcement and concurrent alias/cooldown mutations remain Iteration 3.
-3. **Atomic PostgreSQL limiter — IN PROGRESS.** The first block supplies
+3. **Atomic PostgreSQL limiter — COMPLETE.** The first block supplies
    self-owned, single-policy GCRA unit admission with atomic retained-alias
    locking/reconciliation/charge. Real PostgreSQL tests cover concurrency,
    fresh time after advisory and row waits, denial immutability, rollback,
@@ -959,8 +959,19 @@ and support evidence. Telemetry outages do not change enforcement.
    results remain provisional until outer commit. PostgreSQL tests cover
    overlapping/reversed policy sets, common retry-after, aliases, isolation and
    caller commit/rollback/retries. See “Iteration 3 multi-policy and composable
-   GCRA admission” in the architecture. Cooldown remains pending and HTTP/domain
-   enforcement is not connected. Iteration 3 is still in progress.
+   GCRA admission” in the architecture. The final block adds auth-specific
+   `AuthenticationDeliveryRateLimitService.admitInTransaction`: challenge and
+   identity cooldowns plus email/IP Delivery GCRA share one complete lock union,
+   fresh DB timestamp and all-or-nothing changes. Cooldown aliases reconcile to
+   the latest persisted boundary, denial writes nothing, and boundary precision
+   is preserved through a value-preserving TIMESTAMP(6) migration and exact SQL
+   microseconds. Unit and real PostgreSQL tests cover boundaries, cross-challenge
+   concurrency, rotation, configuration changes, row waits, abort retries and
+   partial/outer rollback; a real challenge and its encrypted proof remain
+   unchanged. See “Iteration 3 atomic Delivery cooldown and GCRA checks”.
+   HTTP/domain enforcement is not connected. Iteration 4 owns lifecycle/window
+   checks, unfinished-work resolution and atomic Delivery/replacement creation;
+   legacy OTP lock removal remains gated by verification integration.
    Use locking or Serializable equivalents,
    deterministic lock ordering, bounded retries, and fresh DB-authoritative
    time. Enforce exact multi-replica admission with persisted retry-after.

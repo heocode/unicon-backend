@@ -51,6 +51,8 @@ import { AuthenticationDeliveryCleanupRepository } from './delivery/repositories
 import { AuthenticationDeliveryCleanupService } from './delivery/services/authentication-delivery-cleanup.service';
 import { AuthenticationDeliveryCleanupSchedulerService } from './delivery/services/authentication-delivery-cleanup-scheduler.service';
 import { AuthenticationRateLimitConfigService } from './rate-limit/services/authentication-rate-limit-config.service';
+import { AuthenticationDeliveryCooldownRepository } from './rate-limit/repositories/authentication-delivery-cooldown.repository';
+import { AuthenticationDeliveryRateLimitService } from './rate-limit/services/authentication-delivery-rate-limit.service';
 
 @Module({
   imports: [
@@ -79,6 +81,8 @@ import { AuthenticationRateLimitConfigService } from './rate-limit/services/auth
     RecoveryRateLimitService,
     AuthenticationChallengeConfigService,
     AuthenticationRateLimitConfigService,
+    AuthenticationDeliveryCooldownRepository,
+    AuthenticationDeliveryRateLimitService,
     AuthenticationChallengeProofService,
     AuthenticationChallengeRandomSourceService,
     AuthenticationChallengeProofEncryptionService,

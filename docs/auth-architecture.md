@@ -1525,9 +1525,10 @@ lock timeout and backend connection loss. Test-only SQL triggers and sequences
 inject aborts; they are removed by each test. These are correctness checks, not
 production capacity measurements or real network-fault coverage around commit.
 
-Cooldown admission, cleanup and coordinated tuning/key-retirement operations, Delivery/verification and
-pre-parser HTTP integration remain later blocks. Iteration 3 is still open and
-the legacy OTP lock remains unchanged.
+The later Iteration 3 blocks below add multi-policy composition and cooldown
+admission. Cleanup, coordinated tuning/key retirement, Delivery/verification and
+pre-parser HTTP integration retain their later owners. The legacy OTP lock
+remains unchanged until its gated replacement.
 
 ### Iteration 3 multi-policy and composable GCRA admission
 
@@ -1590,8 +1591,65 @@ time after the full lock union, operation-level savepoint rollback, provisional
 results and caller-owned commit/rollback, invalid transaction usage and
 whole-owner SERIALIZABLE retries. The same suites retain single-policy,
 timeout, failure and persistence coverage with real Prisma services and clients.
-Cooldown, failure-only verification charging, HTTP/domain integration, automatic
-tuning and key retirement remain outside this block. Iteration 3 is not complete.
+Cooldown composition is implemented in the next block below. Failure-only
+verification charging, HTTP/domain integration, automatic tuning and key
+retirement retain their later owners.
+
+### Iteration 3 atomic Delivery cooldown and GCRA checks
+
+`AuthenticationDeliveryRateLimitService.admitInTransaction` is an internal,
+auth-specific caller-owned operation for genuinely new Delivery work. It checks
+exactly four existing policies: challenge and identity Delivery cooldowns,
+identity Delivery GCRA and IP Delivery GCRA. The caller supplies the authoritative
+challenge ID and normalized identity, plus the resolved source IP. Lifecycle,
+minimum remaining Delivery validity, existing unfinished work, replacement
+challenge persistence and actual Delivery creation remain Iteration 4 work.
+This helper is not connected to HTTP or the provider and does not by itself
+establish complete Delivery admission.
+
+The operation derives all retained aliases before waiting, acquires their entire
+advisory-lock union once in the common numeric lock order, then locks existing
+`GcraRateLimit` rows followed by `AuthenticationRateLimit` rows, each in key
+order. One fresh DB timestamp is sampled after all waits. It shares the existing
+GCRA preparation/evaluation and savepoint handling; there is no additional
+policy framework. The one-operation-per-transaction guard is shared with
+`consumeManyInTransaction`, so callers cannot incrementally acquire policy
+groups through separate limiter calls in one transaction.
+
+Each cooldown alias must have count=1 and a finite boundary. Invalid state is
+a technical failure even if another policy denies; no implicit repair occurs.
+The latest retained boundary is authoritative, including an older key alias
+missing from the new active version. Configuration changes do not shorten an
+existing wait. At exactly the boundary admission is eligible. A denial returns
+the maximum rounded-up wait across all denying cooldown/GCRA policies and sorted
+internal policy IDs, without changing any state or audit timestamp. Thus an
+admission at 00:00 followed by a check at 00:06 reports 54 seconds remaining.
+
+On allowance, both GCRA policies receive one charge and every retained cooldown
+alias receives count=1 and boundary=operationNow plus its configured interval.
+All changes share the savepoint and outer transaction: a later write failure
+cannot leave partial cooldowns or charges even if the owner catches the error.
+The result remains provisional until outer commit. The owner must configure
+bounded timeouts, retry only confirmed aborts by rerunning the entire outer
+transaction, and handle uncertain commit outcomes under the existing contract.
+It must compose these changes with actual Delivery creation before production
+use. Denial must not commit a replacement challenge created by the owner.
+
+The precision migration widens `AuthenticationRateLimit.windowEndAt` from
+TIMESTAMP(3) to TIMESTAMP(6), preserving existing values and the timestamp-without-
+time-zone UTC convention. SQL reads and writes exact integer microseconds;
+security boundaries never pass through JavaScript Date or floating-point epoch
+seconds. No challenge field is added. This operation does not lock, consume,
+extend or mutate the challenge, proof, attempt count or Delivery rows.
+
+Unit tests cover exact boundary eligibility and one microsecond on either side,
+combined denial, invalid state and rollback. Real PostgreSQL tests cover
+cross-client same-identity concurrency with different challenges/IPs, retained
+aliases and configuration changes, denial immutability, submillisecond and
+session-timezone round trips, fresh time after row waits, outer/savepoint
+rollback, injected confirmed-abort whole-owner retries, and unchanged real
+challenge/encrypted-proof records. These complete the Iteration 3 mechanism
+scope; domain enforcement and gated OTP-lock removal remain later work.
 
 ### Policy configuration and operational analytics requirements
 
