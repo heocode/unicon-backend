@@ -6,6 +6,7 @@ import type { Prisma } from '../src/generated/prisma/client';
 
 import { validateEnvironment } from '../src/config/environment.validation';
 import { MailModule } from '../src/mail/mail.module';
+import { MailProviderPressureRepository } from '../src/mail/repositories/mail-provider-pressure.repository';
 import { MAIL_SUBMISSION_GATE as gate } from '../src/mail/constants/mail-submission-gate.constants';
 import { MailSubmissionGateConfigService } from '../src/mail/services/mail-submission-gate-config.service';
 import { MailSubmissionGateService } from '../src/mail/services/mail-submission-gate.service';
@@ -57,7 +58,13 @@ describe('Mail submission permission gate (PostgreSQL)', () => {
     repository = module.get(GcraAdmissionRepository);
     config = module.get(MailSubmissionGateConfigService);
     bounds = module.get(GcraAdmissionConfigService);
-    second = new MailSubmissionGateService(replica, repository, config, bounds);
+    second = new MailSubmissionGateService(
+      replica,
+      repository,
+      config,
+      bounds,
+      module.get(MailProviderPressureRepository),
+    );
     expect(config.policy).toEqual({ burst: 1, rate: 8, periodSeconds: 1 });
   });
   beforeEach(async () => {
@@ -171,7 +178,7 @@ describe('Mail submission permission gate (PostgreSQL)', () => {
           expect(result.nextPermissionNotBeforeMicros).toBe(
             result.operationNowMicros + 125_000n,
           );
-        } else {
+        } else if (result.outcome === 'DEFERRED') {
           const boundary =
             (evaluation.eligibleAt.numerator +
               evaluation.eligibleAt.denominator -
@@ -283,12 +290,14 @@ describe('Mail submission permission gate (PostgreSQL)', () => {
         repository,
         slowConfig,
         bounds,
+        module.get(MailProviderPressureRepository),
       ),
       other = new MailSubmissionGateService(
         replica,
         repository,
         slowConfig,
         bounds,
+        module.get(MailProviderPressureRepository),
       );
     const result = await owner.tryAcquire();
     if (result.outcome !== 'GRANTED') throw new Error('Expected permission.');
@@ -314,6 +323,7 @@ describe('Mail submission permission gate (PostgreSQL)', () => {
       repository,
       tuned,
       bounds,
+      module.get(MailProviderPressureRepository),
     ).tryAcquire();
     if (result.outcome !== 'GRANTED') throw new Error('Expected permission.');
     expect(result.nextPermissionNotBeforeMicros).toBe(
@@ -337,6 +347,7 @@ describe('Mail submission permission gate (PostgreSQL)', () => {
         repository,
         config,
         bounded,
+        module.get(MailProviderPressureRepository),
       ),
       ready = deferred(),
       release = deferred();

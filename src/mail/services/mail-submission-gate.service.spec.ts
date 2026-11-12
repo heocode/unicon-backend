@@ -7,6 +7,7 @@ import { GcraAdmissionRepository } from '../../rate-limit/repositories/gcra-admi
 import { GcraAdmissionConfigService } from '../../rate-limit/services/gcra-admission-config.service';
 import { createGcraState } from '../../rate-limit/utils/gcra-state.util';
 import { toGcraPersistenceData } from '../../rate-limit/utils/gcra-state-persistence.util';
+import { MailProviderPressureRepository } from '../repositories/mail-provider-pressure.repository';
 import { MAIL_SUBMISSION_GATE as gate } from '../constants/mail-submission-gate.constants';
 import { MailSubmissionGateConfigService } from './mail-submission-gate-config.service';
 import { MailSubmissionGateService } from './mail-submission-gate.service';
@@ -42,13 +43,22 @@ function setup(now = 1000n, rate = 8) {
       },
     ),
   };
+  const pressureState = {
+    id: 1,
+    retryNotBeforeMicros: 0n,
+    dailyNotBeforeMicros: 0n,
+    monthlyBlocked: false,
+    revision: 0n,
+  };
+  const pressure = { read: jest.fn().mockResolvedValue(pressureState) };
   const service = new MailSubmissionGateService(
     prisma as unknown as PrismaService,
     repository as unknown as GcraAdmissionRepository,
     new MailSubmissionGateConfigService(config),
     new GcraAdmissionConfigService(config),
+    pressure as unknown as MailProviderPressureRepository,
   );
-  return { service, repository, prisma, transactions };
+  return { service, repository, prisma, transactions, pressure };
 }
 function row(
   tat: bigint,

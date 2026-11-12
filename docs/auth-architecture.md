@@ -2722,8 +2722,9 @@ human-use thresholds.
 ### Accepted shared Resend send gate and mail integration boundary
 
 Status: **ACCEPTED / FIXED** as configurable V1 starting values. The internal
-permission core is implemented in Iteration 6 block 3.1; provider pressure,
-transport and sender integration remain pending.
+permission core is implemented in Iteration 6 block 3.1; shared provider pressure
+and the common transport are implemented in block 3.2. Sender integration remains
+pending.
 The operator confirmed the current Resend team API ceiling is 10 requests per
 second. This applies to the team across keys and replicas, not each worker.
 Resend documents the team scope and rate-limit/Retry-After headers in
@@ -2816,10 +2817,79 @@ and commit-acknowledgement loss testing retains its later integration owner.
 
 The core is exported for subsequent mail integration but is not called by current
 MailService, auth adapter/transport or workers. Existing sends therefore do not
-yet have application-wide enforcement. Provider pressure, cross-Delivery Retry-After,
-quota semantics and common transport belong to block 3.2; auth claim/defer belongs
-to block 4, other send paths/reliable notification deferral to block 5, and final
-integration to block 6. No existing retry/lifecycle ownership is changed in 3.1.
+yet have application-wide enforcement. Block 3.2 adds the pressure-aware common
+transport described below; auth claim/defer belongs to block 4, other send paths/
+reliable notification deferral to block 5, and final integration to block 6.
+No existing retry/lifecycle ownership is changed in blocks 3.1–3.2.
+
+#### Shared provider pressure and common transport — block 3.2
+
+MailProviderPressure is a migration-seeded singleton for the configured Resend
+team, independent of Delivery retention. It stores only absolute microsecond
+rate/daily boundaries, a monthly block and a monotonic revision. It contains no
+recipient, payload, proof or idempotency key. Missing state fails closed; runtime
+code never recreates/reset it. The additive migration changes no existing rows;
+the Prisma client is regenerated.
+
+MailProviderPressureService.observe and MailSubmissionGateService.tryAcquire use
+the same fixed mail gate advisory lock, then the pressure row lock. Acquisition
+also locks/reads the GCRA row before sampling fresh PostgreSQL clock time. The
+strongest active timed boundary wins; monthly exhaustion returns PAUSED with
+reason MONTHLY_QUOTA and no invented retry time. Both PAUSED and DEFERRED leave
+GCRA and pressure state unchanged. HTTP runs after the permission transaction
+commits, with no DB locks held. Permissions ordered before a new pressure
+observation cannot be retracted and may already be in flight; this is no
+distributed in-flight semaphore or guarantee about network arrival spacing.
+
+Quota names are classified before generic HTTP 429. daily_quota_exceeded pauses
+until the next UTC calendar midnight based on DB observation time; a later
+Retry-After still wins. Resend documents this daily reset in
+[Usage Limits](https://resend.com/docs/api-reference/rate-limit).
+monthly_quota_exceeded persists a block without guessing a billing reset date.
+After verifying recovery with the provider, an operator may explicitly invoke
+MailProviderPressureService.clearMonthlyBlock(expectedRevision). It returns false
+for stale revisions and never clears independent timed restrictions. No public
+recovery endpoint, automatic quota probe, plan quota count or calendar-month reset
+is introduced.
+
+Retry-After is shared across messages/keys/replicas, including responses other
+than 429. Numeric seconds are measured from fresh DB observation time after
+lock waits; strict HTTP dates remain exact absolute boundaries. Existing later
+boundaries are never shortened. Oversized numeric waits saturate at signed
+64-bit microseconds, an effectively indefinite fail-closed pause. A rate-limit
+response without a valid header uses required positive integer configuration
+MAIL_RESEND_RATE_LIMIT_FALLBACK_SECONDS (example 1). A valid zero/past header does
+not invoke that fallback; the normal GCRA gate still applies. Daily/monthly
+errors use their quota rules instead of the short fallback. This does not
+proactively count provider quota usage; received email and external team clients
+are outside application accounting.
+
+ResendMailTransportService.send accepts only neutral MailSubmission content and
+a stable idempotency key, plus the caller's AbortSignal. It acquires once, returns
+local DEFERRED/PAUSED without HTTP, or performs one HTTP attempt through
+ResendMailHttpClient. The caller owns deadlines, durable work and retries; this
+boundary does not sleep, queue, retry sends, mutate auth or refund permissions.
+An already aborted signal does not consume a permission. An ambiguous network
+failure returns OUTCOME_UNKNOWN, never safe retry. REJECTED denotes a non-2xx
+HTTP response, not proof of non-delivery for 5xx or unknown provider errors;
+providerRestriction separately distinguishes RATE_LIMIT/DAILY_QUOTA/MONTHLY_QUOTA.
+
+Pressure persistence uses bounded fresh transactions and retries only confirmed
+aborts. Unknown commit is not blindly retried. The transport preserves the
+observed ACCEPTED/REJECTED response and reports pressurePersistence=FAILED if
+recording fails; it never replaces accepted delivery with a retryable failure.
+A caller must surface/handle this technical failure separately from capacity
+waiting. Cross-replica enforcement requires committed pressure state: a failed
+write or crash between response receipt and persistence cannot be claimed as a
+recorded shared pause. Sender recovery/observability and real crash/commit-loss
+validation retain their later integration owners; no second auth queue is added.
+
+The existing auth raw HTTP class now reuses the neutral HTTP client, with its
+legacy behavior preserved. Auth adapter/worker and MailService do not yet call
+the gated common transport; blocks 4–5 must migrate every sender before claiming
+application-wide enforcement. Existing Stage 3 retry/lease/attempt semantics are
+unchanged. Tests use actual PostgreSQL services, independent clients, SQL fault
+injection and a local HTTP server rather than live Resend or mocked DB behavior.
 
 Device metadata is informational and spoofable. It contributes to throttling
 and risk context but is never identity proof.

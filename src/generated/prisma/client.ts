@@ -90,6 +90,11 @@ export type AuthenticationChallengeDelivery = Prisma.AuthenticationChallengeDeli
  */
 export type AuthenticationRateLimit = Prisma.AuthenticationRateLimitModel
 /**
+ * Model MailProviderPressure
+ * 
+ */
+export type MailProviderPressure = Prisma.MailProviderPressureModel
+/**
  * Model GcraRateLimit
  * 
  */

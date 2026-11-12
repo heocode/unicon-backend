@@ -89,6 +89,7 @@ process.env.RATE_LIMIT_TRANSACTION_TIMEOUT_SECONDS ??= '5';
 process.env.RATE_LIMIT_TRANSACTION_MAX_WAIT_SECONDS ??= '2';
 process.env.MAIL_RESEND_SUBMISSIONS_PER_SECOND ??= '8';
 process.env.MAIL_RESEND_TEAM_REQUESTS_PER_SECOND ??= '10';
+process.env.MAIL_RESEND_RATE_LIMIT_FALLBACK_SECONDS ??= '1';
 process.env.RESEND_API_KEY ??= 'test-resend-api-key';
 process.env.MAIL_FROM ??= 'test@unicon.local';
 process.env.CLIENT_URL ??= 'http://localhost:3001';

@@ -94,6 +94,7 @@ const validEnvironment = {
   RATE_LIMIT_TRANSACTION_MAX_WAIT_SECONDS: '2',
   MAIL_RESEND_SUBMISSIONS_PER_SECOND: '8',
   MAIL_RESEND_TEAM_REQUESTS_PER_SECOND: '10',
+  MAIL_RESEND_RATE_LIMIT_FALLBACK_SECONDS: '1',
   RESEND_API_KEY: 'resend-api-key',
   MAIL_FROM: 'noreply@unicon.local',
   CLIENT_URL: 'http://localhost:3001',
@@ -588,6 +589,7 @@ describe('validateEnvironment', () => {
   it.each([
     'MAIL_RESEND_SUBMISSIONS_PER_SECOND',
     'MAIL_RESEND_TEAM_REQUESTS_PER_SECOND',
+    'MAIL_RESEND_RATE_LIMIT_FALLBACK_SECONDS',
   ] as const)('validates mail gate setting %s', (key) => {
     for (const value of [
       undefined,

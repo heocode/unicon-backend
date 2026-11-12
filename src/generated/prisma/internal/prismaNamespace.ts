@@ -394,6 +394,7 @@ export const ModelName = {
   AuthenticationDeliveryBacklogState: 'AuthenticationDeliveryBacklogState',
   AuthenticationChallengeDelivery: 'AuthenticationChallengeDelivery',
   AuthenticationRateLimit: 'AuthenticationRateLimit',
+  MailProviderPressure: 'MailProviderPressure',
   GcraRateLimit: 'GcraRateLimit',
   University: 'University',
   AllowedDomain: 'AllowedDomain',
@@ -415,7 +416,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "user" | "passwordResetToken" | "passwordResetRateLimit" | "accountDeletionCancellationRateLimit" | "authenticationChallengeSubject" | "authenticationOperation" | "authenticationChallenge" | "authenticationDeliveryBacklogState" | "authenticationChallengeDelivery" | "authenticationRateLimit" | "gcraRateLimit" | "university" | "allowedDomain" | "session" | "notificationDelivery" | "securityEvent"
+    modelProps: "user" | "passwordResetToken" | "passwordResetRateLimit" | "accountDeletionCancellationRateLimit" | "authenticationChallengeSubject" | "authenticationOperation" | "authenticationChallenge" | "authenticationDeliveryBacklogState" | "authenticationChallengeDelivery" | "authenticationRateLimit" | "mailProviderPressure" | "gcraRateLimit" | "university" | "allowedDomain" | "session" | "notificationDelivery" | "securityEvent"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
@@ -1159,6 +1160,80 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         }
       }
     }
+    MailProviderPressure: {
+      payload: Prisma.$MailProviderPressurePayload<ExtArgs>
+      fields: Prisma.MailProviderPressureFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.MailProviderPressureFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MailProviderPressurePayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.MailProviderPressureFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MailProviderPressurePayload>
+        }
+        findFirst: {
+          args: Prisma.MailProviderPressureFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MailProviderPressurePayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.MailProviderPressureFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MailProviderPressurePayload>
+        }
+        findMany: {
+          args: Prisma.MailProviderPressureFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MailProviderPressurePayload>[]
+        }
+        create: {
+          args: Prisma.MailProviderPressureCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MailProviderPressurePayload>
+        }
+        createMany: {
+          args: Prisma.MailProviderPressureCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.MailProviderPressureCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MailProviderPressurePayload>[]
+        }
+        delete: {
+          args: Prisma.MailProviderPressureDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MailProviderPressurePayload>
+        }
+        update: {
+          args: Prisma.MailProviderPressureUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MailProviderPressurePayload>
+        }
+        deleteMany: {
+          args: Prisma.MailProviderPressureDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.MailProviderPressureUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.MailProviderPressureUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MailProviderPressurePayload>[]
+        }
+        upsert: {
+          args: Prisma.MailProviderPressureUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MailProviderPressurePayload>
+        }
+        aggregate: {
+          args: Prisma.MailProviderPressureAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateMailProviderPressure>
+        }
+        groupBy: {
+          args: Prisma.MailProviderPressureGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.MailProviderPressureGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.MailProviderPressureCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.MailProviderPressureCountAggregateOutputType> | number
+        }
+      }
+    }
     GcraRateLimit: {
       payload: Prisma.$GcraRateLimitPayload<ExtArgs>
       fields: Prisma.GcraRateLimitFieldRefs
@@ -1805,6 +1880,17 @@ export const AuthenticationRateLimitScalarFieldEnum = {
 export type AuthenticationRateLimitScalarFieldEnum = (typeof AuthenticationRateLimitScalarFieldEnum)[keyof typeof AuthenticationRateLimitScalarFieldEnum]
 
 
+export const MailProviderPressureScalarFieldEnum = {
+  id: 'id',
+  retryNotBeforeMicros: 'retryNotBeforeMicros',
+  dailyNotBeforeMicros: 'dailyNotBeforeMicros',
+  monthlyBlocked: 'monthlyBlocked',
+  revision: 'revision'
+} as const
+
+export type MailProviderPressureScalarFieldEnum = (typeof MailProviderPressureScalarFieldEnum)[keyof typeof MailProviderPressureScalarFieldEnum]
+
+
 export const GcraRateLimitScalarFieldEnum = {
   key: 'key',
   policyId: 'policyId',
@@ -2435,6 +2521,7 @@ export type GlobalOmitConfig = {
   authenticationDeliveryBacklogState?: Prisma.AuthenticationDeliveryBacklogStateOmit
   authenticationChallengeDelivery?: Prisma.AuthenticationChallengeDeliveryOmit
   authenticationRateLimit?: Prisma.AuthenticationRateLimitOmit
+  mailProviderPressure?: Prisma.MailProviderPressureOmit
   gcraRateLimit?: Prisma.GcraRateLimitOmit
   university?: Prisma.UniversityOmit
   allowedDomain?: Prisma.AllowedDomainOmit

@@ -337,6 +337,15 @@ model AuthenticationRateLimit {
   @@index([windowEndAt])
 }
 
+// One configured Resend team. No recipients, message content or provider keys.
+model MailProviderPressure {
+  id                   Int     @id
+  retryNotBeforeMicros BigInt  @default(0)
+  dailyNotBeforeMicros BigInt  @default(0)
+  monthlyBlocked       Boolean @default(false)
+  revision             BigInt  @default(0)
+}
+
 model GcraRateLimit {
   key             String   @id
   policyId        String

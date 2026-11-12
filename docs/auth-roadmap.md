@@ -1210,8 +1210,27 @@ and support evidence. Telemetry outages do not change enforcement.
    boundaries/fractional intervals, immutable deferral, fresh time after waits,
    lock timeout, configuration mismatch, real SQL rollback/retry and DB key checks.
    The core is exported but no existing sender invokes it yet: this is not
-   application-wide provider enforcement. Block 3.2 separately owns shared provider
-   pressure/Retry-After, quota semantics and the common transport boundary.
+   application-wide provider enforcement. Block 3.2 implements shared PostgreSQL
+   provider pressure and ResendMailTransportService: pressure and permission
+   acquisition serialize under the same fixed advisory lock, timed waits use
+   fresh DB observation time and never shorten an existing boundary. Daily quota
+   waits until UTC midnight (or a later Retry-After); monthly quota pauses until
+   explicit revision-checked recovery without a fabricated reset time. Required
+   MAIL_RESEND_RATE_LIMIT_FALLBACK_SECONDS uses example 1 for rate-limit responses
+   with no valid Retry-After. Local DEFERRED/PAUSED performs no HTTP or GCRA charge.
+   The neutral transport sends once after commit with stable idempotency and the
+   caller's AbortSignal; it owns no sleep, queue or send retry. Network ambiguity
+   remains OUTCOME_UNKNOWN; REJECTED is an HTTP result, not a safe-retry guarantee.
+   Provider responses survive pressure persistence failure, reported separately
+   as FAILED; no accepted send is turned into a retryable failure. A failed write
+   or response/persistence crash gap is not claimed as committed shared pressure.
+   Migration seeds a constrained singleton and Prisma generation updates the
+   client without rewriting existing domain rows. Nineteen real PostgreSQL/HTTP
+   tests cover replicas, waiting/no-charge, quota recovery, lock-time freshness,
+   non-shortening waits, HTTP ambiguity and SQL rollback/confirmed-abort retry.
+   Existing auth raw transport reuses the neutral HTTP client but legacy/auth
+   callers do not yet invoke the gated boundary. Their retry/lease ownership is
+   unchanged and application-wide enforcement remains pending.
    Auth worker integration remains block 4; other senders/reliable deferral remain
    block 5, and final integration checks remain block 6. Iteration 6 is IN PROGRESS.
    Separate aggregate admission of new Deliveries

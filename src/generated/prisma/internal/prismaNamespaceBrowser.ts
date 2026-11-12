@@ -61,6 +61,7 @@ export const ModelName = {
   AuthenticationDeliveryBacklogState: 'AuthenticationDeliveryBacklogState',
   AuthenticationChallengeDelivery: 'AuthenticationChallengeDelivery',
   AuthenticationRateLimit: 'AuthenticationRateLimit',
+  MailProviderPressure: 'MailProviderPressure',
   GcraRateLimit: 'GcraRateLimit',
   University: 'University',
   AllowedDomain: 'AllowedDomain',
@@ -246,6 +247,17 @@ export const AuthenticationRateLimitScalarFieldEnum = {
 } as const
 
 export type AuthenticationRateLimitScalarFieldEnum = (typeof AuthenticationRateLimitScalarFieldEnum)[keyof typeof AuthenticationRateLimitScalarFieldEnum]
+
+
+export const MailProviderPressureScalarFieldEnum = {
+  id: 'id',
+  retryNotBeforeMicros: 'retryNotBeforeMicros',
+  dailyNotBeforeMicros: 'dailyNotBeforeMicros',
+  monthlyBlocked: 'monthlyBlocked',
+  revision: 'revision'
+} as const
+
+export type MailProviderPressureScalarFieldEnum = (typeof MailProviderPressureScalarFieldEnum)[keyof typeof MailProviderPressureScalarFieldEnum]
 
 
 export const GcraRateLimitScalarFieldEnum = {

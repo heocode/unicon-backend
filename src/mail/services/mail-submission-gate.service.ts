@@ -17,6 +17,7 @@ import {
 } from '../../rate-limit/utils/gcra-state.util';
 import { isRetryableGcraTransactionError } from '../../rate-limit/utils/is-retryable-gcra-transaction-error.util';
 import { MAIL_SUBMISSION_GATE } from '../constants/mail-submission-gate.constants';
+import { MailProviderPressureRepository } from '../repositories/mail-provider-pressure.repository';
 import type { MailSubmissionGateResult } from '../types/mail-submission-gate.type';
 import { MailSubmissionGateConfigService } from './mail-submission-gate-config.service';
 
@@ -29,6 +30,7 @@ export class MailSubmissionGateService {
     private readonly repository: GcraAdmissionRepository,
     config: MailSubmissionGateConfigService,
     private readonly bounds: GcraAdmissionConfigService,
+    private readonly pressure: MailProviderPressureRepository,
   ) {
     this.prepared = Object.freeze([
       Object.freeze({
@@ -81,20 +83,36 @@ export class MailSubmissionGateService {
   ): Promise<MailSubmissionGateResult> {
     const keys = this.prepared[0].keys;
     await this.repository.lockAliases(transaction, keys);
+    const pressure = await this.pressure.read(transaction);
     const rows = await this.repository.readAliases(transaction, keys);
     // Sample after both advisory and row-lock waits. Do not use JS/transaction-start time.
     const now = await this.repository.operationNowMicros(transaction);
+    if (pressure.monthlyBlocked) {
+      return Object.freeze({
+        outcome: 'PAUSED',
+        reason: 'MONTHLY_QUOTA',
+        operationNowMicros: now,
+      });
+    }
     const [{ item, state, evaluation }] = assessGcraAdmissions(
       this.prepared,
       rows,
       now,
     );
-    if (!evaluation.allowed) {
-      const { numerator, denominator } = evaluation.eligibleAt;
+    const { numerator, denominator } = evaluation.eligibleAt;
+    const boundaries = [
+      (numerator + denominator - 1n) / denominator,
+      pressure.retryNotBeforeMicros,
+      pressure.dailyNotBeforeMicros,
+    ];
+    const boundary = boundaries.reduce((left, right) =>
+      left > right ? left : right,
+    );
+    if (!evaluation.allowed || boundary > now) {
       return Object.freeze({
         outcome: 'DEFERRED',
         operationNowMicros: now,
-        retryNotBeforeMicros: (numerator + denominator - 1n) / denominator,
+        retryNotBeforeMicros: boundary,
       });
     }
     const charged = chargeGcra(state, item.settings, now);

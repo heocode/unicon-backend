@@ -181,6 +181,12 @@ export function validateEnvironment(
     validatedEnvironment[key] = parsePositiveSafeInteger(environment[key], key);
   }
 
+  validatedEnvironment.MAIL_RESEND_RATE_LIMIT_FALLBACK_SECONDS =
+    parsePositiveSafeInteger(
+      environment.MAIL_RESEND_RATE_LIMIT_FALLBACK_SECONDS,
+      'MAIL_RESEND_RATE_LIMIT_FALLBACK_SECONDS',
+    );
+
   const mailSubmissions = parsePositiveSafeInteger(
     environment.MAIL_RESEND_SUBMISSIONS_PER_SECOND,
     'MAIL_RESEND_SUBMISSIONS_PER_SECOND',

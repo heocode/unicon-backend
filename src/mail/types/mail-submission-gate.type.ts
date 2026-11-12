@@ -10,4 +10,9 @@ export type MailSubmissionGateResult =
       outcome: 'DEFERRED';
       operationNowMicros: bigint;
       retryNotBeforeMicros: bigint;
+    }>
+  | Readonly<{
+      outcome: 'PAUSED';
+      reason: 'MONTHLY_QUOTA';
+      operationNowMicros: bigint;
     }>;
