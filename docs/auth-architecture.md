@@ -2721,7 +2721,9 @@ human-use thresholds.
 
 ### Accepted shared Resend send gate and mail integration boundary
 
-Status: **ACCEPTED / FIXED** as configurable V1 starting values; not implemented.
+Status: **ACCEPTED / FIXED** as configurable V1 starting values. The internal
+permission core is implemented in Iteration 6 block 3.1; provider pressure,
+transport and sender integration remain pending.
 The operator confirmed the current Resend team API ceiling is 10 requests per
 second. This applies to the team across keys and replicas, not each worker.
 Resend documents the team scope and rate-limit/Retry-After headers in
@@ -2770,6 +2772,54 @@ Do not hold database locks during provider I/O. Permission/crash accounting,
 concrete claim/defer implementation, team email quota exhaustion, and aggregate
 admission remain open design work. A granted permission is not proof that the
 provider received a network request.
+
+Iteration 6 block 3.1 implements MailSubmissionGateService.tryAcquire in
+MailModule using the existing GcraAdmissionRepository, assessment/arithmetic and
+transaction bounds. It owns an independent ReadCommitted transaction, locks the
+fixed key, locks/reads the row, samples fresh DB microseconds and either writes
+one permission or returns an immutable deferral. The result is released only
+after commit, when DB locks are no longer held. Burst=1 and period=1 second are
+fixed in a frozen MailSubmissionGateConfigService policy snapshot. Required
+MAIL_RESEND_SUBMISSIONS_PER_SECOND (example 8) is a positive safe integer no
+larger than MAIL_RESEND_TEAM_REQUESTS_PER_SECOND (example 10). The ceiling is
+operator/provider configuration, not a permanent protocol assertion or a live
+provider lookup. Active snapshot changes require explicit retuning; the gate
+never silently resets incompatible persisted state.
+
+The system key gcra:mail:resend-submission:v1 is bound exclusively to policyId
+MAIL_RESEND_SUBMISSION. An additive CHECK migration permits only this additional
+system pair while preserving the existing fixed auth-creation pair and v1 HMAC
+keys. It adds no table/Prisma-model changes and rewrites no rows. State stores only
+permission time and policy settings, never recipient, content, proof or provider
+idempotency keys. It is independent of auth creation/backlog/verification budgets.
+
+GRANTED carries operationNowMicros and nextPermissionNotBeforeMicros; DEFERRED
+carries operationNowMicros and retryNotBeforeMicros. Absolute boundaries ceil
+fractional microseconds rather than rounding waits to seconds. Deferral writes
+nothing, reserves no future slot and is not a provider failure. No external I/O,
+wait-until-eligibility loop, scheduler, refund, payload handling or send retry is
+part of this core. A committed but unused permission stays spent, including a
+caller stopping before submission. Only confirmed SQL transaction aborts permit
+bounded whole-owner retries. After an unconfirmed commit failure the caller gets
+COMMIT_OUTCOME_UNKNOWN, not a grant or blind retry. Technical state failures fail
+closed and remain distinct from capacity deferral.
+
+Unit checks cover exact microsecond eligibility, frozen/no-burst configuration,
+transaction bounds, sanitization, retry exhaustion and commit-uncertainty handling.
+Fifteen real PostgreSQL checks use two independent clients and actual SQL fault
+injection for spacing, idle recovery, fresh time after advisory/row waits, lock
+timeout, incompatible state, immutable deferral, unused permissions, fractional
+intervals, confirmed-abort retry and exact key binding. Concurrent tests use actual
+DB decision times and allow genuine replenishment during execution; they do not
+assume a frozen clock or establish production throughput. Actual transport fault
+and commit-acknowledgement loss testing retains its later integration owner.
+
+The core is exported for subsequent mail integration but is not called by current
+MailService, auth adapter/transport or workers. Existing sends therefore do not
+yet have application-wide enforcement. Provider pressure, cross-Delivery Retry-After,
+quota semantics and common transport belong to block 3.2; auth claim/defer belongs
+to block 4, other send paths/reliable notification deferral to block 5, and final
+integration to block 6. No existing retry/lifecycle ownership is changed in 3.1.
 
 Device metadata is informational and spoofable. It contributes to throttling
 and risk context but is never identity proof.

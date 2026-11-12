@@ -1191,6 +1191,29 @@ and support evidence. Telemetry outages do not change enforcement.
    checks, lifecycle expiry during global-key waits, provider retry and retention.
    HTTP mappings and provider gate/deferral remain later blocks. Production
    creation-rate tuning remains measurement-gated; no provider quota is selected.
+   Block 3.1 implements only the internal MailModule permission core.
+   MailSubmissionGateService.tryAcquire owns a short bounded ReadCommitted
+   transaction and the single fixed MAIL_RESEND_SUBMISSION GCRA key. Burst=1
+   and period=1 second are fixed; required MAIL_RESEND_SUBMISSIONS_PER_SECOND
+   uses the agreed example 8 and must not exceed configured
+   MAIL_RESEND_TEAM_REQUESTS_PER_SECOND (example 10, operator/provider data).
+   GRANTED is returned only after commit; DEFERRED carries the exact absolute
+   microsecond boundary without rounding to whole-second waits. No future slot
+   is reserved. A committed unused permission remains spent; no refund or
+   provider acceptance is inferred. Only confirmed transaction aborts permit a
+   bounded new-owner retry; unknown commit fails closed without a grant or blind
+   retry. This service accepts no recipients, payloads, Delivery IDs or keys from
+   callers and performs no network I/O, sleeps, scheduling or auth mutations.
+   The additive SQL migration allows exactly the bound mail key/policy, preserving
+   HMAC and global-creation key contracts. Models/client types are unchanged.
+   Unit and 15 PostgreSQL checks cover two-client spacing, idle behavior, exact
+   boundaries/fractional intervals, immutable deferral, fresh time after waits,
+   lock timeout, configuration mismatch, real SQL rollback/retry and DB key checks.
+   The core is exported but no existing sender invokes it yet: this is not
+   application-wide provider enforcement. Block 3.2 separately owns shared provider
+   pressure/Retry-After, quota semantics and the common transport boundary.
+   Auth worker integration remains block 4; other senders/reliable deferral remain
+   block 5, and final integration checks remain block 6. Iteration 6 is IN PROGRESS.
    Separate aggregate admission of new Deliveries
    from actual provider submission capacity, including retries. Enforce the
    accepted auth backlog model atomically with admission, counting all PENDING/PROCESSING

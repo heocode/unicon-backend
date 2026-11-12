@@ -92,6 +92,8 @@ const validEnvironment = {
   RATE_LIMIT_TRANSACTION_MAX_ATTEMPTS: '3',
   RATE_LIMIT_TRANSACTION_TIMEOUT_SECONDS: '5',
   RATE_LIMIT_TRANSACTION_MAX_WAIT_SECONDS: '2',
+  MAIL_RESEND_SUBMISSIONS_PER_SECOND: '8',
+  MAIL_RESEND_TEAM_REQUESTS_PER_SECOND: '10',
   RESEND_API_KEY: 'resend-api-key',
   MAIL_FROM: 'noreply@unicon.local',
   CLIENT_URL: 'http://localhost:3001',
@@ -583,6 +585,40 @@ describe('validateEnvironment', () => {
       ).toThrow();
     },
   );
+  it.each([
+    'MAIL_RESEND_SUBMISSIONS_PER_SECOND',
+    'MAIL_RESEND_TEAM_REQUESTS_PER_SECOND',
+  ] as const)('validates mail gate setting %s', (key) => {
+    for (const value of [
+      undefined,
+      '0',
+      '-1',
+      '1.5',
+      'Infinity',
+      '9007199254740992',
+    ])
+      expect(() =>
+        validateEnvironment({ ...validEnvironment, [key]: value }),
+      ).toThrow();
+  });
+  it('rejects permission rate above the configured team ceiling', () => {
+    expect(() =>
+      validateEnvironment({
+        ...validEnvironment,
+        MAIL_RESEND_SUBMISSIONS_PER_SECOND: '11',
+      }),
+    ).toThrow('MAIL_RESEND_SUBMISSIONS_PER_SECOND must not exceed');
+  });
+  it('accepts an explicit lower mail gate rate/ceiling without changing burst semantics', () => {
+    const values = validateEnvironment({
+      ...validEnvironment,
+      MAIL_RESEND_SUBMISSIONS_PER_SECOND: '3',
+      MAIL_RESEND_TEAM_REQUESTS_PER_SECOND: '4',
+    });
+    expect(values.MAIL_RESEND_SUBMISSIONS_PER_SECOND).toBe(3);
+    expect(values.MAIL_RESEND_TEAM_REQUESTS_PER_SECOND).toBe(4);
+  });
+
   it('parses the experimental backlog limit', () => {
     expect(
       validateEnvironment(validEnvironment).AUTH_DELIVERY_BACKLOG_LIMIT,

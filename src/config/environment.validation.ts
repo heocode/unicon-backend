@@ -181,6 +181,21 @@ export function validateEnvironment(
     validatedEnvironment[key] = parsePositiveSafeInteger(environment[key], key);
   }
 
+  const mailSubmissions = parsePositiveSafeInteger(
+    environment.MAIL_RESEND_SUBMISSIONS_PER_SECOND,
+    'MAIL_RESEND_SUBMISSIONS_PER_SECOND',
+  );
+  const mailTeamCeiling = parsePositiveSafeInteger(
+    environment.MAIL_RESEND_TEAM_REQUESTS_PER_SECOND,
+    'MAIL_RESEND_TEAM_REQUESTS_PER_SECOND',
+  );
+  if (mailSubmissions > mailTeamCeiling)
+    throw new Error(
+      'Environment variable MAIL_RESEND_SUBMISSIONS_PER_SECOND must not exceed MAIL_RESEND_TEAM_REQUESTS_PER_SECOND.',
+    );
+  validatedEnvironment.MAIL_RESEND_SUBMISSIONS_PER_SECOND = mailSubmissions;
+  validatedEnvironment.MAIL_RESEND_TEAM_REQUESTS_PER_SECOND = mailTeamCeiling;
+
   for (const [key, maximum] of [
     ['RATE_LIMIT_TRANSACTION_MAX_ATTEMPTS', 5],
     ['RATE_LIMIT_TRANSACTION_TIMEOUT_SECONDS', 60],
