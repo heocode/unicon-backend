@@ -19,7 +19,12 @@ export type AuthenticationResendAdmissionResult =
       operationNowMicros: bigint;
     }
   | { outcome: 'EXISTING'; delivery: CreatedAuthenticationDelivery }
-  | { outcome: 'CHALLENGE_UNAVAILABLE' | 'DELIVERY_WINDOW_CLOSED' }
+  | {
+      outcome:
+        | 'CHALLENGE_UNAVAILABLE'
+        | 'DELIVERY_WINDOW_CLOSED'
+        | 'DELIVERY_CAPACITY_UNAVAILABLE';
+    }
   | {
       outcome: 'RATE_LIMITED';
       operationNowMicros: bigint;

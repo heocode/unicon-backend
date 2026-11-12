@@ -4,6 +4,7 @@ import { ConfigService } from '@nestjs/config';
 
 @Injectable()
 export class AuthenticationDeliveryPolicyService {
+  readonly backlogLimit: number;
   readonly maxProcessingAttempts: number;
   readonly retryJitterPercent: number;
   readonly httpTimeoutSeconds: number;
@@ -18,6 +19,9 @@ export class AuthenticationDeliveryPolicyService {
   private readonly retryBackoffByCompletedAttempt: ReadonlyMap<number, number>;
 
   constructor(configService: ConfigService) {
+    this.backlogLimit = configService.getOrThrow<number>(
+      'AUTH_DELIVERY_BACKLOG_LIMIT',
+    );
     this.maxProcessingAttempts = configService.getOrThrow<number>(
       'AUTH_DELIVERY_MAX_PROCESSING_ATTEMPTS',
     );

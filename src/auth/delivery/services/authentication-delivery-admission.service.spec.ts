@@ -42,6 +42,11 @@ function setup() {
       .fn()
       .mockResolvedValue({ allowed: true, operationNowMicros: 100n }),
   };
+  const backlog = {
+    lockAndCountInTransaction: jest
+      .fn()
+      .mockResolvedValue({ outstanding: 0n, operationNowMicros: 100n }),
+  };
   const tx = {
     $queryRaw: jest.fn().mockResolvedValue([{ isolation: 'read committed' }]),
     $executeRaw: jest
@@ -52,9 +57,13 @@ function setup() {
   const service = new AuthenticationDeliveryAdmissionService(
     repository as unknown as AuthenticationDeliveryRepository,
     rateLimits as unknown as AuthenticationDeliveryRateLimitService,
-    { minValidityRemainingSeconds: 120 } as AuthenticationDeliveryPolicyService,
+    {
+      minValidityRemainingSeconds: 120,
+      backlogLimit: 1000,
+    } as AuthenticationDeliveryPolicyService,
+    backlog,
   );
-  return { service, repository, rateLimits, transaction, tx, ready };
+  return { service, repository, rateLimits, backlog, transaction, tx, ready };
 }
 
 describe('AuthenticationDeliveryAdmissionService (unit)', () => {
@@ -224,5 +233,70 @@ describe('AuthenticationDeliveryAdmissionService (unit)', () => {
       service.admitResendInTransaction(transaction, input),
     ).rejects.toMatchObject({ reason: 'INVALID_TRANSACTION' });
     expect(repository.getResendContextInTransaction).toHaveBeenCalledTimes(1);
+  });
+  it('checks shared backlog before any rate charge or insertion', async () => {
+    const { service, backlog, rateLimits, repository, transaction, tx } =
+      setup();
+    backlog.lockAndCountInTransaction.mockResolvedValue({
+      outstanding: 1000n,
+      operationNowMicros: 100n,
+    });
+    expect(await service.admitResendInTransaction(transaction, input)).toEqual({
+      outcome: 'DELIVERY_CAPACITY_UNAVAILABLE',
+    });
+    expect(rateLimits.admitInTransaction).not.toHaveBeenCalled();
+    expect(repository.createResendDeliveryInTransaction).not.toHaveBeenCalled();
+    expect(tx.$executeRaw.mock.calls.map(([sql]) => sql.join(''))).toContain(
+      'ROLLBACK TO SAVEPOINT unicon_delivery_admission',
+    );
+  });
+  it.each([0n, 119_999_999n])(
+    'rechecks expiry/window after backlog waits before capacity denial (remaining=%s)',
+    async (remaining) => {
+      const { service, backlog, rateLimits, ready, transaction } = setup();
+      backlog.lockAndCountInTransaction.mockResolvedValue({
+        outstanding: 1000n,
+        operationNowMicros: ready.expiresAtMicros - remaining,
+      });
+      expect(
+        await service.admitResendInTransaction(transaction, input),
+      ).toEqual({
+        outcome:
+          remaining === 0n ? 'CHALLENGE_UNAVAILABLE' : 'DELIVERY_WINDOW_CLOSED',
+      });
+      expect(rateLimits.admitInTransaction).not.toHaveBeenCalled();
+    },
+  );
+  it('retains exact minimum validity and admits below capacity', async () => {
+    const { service, backlog, ready, transaction } = setup();
+    backlog.lockAndCountInTransaction.mockResolvedValue({
+      outstanding: 999n,
+      operationNowMicros: ready.expiresAtMicros - 120_000_000n,
+    });
+    expect(
+      await service.admitResendInTransaction(transaction, input),
+    ).toMatchObject({ outcome: 'CREATED' });
+  });
+  it('does not touch backlog coordination when resolving existing work', async () => {
+    const { service, backlog, repository, transaction } = setup();
+    repository.getResendContextInTransaction.mockResolvedValue({
+      outcome: 'EXISTING',
+      delivery,
+    });
+    expect(await service.admitResendInTransaction(transaction, input)).toEqual({
+      outcome: 'EXISTING',
+      delivery,
+    });
+    expect(backlog.lockAndCountInTransaction).not.toHaveBeenCalled();
+  });
+  it('fails closed on coordination-state failure instead of reporting full capacity', async () => {
+    const { service, backlog, rateLimits, transaction } = setup();
+    backlog.lockAndCountInTransaction.mockRejectedValue(
+      new Error('Internal database details.'),
+    );
+    await expect(
+      service.admitResendInTransaction(transaction, input),
+    ).rejects.toMatchObject({ reason: 'STATE_UNAVAILABLE' });
+    expect(rateLimits.admitInTransaction).not.toHaveBeenCalled();
   });
 });

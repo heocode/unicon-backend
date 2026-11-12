@@ -44,6 +44,7 @@ import { AuthenticationChallengeCleanupRepository } from './challenge/repositori
 import { AuthenticationChallengeCleanupService } from './challenge/services/authentication-challenge-cleanup.service';
 import { AuthenticationChallengeCleanupSchedulerService } from './challenge/services/authentication-challenge-cleanup-scheduler.service';
 import { AuthenticationDeliveryPolicyService } from './delivery/services/authentication-delivery-policy.service';
+import { AuthenticationDeliveryBacklogRepository } from './delivery/repositories/authentication-delivery-backlog.repository';
 import { AuthenticationDeliveryRepository } from './delivery/repositories/authentication-delivery.repository';
 import { AuthenticationDeliveryAdmissionService } from './delivery/services/authentication-delivery-admission.service';
 import { AuthenticationMagicLinkService } from './delivery/services/authentication-magic-link.service';
@@ -111,6 +112,7 @@ import { AuthenticationOperationCleanupSchedulerService } from './operations/ser
     AuthenticationChallengeCleanupSchedulerService,
     AuthenticationDeliveryPolicyService,
     AuthenticationDeliveryRepository,
+    AuthenticationDeliveryBacklogRepository,
     AuthenticationDeliveryAdmissionService,
     AuthenticationMagicLinkService,
     AuthenticationEmailTemplateService,

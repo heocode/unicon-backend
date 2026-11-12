@@ -212,6 +212,11 @@ export function validateEnvironment(
       100,
     );
 
+  validatedEnvironment.AUTH_DELIVERY_BACKLOG_LIMIT = parsePositiveIntegerAtMost(
+    environment.AUTH_DELIVERY_BACKLOG_LIMIT,
+    'AUTH_DELIVERY_BACKLOG_LIMIT',
+    Number.MAX_SAFE_INTEGER,
+  );
   const deliveryMaxProcessingAttempts = parsePositiveInteger(
     environment.AUTH_DELIVERY_MAX_PROCESSING_ATTEMPTS,
     'AUTH_DELIVERY_MAX_PROCESSING_ATTEMPTS',

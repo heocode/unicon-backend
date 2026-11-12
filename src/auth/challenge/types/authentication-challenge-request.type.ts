@@ -16,7 +16,12 @@ export type AuthenticationSignInRequestResult =
       delivery: CreatedAuthenticationDelivery;
       operationNowMicros: bigint;
     }
-  | { outcome: 'CHALLENGE_UNAVAILABLE' | 'DELIVERY_WINDOW_CLOSED' }
+  | {
+      outcome:
+        | 'CHALLENGE_UNAVAILABLE'
+        | 'DELIVERY_WINDOW_CLOSED'
+        | 'DELIVERY_CAPACITY_UNAVAILABLE';
+    }
   | {
       outcome: 'RATE_LIMITED';
       operationNowMicros: bigint;

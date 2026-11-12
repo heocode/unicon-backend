@@ -1146,7 +1146,31 @@ and support evidence. Telemetry outages do not change enforcement.
    lock transition: failures do not clear proof/cancel Delivery, GCRA denial
    resumes on the same live challenge, and expiry/single-use/fail-closed behavior
    remains enforced. Do not remove legacy protection before these checks pass.
-6. **Global/provider pressure.** Separate aggregate admission of new Deliveries
+6. **Global/provider pressure — IN PROGRESS.** Block 1 implements the internal
+   auth Delivery backlog gate. AUTH_DELIVERY_BACKLOG_LIMIT is a required positive
+   safe integer; .env.example uses experimental 1000, not a production sizing
+   recommendation. AuthenticationDeliveryBacklogRepository updates a singleton
+   coordination row before counting real PENDING/PROCESSING work and sampling
+   DB time. Updating its row version also makes stale Serializable owners abort
+   after preceding ReadCommitted/Serializable admissions. No live counter or
+   distributed permit/semaphore is introduced. Admission retains the row lock
+   through rate/cooldown checks and Delivery insertion/commit. Lock order is
+   operation/subject/challenge/unfinished work, backlog row, then the existing
+   bucket/row order. Existing work and reusable challenges bypass the gate.
+   Both backlog and rate serialization waits are followed by expiry/Delivery-window
+   checks. Full capacity returns DELIVERY_CAPACITY_UNAVAILABLE without invented
+   retry information. Business denial rolls back the coordination touch as well
+   as domain mutations; INITIAL denial leaves no new challenge/subject. Receipts
+   persist/replay the historical denial with null retry boundary/wait. Terminal
+   transitions, retries, lease recovery and cleanup do not acquire the backlog
+   row and can progress at capacity. The additive migration seeds the singleton
+   and extends the receipt denial enum; no existing rows are deleted or rewritten.
+   Unit and 20 real PostgreSQL checks cover strict cross-client capacity, rollback,
+   missing-state fail-closed behavior, stale Serializable snapshots, retry/lease
+   accounting, lifecycle waits, full-capacity reuse/resolution, terminal/cleanup
+   release, receipt replay and independent request accounting. HTTP mappings,
+   global creation-rate admission and provider gate/deferral remain later blocks.
+   Separate aggregate admission of new Deliveries
    from actual provider submission capacity, including retries. Enforce the
    accepted auth backlog model atomically with admission, counting all PENDING/PROCESSING
    work across replicas and reserving capacity for new admissions. Enforce the

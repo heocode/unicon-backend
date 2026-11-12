@@ -9,6 +9,7 @@ import { PrismaService } from '../src/prisma/prisma.service';
 import { AuthenticationChallengeProofFactoryService } from '../src/auth/challenge/services/authentication-challenge-proof-factory.service';
 import { AuthenticationDeliveryAdmissionService } from '../src/auth/delivery/services/authentication-delivery-admission.service';
 import { AuthenticationDeliveryPolicyService } from '../src/auth/delivery/services/authentication-delivery-policy.service';
+import { AuthenticationDeliveryBacklogRepository } from '../src/auth/delivery/repositories/authentication-delivery-backlog.repository';
 import { AuthenticationDeliveryRepository } from '../src/auth/delivery/repositories/authentication-delivery.repository';
 import { AuthenticationDeliveryRateLimitService } from '../src/auth/rate-limit/services/authentication-delivery-rate-limit.service';
 import { AuthenticationDeliveryCooldownRepository } from '../src/auth/rate-limit/repositories/authentication-delivery-cooldown.repository';
@@ -61,6 +62,7 @@ describe('RESEND Delivery admission (PostgreSQL)', () => {
       ),
       module.get(AuthenticationDeliveryRateLimitService),
       module.get(AuthenticationDeliveryPolicyService),
+      module.get(AuthenticationDeliveryBacklogRepository),
     );
     factory = module.get(AuthenticationChallengeProofFactoryService);
     derivation = module.get(RateLimitBucketKeyService);
@@ -525,12 +527,42 @@ describe('RESEND Delivery admission (PostgreSQL)', () => {
   );
 
   it.each([
-    { remaining: 120.8, outcome: 'DELIVERY_WINDOW_CLOSED' },
-    { remaining: 0.8, outcome: 'CHALLENGE_UNAVAILABLE' },
+    { wait: 1.1, outcome: 'DELIVERY_WINDOW_CLOSED' },
+    { wait: 2.1, outcome: 'CHALLENGE_UNAVAILABLE' },
   ])(
     'rechecks lifecycle/window after a real bucket wait ($outcome)',
-    async ({ remaining, outcome }) => {
-      await prisma.$executeRaw`UPDATE "AuthenticationChallenge" SET "expiresAt"=clock_timestamp()+${remaining}::double precision * INTERVAL '1 second' WHERE "id"=${fixture.challengeId}`;
+    async ({ wait, outcome }) => {
+      // Both operations must enter with an open window at the new backlog
+      // checkpoint. A positive one-second test policy permits a bounded real
+      // bucket wait to cross either the window or expiry boundary. All services,
+      // repositories and the DB clock remain real; production policy is unchanged.
+      const config = module.get(ConfigService);
+      const policyValues: Record<string, unknown> = Object.fromEntries(
+        [
+          'AUTH_DELIVERY_BACKLOG_LIMIT',
+          'AUTH_DELIVERY_MAX_PROCESSING_ATTEMPTS',
+          'AUTH_DELIVERY_RETRY_BACKOFF_SECONDS',
+          'AUTH_DELIVERY_RETRY_JITTER_PERCENT',
+          'AUTH_DELIVERY_HTTP_TIMEOUT_SECONDS',
+          'AUTH_DELIVERY_PROCESSING_LEASE_SECONDS',
+          'AUTH_DELIVERY_PROVIDER_IDEMPOTENCY_WINDOW_SECONDS',
+          'AUTH_DELIVERY_WORKER_INTERVAL_SECONDS',
+          'AUTH_DELIVERY_WORKER_CONCURRENCY',
+          'AUTH_DELIVERY_WORKER_MAX_DELIVERIES_PER_CYCLE',
+          'AUTH_DELIVERY_WORKER_EXHAUSTED_LEASE_BATCH_SIZE',
+        ].map((key) => [key, config.getOrThrow<unknown>(key)]),
+      );
+      policyValues.AUTH_DELIVERY_MIN_VALIDITY_REMAINING_SECONDS = 1;
+      const policy = new AuthenticationDeliveryPolicyService(
+        new ConfigService(policyValues),
+      );
+      const waitingService = new AuthenticationDeliveryAdmissionService(
+        new AuthenticationDeliveryRepository(replica, policy),
+        module.get(AuthenticationDeliveryRateLimitService),
+        policy,
+        module.get(AuthenticationDeliveryBacklogRepository),
+      );
+      await prisma.$executeRaw`UPDATE "AuthenticationChallenge" SET "expiresAt"=clock_timestamp()+INTERVAL '1.8 seconds' WHERE "id"=${fixture.challengeId}`;
       const before = await state();
       let ready!: (tx: Prisma.TransactionClient) => void;
       let release!: () => void;
@@ -549,7 +581,10 @@ describe('RESEND Delivery admission (PostgreSQL)', () => {
         { timeout: 10_000 },
       );
       const control = await readyPromise;
-      const pending = admit(fixture, true);
+      const pending = replica.$transaction(
+        (tx) => waitingService.admitResendInTransaction(tx, input(fixture)),
+        { timeout: 10_000, maxWait: 5_000 },
+      );
       try {
         let blocked = false;
         for (let i = 0; i < 100; i++) {
@@ -563,7 +598,7 @@ describe('RESEND Delivery admission (PostgreSQL)', () => {
           await new Promise((resolve) => setTimeout(resolve, 10));
         }
         expect(blocked).toBe(true);
-        await control.$queryRaw`SELECT 1 FROM pg_sleep(1.1)`;
+        await control.$queryRaw`SELECT 1 FROM pg_sleep(${wait})`;
         release();
         await holding;
         expect(await pending).toEqual({ outcome });

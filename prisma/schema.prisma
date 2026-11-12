@@ -223,6 +223,7 @@ enum AuthenticationOperationDenial {
   RATE_LIMITED
   CHALLENGE_UNAVAILABLE
   DELIVERY_WINDOW_CLOSED
+  DELIVERY_CAPACITY_UNAVAILABLE
 }
 
 // Independent receipt: domain retention must not cascade-delete replay protection.
@@ -286,6 +287,13 @@ model AuthenticationChallenge {
   @@index([boundSessionId])
   @@index([expiresAt])
   @@index([retentionExpiresAt])
+}
+
+// Singleton coordination row. Actual backlog is counted from Delivery status;
+// updating this row serializes admissions and invalidates stale Serializable snapshots.
+model AuthenticationDeliveryBacklogState {
+  id        Int      @id
+  updatedAt DateTime @updatedAt
 }
 
 model AuthenticationChallengeDelivery {

@@ -23,6 +23,7 @@ import type {
   AuthenticationDeliveryAdmissionWindow,
   AuthenticationDeliveryWindowDenial,
 } from '../types/authentication-delivery-rate-limit.type';
+import { authenticationDeliveryWindowOutcome } from '../utils/authentication-delivery-window.util';
 import { AuthenticationRateLimitConfigService } from './authentication-rate-limit-config.service';
 
 @Injectable()
@@ -82,24 +83,15 @@ export class AuthenticationDeliveryRateLimitService {
           cooldownKeys,
         );
         const now = await this.gcraRepository.operationNowMicros(transaction);
-        if (capturedWindow) {
-          const remaining = capturedWindow.expiresAtMicros - now;
-          if (remaining <= 0n)
-            return Object.freeze({
-              allowed: false as const,
-              operationNowMicros: now,
-              windowOutcome: 'CHALLENGE_UNAVAILABLE' as const,
-            });
-          if (
-            remaining <
-            BigInt(capturedWindow.minValidityRemainingSeconds) * 1_000_000n
-          )
-            return Object.freeze({
-              allowed: false as const,
-              operationNowMicros: now,
-              windowOutcome: 'DELIVERY_WINDOW_CLOSED' as const,
-            });
-        }
+        const windowOutcome = capturedWindow
+          ? authenticationDeliveryWindowOutcome(capturedWindow, now)
+          : null;
+        if (windowOutcome)
+          return Object.freeze({
+            allowed: false as const,
+            operationNowMicros: now,
+            windowOutcome,
+          });
         const gcraDecisions = assessGcraAdmissions(gcra, gcraRows, now);
         const cooldownDecisions = cooldowns.map((item) => {
           const blockedUntil = this.cooldownBoundary(cooldownRows, item.keys);

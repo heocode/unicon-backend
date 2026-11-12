@@ -43,6 +43,7 @@ const validEnvironment = {
   AUTH_CHALLENGE_CLEANUP_INTERVAL_SECONDS: '60',
   AUTH_CHALLENGE_CLEANUP_BATCH_SIZE: '100',
   AUTH_CHALLENGE_CLEANUP_MAX_BATCHES_PER_RUN: '10',
+  AUTH_DELIVERY_BACKLOG_LIMIT: '1000',
   AUTH_DELIVERY_MAX_PROCESSING_ATTEMPTS: '5',
   AUTH_DELIVERY_RETRY_BACKOFF_SECONDS: '5,15,30,60',
   AUTH_DELIVERY_RETRY_JITTER_PERCENT: '20',
@@ -563,6 +564,23 @@ describe('validateEnvironment', () => {
     ).toThrow(
       'Environment variable AUTH_CHALLENGE_RETENTION_SECONDS must be greater than or equal to AUTH_CHALLENGE_TTL_SECONDS.',
     );
+  });
+
+  it.each([undefined, '0', '-1', '1.5', '9007199254740992'])(
+    'rejects invalid backlog limit %s',
+    (value) => {
+      expect(() =>
+        validateEnvironment({
+          ...validEnvironment,
+          AUTH_DELIVERY_BACKLOG_LIMIT: value,
+        }),
+      ).toThrow();
+    },
+  );
+  it('parses the experimental backlog limit', () => {
+    expect(
+      validateEnvironment(validEnvironment).AUTH_DELIVERY_BACKLOG_LIMIT,
+    ).toBe(1000);
   });
 
   it('parses the authentication delivery retry policy', () => {

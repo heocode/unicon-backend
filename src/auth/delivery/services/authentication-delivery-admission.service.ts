@@ -7,6 +7,8 @@ import { canonicalizeIp } from '../../../common/utils/canonicalize-ip.util';
 import { GcraAdmissionInfrastructureError } from '../../../rate-limit/errors/gcra-admission-infrastructure.error';
 import { isRetryableGcraTransactionError } from '../../../rate-limit/utils/is-retryable-gcra-transaction-error.util';
 import { AuthenticationDeliveryRateLimitService } from '../../rate-limit/services/authentication-delivery-rate-limit.service';
+import { authenticationDeliveryWindowOutcome } from '../../rate-limit/utils/authentication-delivery-window.util';
+import { AuthenticationDeliveryBacklogRepository } from '../repositories/authentication-delivery-backlog.repository';
 import { AuthenticationDeliveryRepository } from '../repositories/authentication-delivery.repository';
 import type {
   AuthenticationResendAdmissionInput,
@@ -25,6 +27,7 @@ export class AuthenticationDeliveryAdmissionService {
     private readonly repository: AuthenticationDeliveryRepository,
     private readonly rateLimits: AuthenticationDeliveryRateLimitService,
     private readonly policy: AuthenticationDeliveryPolicyService,
+    private readonly backlog: AuthenticationDeliveryBacklogRepository,
   ) {}
 
   /** One admission per transaction. Owner supplies bounds, commit handling and retries. */
@@ -52,7 +55,7 @@ export class AuthenticationDeliveryAdmissionService {
     });
   }
 
-  private async withAdmission<T>(
+  private async withAdmission<T extends { outcome: string }>(
     transaction: Prisma.TransactionClient,
     operation: () => Promise<T>,
   ): Promise<T> {
@@ -79,6 +82,11 @@ export class AuthenticationDeliveryAdmissionService {
     }
     try {
       const result = await operation();
+      if (result.outcome !== 'CREATED' && result.outcome !== 'EXISTING') {
+        // Denial must not persist even a coordination-row touch. The receipt
+        // owner may still commit the returned historical business decision.
+        await transaction.$executeRaw`ROLLBACK TO SAVEPOINT unicon_delivery_admission`;
+      }
       await transaction.$executeRaw`RELEASE SAVEPOINT unicon_delivery_admission`;
       return result;
     } catch (error) {
@@ -106,6 +114,17 @@ export class AuthenticationDeliveryAdmissionService {
         throw new GcraAdmissionInfrastructureError('INVALID_STATE');
       return context;
     }
+    const capacity = await this.backlog.lockAndCountInTransaction(transaction);
+    const windowOutcome = authenticationDeliveryWindowOutcome(
+      {
+        expiresAtMicros: context.expiresAtMicros,
+        minValidityRemainingSeconds: this.policy.minValidityRemainingSeconds,
+      },
+      capacity.operationNowMicros,
+    );
+    if (windowOutcome) return { outcome: windowOutcome };
+    if (capacity.outstanding >= BigInt(this.policy.backlogLimit))
+      return { outcome: 'DELIVERY_CAPACITY_UNAVAILABLE' };
     const rate = await this.rateLimits.admitInTransaction(
       transaction,
       {

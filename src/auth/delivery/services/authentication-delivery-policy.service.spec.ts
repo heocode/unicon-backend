@@ -4,6 +4,7 @@ import { AuthenticationDeliveryPolicyService } from './authentication-delivery-p
 
 describe('AuthenticationDeliveryPolicyService', () => {
   const values: Record<string, number | number[]> = {
+    AUTH_DELIVERY_BACKLOG_LIMIT: 1000,
     AUTH_DELIVERY_MAX_PROCESSING_ATTEMPTS: 5,
     AUTH_DELIVERY_RETRY_BACKOFF_SECONDS: [5, 15, 30, 60],
     AUTH_DELIVERY_RETRY_JITTER_PERCENT: 20,

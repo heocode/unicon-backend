@@ -75,6 +75,11 @@ export type AuthenticationOperation = Prisma.AuthenticationOperationModel
  */
 export type AuthenticationChallenge = Prisma.AuthenticationChallengeModel
 /**
+ * Model AuthenticationDeliveryBacklogState
+ * 
+ */
+export type AuthenticationDeliveryBacklogState = Prisma.AuthenticationDeliveryBacklogStateModel
+/**
  * Model AuthenticationChallengeDelivery
  * 
  */

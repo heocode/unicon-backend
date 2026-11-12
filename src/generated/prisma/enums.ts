@@ -189,7 +189,8 @@ export type AuthenticationOperationOutcome = (typeof AuthenticationOperationOutc
 export const AuthenticationOperationDenial = {
   RATE_LIMITED: 'RATE_LIMITED',
   CHALLENGE_UNAVAILABLE: 'CHALLENGE_UNAVAILABLE',
-  DELIVERY_WINDOW_CLOSED: 'DELIVERY_WINDOW_CLOSED'
+  DELIVERY_WINDOW_CLOSED: 'DELIVERY_WINDOW_CLOSED',
+  DELIVERY_CAPACITY_UNAVAILABLE: 'DELIVERY_CAPACITY_UNAVAILABLE'
 } as const
 
 export type AuthenticationOperationDenial = (typeof AuthenticationOperationDenial)[keyof typeof AuthenticationOperationDenial]

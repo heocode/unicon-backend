@@ -12,6 +12,7 @@ import { AuthenticationChallengeConfigService } from '../src/auth/challenge/serv
 import { AuthenticationChallengeProofFactoryService } from '../src/auth/challenge/services/authentication-challenge-proof-factory.service';
 import { AuthenticationDeliveryAdmissionService } from '../src/auth/delivery/services/authentication-delivery-admission.service';
 import { AuthenticationDeliveryPolicyService } from '../src/auth/delivery/services/authentication-delivery-policy.service';
+import { AuthenticationDeliveryBacklogRepository } from '../src/auth/delivery/repositories/authentication-delivery-backlog.repository';
 import { AuthenticationDeliveryRepository } from '../src/auth/delivery/repositories/authentication-delivery.repository';
 import { AuthenticationDeliveryRateLimitService } from '../src/auth/rate-limit/services/authentication-delivery-rate-limit.service';
 import { AuthenticationDeliveryCooldownRepository } from '../src/auth/rate-limit/repositories/authentication-delivery-cooldown.repository';
@@ -69,6 +70,7 @@ describe('SIGN_IN initial and replacement admission (PostgreSQL)', () => {
       ),
       module.get(AuthenticationDeliveryRateLimitService),
       module.get(AuthenticationDeliveryPolicyService),
+      module.get(AuthenticationDeliveryBacklogRepository),
     );
     replicaRequests = new AuthenticationChallengeRequestService(
       challengeRepository,

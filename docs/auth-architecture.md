@@ -2484,8 +2484,9 @@ configure Render/Railway/VPS ranges, enable Express trust proxy, or change runti
 
 ### Accepted auth Delivery backlog accounting
 
-Status: **ACCEPTED / FIXED** accounting model; not implemented. The numerical
-backlog limit and global admission rate remain open. Internal denial semantics
+Status: **ACCEPTED / FIXED** accounting model; internal backlog enforcement is
+implemented in Stage 4 Iteration 6 block 1. Production backlog sizing and the
+global admission rate remain open. Internal denial semantics
 are fixed below; HTTP mappings and UX remain Stage 5–6 work. A global admission rate bounds incoming new Deliveries; a backlog
 limit bounds outstanding work. Neither replaces the other or the provider gate.
 
@@ -2522,9 +2523,58 @@ own lifecycle. Preserve Stage 3 validity checks after any capacity wait before
 submission; backlog size and nominal send rate alone cannot guarantee delivery
 time.
 
+Iteration 6 block 1 implementation: AuthenticationDeliveryBacklogRepository
+updates the seeded singleton AuthenticationDeliveryBacklogState row (id=1),
+then uses a separate statement to count actual PENDING/PROCESSING rows and sample
+fresh DB microsecond time. There is no stored backlog count to repair or refund.
+All application new-Delivery paths enter through AuthenticationDeliveryAdmissionService;
+the lower repository creation methods remain persistence-only owner primitives.
+The coordination lock lasts through policy checks, insertion and owner commit.
+Updating the row, rather than only acquiring an advisory/row lock, forces an old
+Serializable snapshot to abort after a preceding ReadCommitted or Serializable
+admission. The owner retries confirmed aborts only in a new whole transaction.
+ReadCommitted remains the operation owner's default isolation.
+
+The order is operation/subject/challenge and unfinished Delivery locks, backlog
+coordination row, then the existing complete rate/cooldown advisory union and row
+order. Shared window logic checks fresh time after backlog waiting and again
+after bucket waiting. Missing coordination state is technical fail-closed, never
+capacity denial and never silently recreated. Reuse/EXISTING resolution enters
+neither the backlog row nor new-Delivery rate checks. Every business denial rolls
+back its coordination-row touch and partial admission work; a new INITIAL's
+challenge/subject is also rolled back by the request owner. Durable operation
+receipts record/replay capacity denial with null retry boundary and wait. An old
+denial remains historical when a slot later opens; a new operation can re-evaluate.
+
+Terminal status changes, retry scheduling, expired-lease recovery and retention
+cleanup do not need the coordination row: they never add outstanding work, and
+thus may release capacity or make progress while backlog is full. This bounds
+committed unfinished auth Delivery rows, not provider calls still in flight.
+The required AUTH_DELIVERY_BACKLOG_LIMIT is a positive safe integer; experimental
+1000 in .env.example/test defaults is not a production capacity recommendation.
+The additive migration creates/seeds only the coordinator and extends
+AuthenticationOperationDenial; existing challenge, Delivery, rate and receipt
+records are preserved. Regenerate Prisma and configure the setting on rollout.
+All new-Delivery admission writers must run this protocol before claiming strict
+cross-replica enforcement; old admission writers bypass the coordinator. Existing
+backlog above a newly configured limit is retained and drained normally; new work
+is denied until the outstanding count falls below the limit.
+
+Unit tests and test/authentication-delivery-backlog.e2e-spec.ts use real database
+services (only external email submission is replaced), with an explicit test
+limit of 3. They verify last-slot concurrency, both supported isolation levels,
+stale Serializable aborts, count semantics, release/recovery, rollback, missing
+state, expiry/window during waits, immutable full-capacity denial, stable proof,
+receipt replay/reconciliation and independently committed request accounting.
+These are internal correctness checks, not production capacity measurements.
+Existing bucket-wait scenarios start with an open positive one-second test
+window, then cross window/expiry during the real wait; a challenge already below
+the production window is now correctly rejected at the earlier backlog checkpoint.
+
 ### Accepted Global Delivery Admission outcomes and commit uncertainty
 
-Status: **ACCEPTED / FIXED target; not implemented.** Distinguish these internal
+Status: **ACCEPTED / FIXED target; capacity denial and durable receipt handling
+implemented in Iteration 6 block 1; global-rate admission remains pending.** Distinguish these internal
 outcomes without conflating policy decisions and availability failures:
 
 | Internal outcome | Meaning | Retry information |

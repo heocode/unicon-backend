@@ -391,6 +391,7 @@ export const ModelName = {
   AuthenticationChallengeSubject: 'AuthenticationChallengeSubject',
   AuthenticationOperation: 'AuthenticationOperation',
   AuthenticationChallenge: 'AuthenticationChallenge',
+  AuthenticationDeliveryBacklogState: 'AuthenticationDeliveryBacklogState',
   AuthenticationChallengeDelivery: 'AuthenticationChallengeDelivery',
   AuthenticationRateLimit: 'AuthenticationRateLimit',
   GcraRateLimit: 'GcraRateLimit',
@@ -414,7 +415,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "user" | "passwordResetToken" | "passwordResetRateLimit" | "accountDeletionCancellationRateLimit" | "authenticationChallengeSubject" | "authenticationOperation" | "authenticationChallenge" | "authenticationChallengeDelivery" | "authenticationRateLimit" | "gcraRateLimit" | "university" | "allowedDomain" | "session" | "notificationDelivery" | "securityEvent"
+    modelProps: "user" | "passwordResetToken" | "passwordResetRateLimit" | "accountDeletionCancellationRateLimit" | "authenticationChallengeSubject" | "authenticationOperation" | "authenticationChallenge" | "authenticationDeliveryBacklogState" | "authenticationChallengeDelivery" | "authenticationRateLimit" | "gcraRateLimit" | "university" | "allowedDomain" | "session" | "notificationDelivery" | "securityEvent"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
@@ -933,6 +934,80 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         count: {
           args: Prisma.AuthenticationChallengeCountArgs<ExtArgs>
           result: runtime.Types.Utils.Optional<Prisma.AuthenticationChallengeCountAggregateOutputType> | number
+        }
+      }
+    }
+    AuthenticationDeliveryBacklogState: {
+      payload: Prisma.$AuthenticationDeliveryBacklogStatePayload<ExtArgs>
+      fields: Prisma.AuthenticationDeliveryBacklogStateFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.AuthenticationDeliveryBacklogStateFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AuthenticationDeliveryBacklogStatePayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.AuthenticationDeliveryBacklogStateFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AuthenticationDeliveryBacklogStatePayload>
+        }
+        findFirst: {
+          args: Prisma.AuthenticationDeliveryBacklogStateFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AuthenticationDeliveryBacklogStatePayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.AuthenticationDeliveryBacklogStateFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AuthenticationDeliveryBacklogStatePayload>
+        }
+        findMany: {
+          args: Prisma.AuthenticationDeliveryBacklogStateFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AuthenticationDeliveryBacklogStatePayload>[]
+        }
+        create: {
+          args: Prisma.AuthenticationDeliveryBacklogStateCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AuthenticationDeliveryBacklogStatePayload>
+        }
+        createMany: {
+          args: Prisma.AuthenticationDeliveryBacklogStateCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.AuthenticationDeliveryBacklogStateCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AuthenticationDeliveryBacklogStatePayload>[]
+        }
+        delete: {
+          args: Prisma.AuthenticationDeliveryBacklogStateDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AuthenticationDeliveryBacklogStatePayload>
+        }
+        update: {
+          args: Prisma.AuthenticationDeliveryBacklogStateUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AuthenticationDeliveryBacklogStatePayload>
+        }
+        deleteMany: {
+          args: Prisma.AuthenticationDeliveryBacklogStateDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.AuthenticationDeliveryBacklogStateUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.AuthenticationDeliveryBacklogStateUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AuthenticationDeliveryBacklogStatePayload>[]
+        }
+        upsert: {
+          args: Prisma.AuthenticationDeliveryBacklogStateUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AuthenticationDeliveryBacklogStatePayload>
+        }
+        aggregate: {
+          args: Prisma.AuthenticationDeliveryBacklogStateAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateAuthenticationDeliveryBacklogState>
+        }
+        groupBy: {
+          args: Prisma.AuthenticationDeliveryBacklogStateGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AuthenticationDeliveryBacklogStateGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.AuthenticationDeliveryBacklogStateCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AuthenticationDeliveryBacklogStateCountAggregateOutputType> | number
         }
       }
     }
@@ -1687,6 +1762,14 @@ export const AuthenticationChallengeScalarFieldEnum = {
 export type AuthenticationChallengeScalarFieldEnum = (typeof AuthenticationChallengeScalarFieldEnum)[keyof typeof AuthenticationChallengeScalarFieldEnum]
 
 
+export const AuthenticationDeliveryBacklogStateScalarFieldEnum = {
+  id: 'id',
+  updatedAt: 'updatedAt'
+} as const
+
+export type AuthenticationDeliveryBacklogStateScalarFieldEnum = (typeof AuthenticationDeliveryBacklogStateScalarFieldEnum)[keyof typeof AuthenticationDeliveryBacklogStateScalarFieldEnum]
+
+
 export const AuthenticationChallengeDeliveryScalarFieldEnum = {
   id: 'id',
   challengeId: 'challengeId',
@@ -2349,6 +2432,7 @@ export type GlobalOmitConfig = {
   authenticationChallengeSubject?: Prisma.AuthenticationChallengeSubjectOmit
   authenticationOperation?: Prisma.AuthenticationOperationOmit
   authenticationChallenge?: Prisma.AuthenticationChallengeOmit
+  authenticationDeliveryBacklogState?: Prisma.AuthenticationDeliveryBacklogStateOmit
   authenticationChallengeDelivery?: Prisma.AuthenticationChallengeDeliveryOmit
   authenticationRateLimit?: Prisma.AuthenticationRateLimitOmit
   gcraRateLimit?: Prisma.GcraRateLimitOmit

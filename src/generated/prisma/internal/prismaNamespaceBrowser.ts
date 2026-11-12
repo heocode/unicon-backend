@@ -58,6 +58,7 @@ export const ModelName = {
   AuthenticationChallengeSubject: 'AuthenticationChallengeSubject',
   AuthenticationOperation: 'AuthenticationOperation',
   AuthenticationChallenge: 'AuthenticationChallenge',
+  AuthenticationDeliveryBacklogState: 'AuthenticationDeliveryBacklogState',
   AuthenticationChallengeDelivery: 'AuthenticationChallengeDelivery',
   AuthenticationRateLimit: 'AuthenticationRateLimit',
   GcraRateLimit: 'GcraRateLimit',
@@ -202,6 +203,14 @@ export const AuthenticationChallengeScalarFieldEnum = {
 } as const
 
 export type AuthenticationChallengeScalarFieldEnum = (typeof AuthenticationChallengeScalarFieldEnum)[keyof typeof AuthenticationChallengeScalarFieldEnum]
+
+
+export const AuthenticationDeliveryBacklogStateScalarFieldEnum = {
+  id: 'id',
+  updatedAt: 'updatedAt'
+} as const
+
+export type AuthenticationDeliveryBacklogStateScalarFieldEnum = (typeof AuthenticationDeliveryBacklogStateScalarFieldEnum)[keyof typeof AuthenticationDeliveryBacklogStateScalarFieldEnum]
 
 
 export const AuthenticationChallengeDeliveryScalarFieldEnum = {
