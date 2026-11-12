@@ -469,8 +469,10 @@ all entry points, including concurrent initial/resend requests. Enforce existenc
 checks and creation under the same authoritative serialization boundary.
 
 This ACCEPTED / FIXED V1 target replaces automatic resend supersession. Stage 4
-Iteration 4 block 1 implements unfinished-work resolution in persistence; the
-complete admission coordinator remains the next block. The historical
+Iteration 4 block 1 implements unfinished-work resolution in persistence; block 2
+composes existing-challenge resend with the Delivery window and four auth rate
+policies. Initial/replacement and global/backlog composition retain their later
+owners. The historical
 SUPERSEDED_BY_RESEND cancellation reason remains readable, but manual resend no
 longer emits it or revokes leases. Historical supersession cannot guarantee
 physical cancellation of provider I/O; stable proof and provider idempotency
@@ -523,11 +525,76 @@ integration replaces only the email provider: an in-flight resend now preserves
 ownership and produces no second submission; a new resend after terminal SENT
 uses the same proof with a new Delivery/provider idempotency key.
 
-Lifecycle/Delivery-window admission at a common authoritative timestamp,
-cooldown and GCRA composition, replacement challenge creation, and durable
-operation reconciliation remain later blocks. In particular this persistence
-method does not yet enforce the 120-second new-Delivery admission window or
-charge budgets; it must not be exposed as a complete admission API.
+The persistence methods alone do not enforce the 120-second new-Delivery window
+or charge budgets; they must not be exposed as a complete admission API. Block 2
+composes those checks below. Replacement and durable operation reconciliation
+remain later blocks.
+
+#### Iteration 4 block 2 — existing-challenge RESEND admission
+
+`AuthenticationDeliveryAdmissionService.admitResendInTransaction` is an internal
+caller-owned operation for an existing challenge. Input carries its ID, source
+IP and internal Delivery creation metadata, never an email/recipient override.
+The service captures input before waits, validates the canonical challenge UUID
+and strict source IP, and uses the authoritative identity from the locked
+challenge. READ COMMITTED and SERIALIZABLE are supported. Root clients,
+unsupported isolation and a second admission on the same transaction fail
+closed. Do not compose this with earlier limiter calls or run concurrent
+commands on the transaction client; the complete entity/bucket lock order
+must be respected by every caller.
+
+`getResendContextInTransaction` separates locked context resolution from the
+strict persistence insertion path. Lock order is challenge, unfinished Delivery
+rows in ID order, the complete four-policy advisory-lock union, GCRA rows, then
+cooldown rows. Unavailable challenges return CHALLENGE_UNAVAILABLE. Existing
+unfinished work returns EXISTING before touching rate policies; a closed
+new-Delivery window or active cooldown does not cancel or replace that work.
+Transitional lockedAt/failedAttemptCount checks are preserved until Iteration 5.
+
+For genuinely new work the auth-specific limiter accepts a captured Delivery
+window (exact expiresAt microseconds and the existing configured minimum
+validity). It samples fresh DB time after all bucket/row-lock waits, checks
+expiry first, then requires remaining validity >= the configured minimum
+(V1: 120 seconds), before evaluating/charging any policy. Expiry returns
+CHALLENGE_UNAVAILABLE; a still-live challenge below the minimum returns
+DELIVERY_WINDOW_CLOSED. This is an explicit auth window check, not a generic
+callback or policy framework. The original two-argument limiter API remains
+unchanged for its existing internal consumers.
+
+All four policies evaluate at that same operationNowMicros. RATE_LIMITED carries
+the authoritative rounded-up maximum wait and sorted internal policy IDs;
+denial writes nothing. On allowance the service creates one RESEND Delivery
+through the strict persistence path while retaining the locks already held,
+then returns CREATED with the Delivery reference and admission timestamp. The
+recipient is always resolved from the challenge. Proof, expiry, attempt count
+and challenge lock/consumption state are unchanged. Provider transitions do
+not move or refund cooldown/GCRA.
+
+A reserved `unicon_delivery_admission` savepoint encloses context resolution,
+all limiter writes and insertion. It is distinct from the inner limiter and
+persistence scope-check savepoints. Insertion/other technical failure rolls
+back all admission writes even if the owner catches it and commits earlier
+unrelated work. Errors reuse safe infrastructure reasons; raw database errors,
+queries, recipients, keys and causes are not exposed. Confirmed aborts propagate
+as TRANSACTION_ABORTED for a whole-owner retry after outer rollback. The service
+does not open/commit/retry a transaction. Every result is provisional until
+outer commit; owners provide finite timeout/connection-wait/lock bounds and
+handle uncertain commit outcomes without blind replay or refunds.
+
+Unit tests cover outcome coordination, safe errors and exact window boundaries
+including one microsecond before/after 120 seconds. Real PostgreSQL integration
+uses real repositories, cryptography and limiter state with independent clients:
+joint creation/charges, existing-work immutability, cooldown and each GCRA
+denial, unavailable/closed-window outcomes, same- and cross-challenge races,
+post-bucket-wait expiry/window closure, outer rollback, actual insert-constraint
+failure caught by the owner, injected 40001 insertion abort and whole-owner
+retry, and unchanged rate state after worker sent/failed/retry transitions.
+
+This block is not wired to HTTP and does not introduce initial/replacement
+admission, global/backlog enforcement, provider I/O or an operation receipt.
+Durable reconciliation of an unknown commit remains mandatory before exposing
+the owning domain flow. Returning existing unfinished work or relying on
+provider idempotency alone is not that reconciliation.
 
 ### Stage 3 decision log
 

@@ -991,11 +991,19 @@ and support evidence. Telemetry outages do not change enforcement.
    Delivery row waits. Real PostgreSQL tests cover concurrency across clients,
    rollback, expiry during waits, historical duplicate rejection and unchanged
    proof; in-flight provider work keeps its ownership and is submitted once.
-   No schema change or HTTP wiring is introduced. Next: compose lifecycle/window
-   checks, four-policy rate admission and creation for an existing challenge;
-   then initial/replacement composition, durable operation reconciliation and
-   integrated concurrency/failure tests. Existing transitional OTP eligibility
-   remains until Iteration 5's gated replacement.
+   Block 2 is complete: caller-owned `admitResendInTransaction` composes locked
+   context resolution, lifecycle/window checks at the fresh post-bucket-lock DB
+   timestamp, four-policy rate admission and RESEND insertion. Existing work
+   bypasses new-Delivery charges/window checks. A domain savepoint prevents
+   partial charges surviving a caught insertion failure. Real PostgreSQL tests
+   cover joint commit, both GCRA/cooldown denial, same/cross-challenge races,
+   window closure/expiry during bucket waits, outer rollback, actual insert
+   failure and whole-owner confirmed-abort retry; provider transitions preserve
+   rate state. No schema change, HTTP wiring or self-owned retry/commit flow is
+   introduced. Next: initial/replacement composition, durable operation
+   reconciliation and integrated concurrency/failure tests. Unknown commit
+   reconciliation remains required before public use. Existing transitional OTP
+   eligibility remains until Iteration 5's gated replacement.
    Introduce the common next-Delivery path
    and transaction-composable resend persistence. Check lifecycle, Delivery
    window, cooldown, and applicable policies before new-admission mutation.

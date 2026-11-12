@@ -91,6 +91,39 @@ function setup(now = 0n) {
 }
 
 describe('AuthenticationDeliveryRateLimitService (unit)', () => {
+  it.each([
+    { remaining: -1n, outcome: 'CHALLENGE_UNAVAILABLE' },
+    { remaining: 0n, outcome: 'CHALLENGE_UNAVAILABLE' },
+    { remaining: 119_999_999n, outcome: 'DELIVERY_WINDOW_CLOSED' },
+    { remaining: 120_000_000n, outcome: 'ALLOWED' },
+    { remaining: 120_000_001n, outcome: 'ALLOWED' },
+  ])(
+    'checks the Delivery window at the same microsecond used by all policies ($remaining)',
+    async ({ remaining, outcome }) => {
+      const { service, transaction, gcra, cooldown } = setup(1_234_567n);
+      const result = await service.admitInTransaction(transaction, input, {
+        expiresAtMicros: 1_234_567n + remaining,
+        minValidityRemainingSeconds: 120,
+      });
+      if (outcome === 'ALLOWED') {
+        expect(result).toEqual({
+          allowed: true,
+          operationNowMicros: 1_234_567n,
+        });
+        expect(gcra.writeAliases).toHaveBeenCalledTimes(2);
+        expect(cooldown.writeAliases).toHaveBeenCalledTimes(2);
+      } else {
+        expect(result).toEqual({
+          allowed: false,
+          operationNowMicros: 1_234_567n,
+          windowOutcome: outcome,
+        });
+        expect(gcra.writeAliases).not.toHaveBeenCalled();
+        expect(cooldown.writeAliases).not.toHaveBeenCalled();
+      }
+    },
+  );
+
   it('checks the full union before any charge and uses one time sample', async () => {
     const {
       service,

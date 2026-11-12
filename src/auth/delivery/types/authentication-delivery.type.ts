@@ -83,6 +83,17 @@ export type CreateResendAuthenticationDeliveryResult =
     }
   | { outcome: 'CHALLENGE_UNAVAILABLE' };
 
+/** Authoritative snapshot while the transaction retains the challenge row lock. */
+export type AuthenticationResendContext =
+  | { outcome: 'CHALLENGE_UNAVAILABLE' }
+  | { outcome: 'EXISTING'; delivery: CreatedAuthenticationDelivery }
+  | {
+      outcome: 'READY';
+      challengeId: string;
+      normalizedIdentity: string;
+      expiresAtMicros: bigint;
+    };
+
 export type ClaimedAuthenticationDelivery = {
   id: string;
   challengeId: string;

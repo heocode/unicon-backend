@@ -20,6 +20,8 @@ import type {
   AuthenticationDeliveryCooldownAlias,
   AuthenticationDeliveryRateLimitInput,
   AuthenticationDeliveryRateLimitResult,
+  AuthenticationDeliveryAdmissionWindow,
+  AuthenticationDeliveryWindowDenial,
 } from '../types/authentication-delivery-rate-limit.type';
 import { AuthenticationRateLimitConfigService } from './authentication-rate-limit-config.service';
 
@@ -32,13 +34,35 @@ export class AuthenticationDeliveryRateLimitService {
     private readonly cooldownRepository: AuthenticationDeliveryCooldownRepository,
   ) {}
 
-  /** New work only. Caller owns lifecycle/window/unfinished-work checks and commit. */
+  /** New work only. Caller owns lifecycle/unfinished-work checks and commit. */
+  admitInTransaction(
+    transaction: Prisma.TransactionClient,
+    input: AuthenticationDeliveryRateLimitInput,
+  ): Promise<AuthenticationDeliveryRateLimitResult>;
+  admitInTransaction(
+    transaction: Prisma.TransactionClient,
+    input: AuthenticationDeliveryRateLimitInput,
+    window: AuthenticationDeliveryAdmissionWindow,
+  ): Promise<
+    AuthenticationDeliveryRateLimitResult | AuthenticationDeliveryWindowDenial
+  >;
   async admitInTransaction(
     transaction: Prisma.TransactionClient,
     input: AuthenticationDeliveryRateLimitInput,
-  ): Promise<AuthenticationDeliveryRateLimitResult> {
+    window?: AuthenticationDeliveryAdmissionWindow,
+  ): Promise<
+    AuthenticationDeliveryRateLimitResult | AuthenticationDeliveryWindowDenial
+  > {
     reserveRateLimitTransaction(transaction);
     const { gcra, cooldowns } = this.prepare(input);
+    const capturedWindow = window ? { ...window } : undefined;
+    if (
+      capturedWindow &&
+      (typeof capturedWindow.expiresAtMicros !== 'bigint' ||
+        !Number.isSafeInteger(capturedWindow.minValidityRemainingSeconds) ||
+        capturedWindow.minValidityRemainingSeconds <= 0)
+    )
+      throw new GcraAdmissionInfrastructureError('INVALID_INPUT');
     return withRateLimitSavepoint(
       transaction,
       this.gcraRepository,
@@ -58,6 +82,24 @@ export class AuthenticationDeliveryRateLimitService {
           cooldownKeys,
         );
         const now = await this.gcraRepository.operationNowMicros(transaction);
+        if (capturedWindow) {
+          const remaining = capturedWindow.expiresAtMicros - now;
+          if (remaining <= 0n)
+            return Object.freeze({
+              allowed: false as const,
+              operationNowMicros: now,
+              windowOutcome: 'CHALLENGE_UNAVAILABLE' as const,
+            });
+          if (
+            remaining <
+            BigInt(capturedWindow.minValidityRemainingSeconds) * 1_000_000n
+          )
+            return Object.freeze({
+              allowed: false as const,
+              operationNowMicros: now,
+              windowOutcome: 'DELIVERY_WINDOW_CLOSED' as const,
+            });
+        }
         const gcraDecisions = assessGcraAdmissions(gcra, gcraRows, now);
         const cooldownDecisions = cooldowns.map((item) => {
           const blockedUntil = this.cooldownBoundary(cooldownRows, item.keys);

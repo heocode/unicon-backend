@@ -29,6 +29,7 @@ import {
   type CreateResendAuthenticationDeliveryInput,
   type CreateResendAuthenticationDeliveryResult,
   type OwnedAuthenticationDeliveryChallengeResult,
+  type AuthenticationResendContext,
 } from '../types/authentication-delivery.type';
 
 type OperationTimestampRow = {
@@ -39,6 +40,7 @@ type ResendChallengeRow = {
   id: string;
   normalizedIdentity: string;
   expiresAt: Date;
+  expiresAtMicros: string;
   failedAttemptCount: number;
   maxAttempts: number;
   consumedAt: Date | null;
@@ -116,14 +118,32 @@ export class AuthenticationDeliveryRepository {
     transaction: Prisma.TransactionClient,
     input: CreateResendAuthenticationDeliveryInput,
   ): Promise<CreateResendAuthenticationDeliveryResult> {
-    await this.assertCreationTransaction(transaction);
-    const challenge = await this.lockChallengeForDelivery(
+    const context = await this.getResendContextInTransaction(
       transaction,
       input.challengeId,
     );
+    if (context.outcome !== 'READY') return context;
+    const delivery = await this.createDelivery(
+      transaction,
+      { ...input, recipientSnapshot: context.normalizedIdentity },
+      AuthenticationDeliveryOrigin.RESEND,
+    );
+    return { outcome: 'CREATED', delivery };
+  }
+
+  /** No writes. Caller must retain this transaction and its locks through insertion. */
+  async getResendContextInTransaction(
+    transaction: Prisma.TransactionClient,
+    challengeId: string,
+  ): Promise<AuthenticationResendContext> {
+    await this.assertCreationTransaction(transaction);
+    const challenge = await this.lockChallengeForDelivery(
+      transaction,
+      challengeId,
+    );
     const existing = await this.findUnfinishedDelivery(
       transaction,
-      input.challengeId,
+      challengeId,
     );
     // Sample after both challenge and Delivery row-lock waits.
     const operationNow = await this.getOperationTimestamp(transaction);
@@ -131,12 +151,12 @@ export class AuthenticationDeliveryRepository {
       return { outcome: 'CHALLENGE_UNAVAILABLE' };
     }
     if (existing) return { outcome: 'EXISTING', delivery: existing };
-    const delivery = await this.createDelivery(
-      transaction,
-      { ...input, recipientSnapshot: challenge.normalizedIdentity },
-      AuthenticationDeliveryOrigin.RESEND,
-    );
-    return { outcome: 'CREATED', delivery };
+    return {
+      outcome: 'READY',
+      challengeId: challenge.id,
+      normalizedIdentity: challenge.normalizedIdentity,
+      expiresAtMicros: BigInt(challenge.expiresAtMicros),
+    };
   }
 
   claimNextDelivery(): Promise<ClaimedAuthenticationDelivery | null> {
@@ -543,6 +563,7 @@ export class AuthenticationDeliveryRepository {
         "id",
         "normalizedIdentity",
         "expiresAt",
+        trunc(EXTRACT(EPOCH FROM "expiresAt") * 1000000)::text AS "expiresAtMicros",
         "failedAttemptCount",
         "maxAttempts",
         "consumedAt",

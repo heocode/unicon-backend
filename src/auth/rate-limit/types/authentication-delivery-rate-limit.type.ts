@@ -10,6 +10,17 @@ export type AuthenticationDeliveryRateLimitInput = Readonly<{
 /** Provisional until the caller commits its new-Delivery admission transaction. */
 export type AuthenticationDeliveryRateLimitResult = GcraMultiAdmissionResult;
 
+export type AuthenticationDeliveryAdmissionWindow = Readonly<{
+  expiresAtMicros: bigint;
+  minValidityRemainingSeconds: number;
+}>;
+
+export type AuthenticationDeliveryWindowDenial = Readonly<{
+  allowed: false;
+  operationNowMicros: bigint;
+  windowOutcome: 'CHALLENGE_UNAVAILABLE' | 'DELIVERY_WINDOW_CLOSED';
+}>;
+
 export type AuthenticationDeliveryCooldownAlias = Readonly<{
   key: string;
   count: number;
