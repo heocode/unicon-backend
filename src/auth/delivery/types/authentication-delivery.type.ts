@@ -76,7 +76,10 @@ export type CreateResendAuthenticationDeliveryResult =
   | {
       outcome: 'CREATED';
       delivery: CreatedAuthenticationDelivery;
-      supersededDeliveryCount: number;
+    }
+  | {
+      outcome: 'EXISTING';
+      delivery: CreatedAuthenticationDelivery;
     }
   | { outcome: 'CHALLENGE_UNAVAILABLE' };
 

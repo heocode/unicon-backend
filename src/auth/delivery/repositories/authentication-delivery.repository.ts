@@ -85,6 +85,17 @@ export class AuthenticationDeliveryRepository {
     transaction: Prisma.TransactionClient,
     input: CreateInitialAuthenticationDeliveryInput,
   ): Promise<CreatedAuthenticationDelivery> {
+    await this.assertCreationTransaction(transaction);
+    const challenge = await this.lockChallengeForDelivery(
+      transaction,
+      input.challengeId,
+    );
+    if (!challenge) {
+      throw new Error('Authentication delivery challenge is missing.');
+    }
+    if (await this.findUnfinishedDelivery(transaction, input.challengeId)) {
+      throw new Error('Authentication delivery work already exists.');
+    }
     return this.createDelivery(
       transaction,
       input,
@@ -95,53 +106,37 @@ export class AuthenticationDeliveryRepository {
   createResendDelivery(
     input: CreateResendAuthenticationDeliveryInput,
   ): Promise<CreateResendAuthenticationDeliveryResult> {
-    return this.prisma.$transaction(async (transaction) => {
-      const operationNow = await this.getOperationTimestamp(transaction);
-      const challenge = await this.lockChallengeForResend(
-        transaction,
-        input.challengeId,
-      );
+    return this.prisma.$transaction((transaction) =>
+      this.createResendDeliveryInTransaction(transaction, input),
+    );
+  }
 
-      if (!this.isChallengeAvailableForResend(challenge, operationNow)) {
-        return { outcome: 'CHALLENGE_UNAVAILABLE' };
-      }
-
-      const superseded =
-        await transaction.authenticationChallengeDelivery.updateMany({
-          where: {
-            challengeId: input.challengeId,
-            status: {
-              in: [
-                AuthenticationDeliveryStatus.PENDING,
-                AuthenticationDeliveryStatus.PROCESSING,
-              ],
-            },
-          },
-          data: {
-            status: AuthenticationDeliveryStatus.CANCELLED,
-            lastSafeFailureCode:
-              AuthenticationDeliveryCancellationReason.SUPERSEDED_BY_RESEND,
-            nextAttemptAt: null,
-            processingLeaseId: null,
-            processingLeaseExpiresAt: null,
-            updatedAt: operationNow,
-          },
-        });
-      const delivery = await this.createDelivery(
-        transaction,
-        {
-          ...input,
-          recipientSnapshot: challenge.normalizedIdentity,
-        },
-        AuthenticationDeliveryOrigin.RESEND,
-      );
-
-      return {
-        outcome: 'CREATED',
-        delivery,
-        supersededDeliveryCount: superseded.count,
-      };
-    });
+  /** Persistence only: the owner must compose new work with admission checks. */
+  async createResendDeliveryInTransaction(
+    transaction: Prisma.TransactionClient,
+    input: CreateResendAuthenticationDeliveryInput,
+  ): Promise<CreateResendAuthenticationDeliveryResult> {
+    await this.assertCreationTransaction(transaction);
+    const challenge = await this.lockChallengeForDelivery(
+      transaction,
+      input.challengeId,
+    );
+    const existing = await this.findUnfinishedDelivery(
+      transaction,
+      input.challengeId,
+    );
+    // Sample after both challenge and Delivery row-lock waits.
+    const operationNow = await this.getOperationTimestamp(transaction);
+    if (!this.isChallengeAvailableForResend(challenge, operationNow)) {
+      return { outcome: 'CHALLENGE_UNAVAILABLE' };
+    }
+    if (existing) return { outcome: 'EXISTING', delivery: existing };
+    const delivery = await this.createDelivery(
+      transaction,
+      { ...input, recipientSnapshot: challenge.normalizedIdentity },
+      AuthenticationDeliveryOrigin.RESEND,
+    );
+    return { outcome: 'CREATED', delivery };
   }
 
   claimNextDelivery(): Promise<ClaimedAuthenticationDelivery | null> {
@@ -492,7 +487,54 @@ export class AuthenticationDeliveryRepository {
     });
   }
 
-  private async lockChallengeForResend(
+  private async assertCreationTransaction(
+    transaction: Prisma.TransactionClient,
+  ): Promise<void> {
+    if ('$connect' in transaction && transaction.$connect !== undefined) {
+      throw new Error(
+        'Authentication delivery requires an interactive transaction.',
+      );
+    }
+    const [row] = await transaction.$queryRaw<{ isolation: string }[]>`
+      SELECT current_setting('transaction_isolation') AS "isolation"
+    `;
+    if (
+      row?.isolation !== 'read committed' &&
+      row?.isolation !== 'serializable'
+    ) {
+      throw new Error(
+        'Authentication delivery transaction isolation is unsupported.',
+      );
+    }
+    // Fails outside a real transaction, including clients without $connect.
+    // This verifies scope only; the caller owns commit and rollback.
+    await transaction.$executeRaw`SAVEPOINT unicon_delivery_creation`;
+    await transaction.$executeRaw`RELEASE SAVEPOINT unicon_delivery_creation`;
+  }
+
+  private async findUnfinishedDelivery(
+    transaction: Prisma.TransactionClient,
+    challengeId: string,
+  ): Promise<CreatedAuthenticationDelivery | null> {
+    const rows = await transaction.$queryRaw<
+      CreatedAuthenticationDelivery[]
+    >(Prisma.sql`
+      SELECT "id", "challengeId", "method", "origin", "idempotencyKey"
+      FROM "AuthenticationChallengeDelivery"
+      WHERE "challengeId" = ${challengeId} AND "status" IN ('PENDING', 'PROCESSING')
+      ORDER BY "id"
+      LIMIT 2
+      FOR UPDATE
+    `);
+    if (rows.length > 1) {
+      throw new Error(
+        'Authentication delivery unfinished-work invariant is violated.',
+      );
+    }
+    return rows[0] ?? null;
+  }
+
+  private async lockChallengeForDelivery(
     transaction: Prisma.TransactionClient,
     challengeId: string,
   ): Promise<ResendChallengeRow | null> {

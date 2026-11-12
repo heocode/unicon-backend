@@ -299,11 +299,11 @@ Claiming a Delivery atomically creates a unique UUID `processingLeaseId`, sets
 operational fail-safe work budget for processing claims and reclaims, not a
 claim that the provider received each request. Every worker-owned sent, retry,
 failed, or cancelled transition from processing must match both
-`status = PROCESSING` and the supplied lease ID. A serialized challenge
-lifecycle transition such as resend supersession may instead revoke the lease
-atomically without pretending to own it. In either case, a stale worker cannot
-overwrite the later state. Lease fields are present only while processing and
-are cleared by a successful state transition.
+`status = PROCESSING` and the supplied lease ID. Historical resend supersession
+could revoke lease ownership without pretending to own it; the current manual
+resend path preserves unfinished work and its lease. A stale worker cannot
+overwrite a later lease-owned state. Lease fields are present only while
+processing and are cleared by a successful state transition.
 
 The provider call is never made inside a database transaction. Before each
 submission the current lease owner checks that the challenge exists, remains
@@ -468,14 +468,66 @@ There must be at most one PENDING or PROCESSING Delivery per challenge across
 all entry points, including concurrent initial/resend requests. Enforce existence
 checks and creation under the same authoritative serialization boundary.
 
-This ACCEPTED / FIXED V1 target replaces automatic resend supersession. The
-current Stage 3 repository still cancels prior PENDING/PROCESSING work as
-SUPERSEDED_BY_RESEND and revokes leases; Iteration 4 must change orchestration
-and persistence together. Its existing ownership tests remain evidence of the
-current implementation, not implementation of the new V1 behavior. Historical
-supersession cannot guarantee physical cancellation of provider I/O; stable
-proof and provider idempotency remain necessary and exactly-once email delivery
-is not promised by this decision.
+This ACCEPTED / FIXED V1 target replaces automatic resend supersession. Stage 4
+Iteration 4 block 1 implements unfinished-work resolution in persistence; the
+complete admission coordinator remains the next block. The historical
+SUPERSEDED_BY_RESEND cancellation reason remains readable, but manual resend no
+longer emits it or revokes leases. Historical supersession cannot guarantee
+physical cancellation of provider I/O; stable proof and provider idempotency
+remain necessary and exactly-once email delivery is not promised.
+
+#### Iteration 4 block 1 — transaction-composable resend persistence
+
+`AuthenticationDeliveryRepository.createResendDeliveryInTransaction` uses a
+caller-owned interactive transaction. The existing `createResendDelivery`
+method delegates within its own transaction; neither path is connected to a
+public endpoint. Both are persistence operations, not complete abuse-protected
+Delivery admission. The new method does not open a nested transaction, commit,
+retry or invoke a provider. Its result is provisional until the outer commit.
+Finite timeouts, confirmed-abort retries and uncertain-commit reconciliation
+remain the owner's responsibility.
+
+Creation accepts READ COMMITTED or SERIALIZABLE isolation; root clients,
+unsupported isolation and nontransactional scope fail before insertion. A
+reserved, immediately released `unicon_delivery_creation` savepoint verifies
+real transaction scope. Both initial and resend creation lock the challenge
+row first. They then select unfinished Delivery rows in ID order with
+FOR UPDATE; more than one existing unfinished row is a technical invariant
+failure, without cancellation, repair or insertion. No migration removes or
+rewrites historical data. This is a shared writer protocol, not a new unique
+database constraint; every application creation path must use it.
+
+Resend obtains fresh DB time after both kinds of row-lock wait and retains the
+existing transitional challenge eligibility checks. An unavailable challenge
+returns CHALLENGE_UNAVAILABLE even if unfinished work exists. Otherwise an
+existing PENDING/PROCESSING Delivery returns EXISTING with its original ID,
+origin and provider idempotency key. No field changes: this includes updatedAt,
+retry schedule, attempt count and even an expired processing lease, whose
+recovery still belongs to the worker. With no unfinished work, the operation
+creates one RESEND Delivery using the challenge's authoritative recipient and
+returns CREATED. Challenge, proof and all rate-limit tables are unchanged.
+
+`createInitialDelivery` remains a strict insert operation inside the caller's
+transaction; it rejects existing unfinished work rather than creating a second
+row or resolving a reusable challenge. Repeat-initial challenge resolution
+belongs to the domain coordinator. Sharing the challenge lock prevents mixed
+initial/resend races from inserting two unfinished Deliveries. These row locks
+are transaction serialization, not a change to challenge.lockedAt or proof
+failure semantics. The gated Stage 2 OTP-lock removal remains Iteration 5 work.
+
+PostgreSQL tests use two independent Prisma clients to cover mixed creation
+and concurrent resend, unchanged pending retry/processing lease state, outer
+rollback, historical duplicate rejection, unavailable challenges and expiry
+during challenge/Delivery row waits. The real orchestration/decrypt/render
+integration replaces only the email provider: an in-flight resend now preserves
+ownership and produces no second submission; a new resend after terminal SENT
+uses the same proof with a new Delivery/provider idempotency key.
+
+Lifecycle/Delivery-window admission at a common authoritative timestamp,
+cooldown and GCRA composition, replacement challenge creation, and durable
+operation reconciliation remain later blocks. In particular this persistence
+method does not yet enforce the 120-second new-Delivery admission window or
+charge budgets; it must not be exposed as a complete admission API.
 
 ### Stage 3 decision log
 

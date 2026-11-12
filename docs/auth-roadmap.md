@@ -203,8 +203,9 @@ iterations:
    cancellation and retention; compare application-level submissions across
    two real repository/read/decrypt/build/render/provider attempts; and cover
    crash, expired lease, reclaim, successful send, and rejection of every late
-   transition under the old lease. An in-flight resend integration test also
-   verifies ownership revocation without pretending to cancel provider I/O.
+   transition under the old lease. The historical in-flight resend ownership-
+   revocation test is replaced in Stage 4 Iteration 4 by preservation of the
+   current lease and a single provider submission.
 
 Iteration 8 integration uses the real PostgreSQL repository and cryptographic
 and rendering services with only the email provider replaced by a fake. No
@@ -325,8 +326,9 @@ metadata only and leaves recovery to lease expiration.
 Historical Stage 3 implementation: manual resend creates a new RESEND Delivery
 and supersedes unfinished work, revoking lease ownership without guaranteeing
 physical cancellation. The accepted V1 target below replaces this behavior in
-Iteration 4: return existing unfinished work instead of superseding it. Current
-Stage 3 tests cover historical ownership semantics, not the new target.
+Iteration 4: return existing unfinished work instead of superseding it. This
+persistence transition is implemented in Iteration 4 block 1, including updated
+in-flight provider tests; complete admission integration remains pending.
 
 Email requirements:
 
@@ -982,7 +984,19 @@ and support evidence. Telemetry outages do not change enforcement.
    and boundary behavior against PostgreSQL. Implement atomic GCRA eligibility
    and TAT updates with exact burst and subsecond rate arithmetic; keep this
    separate from admission-anchored cooldown counters.
-4. **Delivery admission and cooldown.** Introduce the common next-Delivery path
+4. **Delivery admission and cooldown — IN PROGRESS.** Block 1 is complete:
+   transaction-composable resend persistence returns existing unfinished work,
+   preserving leases/retries and all audit fields. Initial/resend writers share
+   challenge-row serialization, and resend samples time after challenge and
+   Delivery row waits. Real PostgreSQL tests cover concurrency across clients,
+   rollback, expiry during waits, historical duplicate rejection and unchanged
+   proof; in-flight provider work keeps its ownership and is submitted once.
+   No schema change or HTTP wiring is introduced. Next: compose lifecycle/window
+   checks, four-policy rate admission and creation for an existing challenge;
+   then initial/replacement composition, durable operation reconciliation and
+   integrated concurrency/failure tests. Existing transitional OTP eligibility
+   remains until Iteration 5's gated replacement.
+   Introduce the common next-Delivery path
    and transaction-composable resend persistence. Check lifecycle, Delivery
    window, cooldown, and applicable policies before new-admission mutation.
    Resolve existing unfinished work without replacement, charge, or cooldown

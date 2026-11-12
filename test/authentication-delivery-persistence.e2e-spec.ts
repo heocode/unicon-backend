@@ -1,6 +1,7 @@
 import { randomUUID } from 'crypto';
 
 import { Test, TestingModule } from '@nestjs/testing';
+import { ConfigService } from '@nestjs/config';
 
 import { AppModule } from '../src/app.module';
 import { AuthenticationEmailProviderPort } from '../src/auth/delivery/ports/authentication-email-provider.port';
@@ -12,6 +13,7 @@ import {
 } from '../src/auth/delivery/types/authentication-email-provider.type';
 import { AuthenticationChallengeProofFactoryService } from '../src/auth/challenge/services/authentication-challenge-proof-factory.service';
 import { AuthenticationDeliveryRepository } from '../src/auth/delivery/repositories/authentication-delivery.repository';
+import { AuthenticationDeliveryPolicyService } from '../src/auth/delivery/services/authentication-delivery-policy.service';
 import { AuthenticationDeliveryCleanupRepository } from '../src/auth/delivery/repositories/authentication-delivery-cleanup.repository';
 import {
   AUTHENTICATION_DELIVERY_PROCESSING_ATTEMPTS_EXHAUSTED,
@@ -28,12 +30,16 @@ import {
   AuthenticationIdentityType,
 } from '../src/generated/prisma/enums';
 import { PrismaService } from '../src/prisma/prisma.service';
+import { Prisma } from '../src/generated/prisma/client';
 
 describe('Authentication delivery persistence (e2e)', () => {
   const subjectPrefix = 'e2e:delivery-persistence:';
+  const replicaName = `delivery_persistence_${randomUUID().replaceAll('-', '').slice(0, 12)}`;
 
   let moduleFixture: TestingModule;
   let prisma: PrismaService;
+  let replica: PrismaService;
+  let replicaRepository: AuthenticationDeliveryRepository;
   let proofFactory: AuthenticationChallengeProofFactoryService;
   let repository: AuthenticationDeliveryRepository;
   let cleanupRepository: AuthenticationDeliveryCleanupRepository;
@@ -59,6 +65,19 @@ describe('Authentication delivery persistence (e2e)', () => {
       AuthenticationChallengeProofFactoryService,
     );
     repository = moduleFixture.get(AuthenticationDeliveryRepository);
+    const replicaUrl = new URL(
+      moduleFixture.get(ConfigService).getOrThrow<string>('DATABASE_URL'),
+    );
+    replicaUrl.searchParams.set('application_name', replicaName);
+    const replicaConfig = new ConfigService({
+      DATABASE_URL: replicaUrl.toString(),
+    });
+    replica = new PrismaService(replicaConfig);
+    await replica.$connect();
+    replicaRepository = new AuthenticationDeliveryRepository(
+      replica,
+      moduleFixture.get(AuthenticationDeliveryPolicyService),
+    );
     orchestration = moduleFixture.get(
       AuthenticationDeliveryOrchestrationService,
     );
@@ -111,6 +130,19 @@ describe('Authentication delivery persistence (e2e)', () => {
       where: { key: { startsWith: subjectPrefix } },
     });
     await moduleFixture.close();
+    await replica.$disconnect();
+  });
+
+  const resendInput = () => ({
+    challengeId,
+    idempotencyKey: randomUUID(),
+    templateProtocolVersion: 1,
+    retentionExpiresAt: new Date(Date.now() + 86_400_000),
+  });
+
+  const initialInput = () => ({
+    ...resendInput(),
+    recipientSnapshot: recipient,
   });
 
   const createDelivery = (
@@ -460,7 +492,7 @@ describe('Authentication delivery persistence (e2e)', () => {
     },
   );
 
-  it('preserves resend ownership when the old provider call completes in flight', async () => {
+  it('returns in-flight work without revoking provider ownership or submitting again', async () => {
     await createDelivery();
     const oldClaim = (await repository.claimNextDelivery())!;
     let releaseProvider!: () => void;
@@ -477,29 +509,40 @@ describe('Authentication delivery persistence (e2e)', () => {
     });
     const processing = orchestration.process(oldClaim);
     await entered;
+    const before =
+      await prisma.authenticationChallengeDelivery.findUniqueOrThrow({
+        where: { id: oldClaim.id },
+      });
     const resend = await repository.createResendDelivery({
       challengeId,
       idempotencyKey: randomUUID(),
       templateProtocolVersion: 1,
       retentionExpiresAt: new Date(Date.now() + 86_400_000),
     });
-    expect(resend.outcome).toBe('CREATED');
-    releaseProvider();
-    await expect(processing).resolves.toEqual({ outcome: 'LEASE_LOST' });
-    const newClaim = (await repository.claimNextDelivery())!;
-    await expect(orchestration.process(newClaim)).resolves.toEqual({
-      outcome: 'SENT',
+    expect(resend).toMatchObject({
+      outcome: 'EXISTING',
+      delivery: { id: oldClaim.id },
     });
-    const oldSubmission = provider.submit.mock.calls[0][0];
-    const newSubmission = provider.submit.mock.calls[1][0];
-    expect(newSubmission.content).toEqual(oldSubmission.content);
-    expect(newSubmission.idempotencyKey).not.toBe(oldSubmission.idempotencyKey);
+    expect(
+      await prisma.authenticationChallengeDelivery.findUniqueOrThrow({
+        where: { id: oldClaim.id },
+      }),
+    ).toEqual(before);
+    releaseProvider();
+    await expect(processing).resolves.toEqual({ outcome: 'SENT' });
+    expect(provider.submit).toHaveBeenCalledTimes(1);
+    await expect(repository.claimNextDelivery()).resolves.toBeNull();
+    expect(
+      await prisma.authenticationChallengeDelivery.count({
+        where: { challengeId },
+      }),
+    ).toBe(1);
     await expect(
       prisma.authenticationChallengeDelivery.findUniqueOrThrow({
         where: { id: oldClaim.id },
       }),
     ).resolves.toMatchObject({
-      status: AuthenticationDeliveryStatus.CANCELLED,
+      status: AuthenticationDeliveryStatus.SENT,
       processingLeaseId: null,
     });
   });
@@ -576,14 +619,16 @@ describe('Authentication delivery persistence (e2e)', () => {
     });
   });
 
-  it('creates resend delivery without changing proof or challenge security state', async () => {
-    const oldLeaseId = randomUUID();
+  it('creates resend after terminal work without changing proof or challenge security state', async () => {
     const oldDelivery = (await createDelivery({
-      status: AuthenticationDeliveryStatus.PROCESSING,
+      status: AuthenticationDeliveryStatus.SENT,
       attemptCount: 1,
-      processingLeaseId: oldLeaseId,
-      processingLeaseExpiresAt: new Date(Date.now() + 45_000),
+      sentAt: new Date(),
     })) as { id: string };
+    const deliveryBefore =
+      await prisma.authenticationChallengeDelivery.findUniqueOrThrow({
+        where: { id: oldDelivery.id },
+      });
     const challengeBefore =
       await prisma.authenticationChallenge.findUniqueOrThrow({
         where: { id: challengeId },
@@ -598,34 +643,18 @@ describe('Authentication delivery persistence (e2e)', () => {
 
     expect(result).toMatchObject({
       outcome: 'CREATED',
-      supersededDeliveryCount: 1,
       delivery: { origin: AuthenticationDeliveryOrigin.RESEND },
     });
     const challengeAfter =
       await prisma.authenticationChallenge.findUniqueOrThrow({
         where: { id: challengeId },
       });
-    expect(challengeAfter.otpHash).toEqual(challengeBefore.otpHash);
-    expect(challengeAfter.linkTokenHash).toEqual(challengeBefore.linkTokenHash);
-    expect(challengeAfter.encryptedProof).toEqual(
-      challengeBefore.encryptedProof,
-    );
-    expect(challengeAfter.expiresAt).toEqual(challengeBefore.expiresAt);
-    expect(challengeAfter.failedAttemptCount).toBe(
-      challengeBefore.failedAttemptCount,
-    );
-    await expect(
-      repository.markFailed(oldDelivery.id, oldLeaseId, 'PROVIDER_REJECTED'),
-    ).resolves.toBe(AuthenticationDeliveryTransitionOutcome.LEASE_LOST);
+    expect(challengeAfter).toEqual(challengeBefore);
     await expect(
       prisma.authenticationChallengeDelivery.findUniqueOrThrow({
         where: { id: oldDelivery.id },
       }),
-    ).resolves.toMatchObject({
-      status: AuthenticationDeliveryStatus.CANCELLED,
-      lastSafeFailureCode: 'SUPERSEDED_BY_RESEND',
-      processingLeaseId: null,
-    });
+    ).resolves.toEqual(deliveryBefore);
   });
 
   it('rejects repository-level resend for an expired challenge', async () => {
@@ -642,6 +671,347 @@ describe('Authentication delivery persistence (e2e)', () => {
         retentionExpiresAt: new Date(Date.now() + 86_400_000),
       }),
     ).resolves.toEqual({ outcome: 'CHALLENGE_UNAVAILABLE' });
+  });
+
+  it.each(['PENDING', 'PROCESSING'] as const)(
+    'returns existing %s work without changing schedule, lease, proof or audit fields',
+    async (status) => {
+      const delivery = await createDelivery(
+        status === 'PROCESSING'
+          ? {
+              status,
+              attemptCount: 1,
+              processingLeaseId: randomUUID(),
+              processingLeaseExpiresAt: new Date(Date.now() - 1_000),
+            }
+          : {
+              attemptCount: 1,
+              nextAttemptAt: new Date(Date.now() + 90_000),
+              lastSafeFailureCode: 'PROVIDER_UNAVAILABLE',
+            },
+      );
+      const challengeBefore =
+        await prisma.authenticationChallenge.findUniqueOrThrow({
+          where: { id: challengeId },
+        });
+      const result = await prisma.$transaction((tx) =>
+        repository.createResendDeliveryInTransaction(tx, resendInput()),
+      );
+      expect(result).toMatchObject({
+        outcome: 'EXISTING',
+        delivery: { id: (delivery as { id: string }).id },
+      });
+      expect(
+        await prisma.authenticationChallengeDelivery.findMany({
+          where: { challengeId },
+        }),
+      ).toEqual([delivery]);
+      expect(
+        await prisma.authenticationChallenge.findUniqueOrThrow({
+          where: { id: challengeId },
+        }),
+      ).toEqual(challengeBefore);
+    },
+  );
+
+  it.each(['SENT', 'FAILED', 'CANCELLED'] as const)(
+    'allows a new resend after %s, using the authoritative recipient',
+    async (status) => {
+      await createDelivery(
+        status === 'SENT'
+          ? { status, sentAt: new Date() }
+          : {
+              status,
+              lastSafeFailureCode:
+                status === 'FAILED'
+                  ? 'PROVIDER_REJECTED'
+                  : 'CHALLENGE_UNAVAILABLE',
+            },
+      );
+      const value = resendInput();
+      const result = await prisma.$transaction((tx) =>
+        repository.createResendDeliveryInTransaction(tx, value),
+      );
+      expect(result).toMatchObject({
+        outcome: 'CREATED',
+        delivery: { origin: 'RESEND', idempotencyKey: value.idempotencyKey },
+      });
+      expect(
+        await prisma.authenticationChallengeDelivery.findMany({
+          where: { challengeId, status: 'PENDING' },
+        }),
+      ).toMatchObject([
+        {
+          recipientSnapshot: recipient,
+          attemptCount: 0,
+          processingLeaseId: null,
+        },
+      ]);
+    },
+  );
+
+  it('serializes concurrent resends across independent clients into one new Delivery', async () => {
+    const results = await Promise.all(
+      Array.from({ length: 12 }, (_, index) =>
+        (index % 2 ? replicaRepository : repository).createResendDelivery(
+          resendInput(),
+        ),
+      ),
+    );
+    expect(
+      results.filter((result) => result.outcome === 'CREATED'),
+    ).toHaveLength(1);
+    expect(
+      results.filter((result) => result.outcome === 'EXISTING'),
+    ).toHaveLength(11);
+    const deliveries = await prisma.authenticationChallengeDelivery.findMany({
+      where: { challengeId },
+    });
+    expect(deliveries).toHaveLength(1);
+    for (const result of results)
+      expect(result).toMatchObject({ delivery: { id: deliveries[0].id } });
+  });
+
+  it('serializes mixed initial and resend creation across independent clients', async () => {
+    const results = await Promise.allSettled(
+      Array.from({ length: 12 }, (_, index) =>
+        index % 2
+          ? replica.$transaction((tx) =>
+              replicaRepository.createInitialDelivery(tx, initialInput()),
+            )
+          : repository.createResendDelivery(resendInput()),
+      ),
+    );
+    const deliveries = await prisma.authenticationChallengeDelivery.findMany({
+      where: { challengeId },
+    });
+    expect(deliveries).toHaveLength(1);
+    const created = results.filter(
+      (result) =>
+        result.status === 'fulfilled' &&
+        (!('outcome' in result.value) || result.value.outcome === 'CREATED'),
+    );
+    expect(created).toHaveLength(1);
+    for (const result of results) {
+      if (result.status === 'rejected')
+        expect(result.reason).toEqual(
+          new Error('Authentication delivery work already exists.'),
+        );
+      else if ('outcome' in result.value)
+        expect(result.value).toMatchObject({
+          delivery: { id: deliveries[0].id },
+        });
+    }
+  });
+
+  it('rolls back a new resend with the caller transaction and permits a later creation', async () => {
+    const challengeBefore =
+      await prisma.authenticationChallenge.findUniqueOrThrow({
+        where: { id: challengeId },
+      });
+    await expect(
+      prisma.$transaction(async (tx) => {
+        expect(
+          await repository.createResendDeliveryInTransaction(tx, resendInput()),
+        ).toMatchObject({ outcome: 'CREATED' });
+        await tx.authenticationChallengeSubject.create({
+          data: { key: `${subjectPrefix}rollback-marker` },
+        });
+        throw new Error('Caller failed.');
+      }),
+    ).rejects.toThrow('Caller failed.');
+    expect(
+      await prisma.authenticationChallengeDelivery.count({
+        where: { challengeId },
+      }),
+    ).toBe(0);
+    expect(
+      await prisma.authenticationChallengeSubject.findUnique({
+        where: { key: `${subjectPrefix}rollback-marker` },
+      }),
+    ).toBeNull();
+    expect(
+      await prisma.authenticationChallenge.findUniqueOrThrow({
+        where: { id: challengeId },
+      }),
+    ).toEqual(challengeBefore);
+    expect(await repository.createResendDelivery(resendInput())).toMatchObject({
+      outcome: 'CREATED',
+    });
+  });
+
+  it('rolls back initial persistence with the caller transaction', async () => {
+    await expect(
+      prisma.$transaction(async (tx) => {
+        await repository.createInitialDelivery(tx, initialInput());
+        throw new Error('Initial caller failed.');
+      }),
+    ).rejects.toThrow('Initial caller failed.');
+    expect(
+      await prisma.authenticationChallengeDelivery.count({
+        where: { challengeId },
+      }),
+    ).toBe(0);
+  });
+
+  it('sends stable proof in a new resend after the previous Delivery was sent', async () => {
+    await createDelivery();
+    const first = (await repository.claimNextDelivery())!;
+    expect(await orchestration.process(first)).toEqual({ outcome: 'SENT' });
+    expect(await repository.createResendDelivery(resendInput())).toMatchObject({
+      outcome: 'CREATED',
+    });
+    const second = (await repository.claimNextDelivery())!;
+    expect(second.id).not.toBe(first.id);
+    expect(await orchestration.process(second)).toEqual({ outcome: 'SENT' });
+    expect(provider.submit).toHaveBeenCalledTimes(2);
+    const [firstSubmission, secondSubmission] = provider.submit.mock.calls.map(
+      ([submission]) => submission,
+    );
+    expect(secondSubmission.content).toEqual(firstSubmission.content);
+    expect(secondSubmission.idempotencyKey).not.toBe(
+      firstSubmission.idempotencyKey,
+    );
+  });
+
+  it.each([
+    'AuthenticationChallenge',
+    'AuthenticationChallengeDelivery',
+  ] as const)(
+    'uses fresh DB time after waiting on %s, rejecting a challenge that expired during the wait',
+    async (table) => {
+      const delivery = (await createDelivery()) as { id: string };
+      await prisma.$executeRaw`UPDATE "AuthenticationChallenge" SET "expiresAt" = clock_timestamp() + INTERVAL '1 second' WHERE "id" = ${challengeId}`;
+      let ready!: (tx: Prisma.TransactionClient) => void;
+      let release!: () => void;
+      const readyPromise = new Promise<Prisma.TransactionClient>((resolve) => {
+        ready = resolve;
+      });
+      const releasePromise = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      const holding = prisma.$transaction(
+        async (tx) => {
+          await tx.$queryRaw(
+            Prisma.sql`SELECT "id" FROM ${Prisma.raw(`"${table}"`)} WHERE "id" = ${table === 'AuthenticationChallenge' ? challengeId : delivery.id} FOR UPDATE`,
+          );
+          ready(tx);
+          await releasePromise;
+        },
+        { timeout: 10_000 },
+      );
+      const control = await readyPromise;
+      const pending = replicaRepository.createResendDelivery(resendInput());
+      try {
+        let blocked = false;
+        for (let attempt = 0; attempt < 100; attempt++) {
+          const rows = await prisma.$queryRaw<
+            { pid: number }[]
+          >`SELECT pid FROM pg_stat_activity WHERE application_name=${replicaName} AND wait_event_type='Lock' AND state='active'`;
+          if (rows.length) {
+            blocked = true;
+            break;
+          }
+          await new Promise((resolve) => setTimeout(resolve, 10));
+        }
+        expect(blocked).toBe(true);
+        const [live] = await prisma.$queryRaw<
+          { live: boolean }[]
+        >`SELECT "expiresAt" > clock_timestamp() AS live FROM "AuthenticationChallenge" WHERE "id"=${challengeId}`;
+        expect(live.live).toBe(true);
+        await control.$queryRaw`SELECT 1 FROM pg_sleep(1.1)`;
+        release();
+        await holding;
+        expect(await pending).toEqual({ outcome: 'CHALLENGE_UNAVAILABLE' });
+        expect(
+          await prisma.authenticationChallengeDelivery.count({
+            where: { challengeId },
+          }),
+        ).toBe(1);
+      } finally {
+        release();
+        await Promise.allSettled([holding, pending]);
+      }
+    },
+  );
+
+  it.each(['consumed', 'locked', 'attempts', 'envelope'])(
+    'does not resolve or mutate pending work for a challenge unavailable due to %s',
+    async (state) => {
+      await createDelivery();
+      await prisma.authenticationChallenge.update({
+        where: { id: challengeId },
+        data: {
+          ...(state === 'consumed' ? { consumedAt: new Date() } : {}),
+          ...(state === 'locked' ? { lockedAt: new Date() } : {}),
+          ...(state === 'attempts'
+            ? { failedAttemptCount: 5 }
+            : {
+                encryptedProof: null,
+                proofEncryptionIv: null,
+                proofEncryptionTag: null,
+              }),
+        },
+      });
+      const before = await prisma.authenticationChallengeDelivery.findMany({
+        where: { challengeId },
+      });
+      expect(await repository.createResendDelivery(resendInput())).toEqual({
+        outcome: 'CHALLENGE_UNAVAILABLE',
+      });
+      expect(
+        await prisma.authenticationChallengeDelivery.findMany({
+          where: { challengeId },
+        }),
+      ).toEqual(before);
+    },
+  );
+
+  it('rejects missing challenges without creating Delivery', async () => {
+    const missing = { ...resendInput(), challengeId: randomUUID() };
+    expect(await repository.createResendDelivery(missing)).toEqual({
+      outcome: 'CHALLENGE_UNAVAILABLE',
+    });
+  });
+
+  it('fails closed without cancelling or repairing historical duplicate unfinished work', async () => {
+    await createDelivery();
+    await createDelivery();
+    const before = await prisma.authenticationChallengeDelivery.findMany({
+      where: { challengeId },
+      orderBy: { id: 'asc' },
+    });
+    await expect(
+      repository.createResendDelivery(resendInput()),
+    ).rejects.toThrow('unfinished-work invariant');
+    expect(
+      await prisma.authenticationChallengeDelivery.findMany({
+        where: { challengeId },
+        orderBy: { id: 'asc' },
+      }),
+    ).toEqual(before);
+  });
+
+  it('requires real supported transactions for both creation paths', async () => {
+    await expect(
+      repository.createResendDeliveryInTransaction(prisma, resendInput()),
+    ).rejects.toThrow('interactive transaction');
+    await expect(
+      repository.createInitialDelivery(prisma, initialInput()),
+    ).rejects.toThrow('interactive transaction');
+    await expect(
+      prisma.$transaction(
+        (tx) => repository.createResendDeliveryInTransaction(tx, resendInput()),
+        {
+          isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead,
+        },
+      ),
+    ).rejects.toThrow('isolation is unsupported');
+    expect(
+      await prisma.authenticationChallengeDelivery.count({
+        where: { challengeId },
+      }),
+    ).toBe(0);
   });
 
   it('deletes only retained terminal deliveries in a short cleanup transaction', async () => {
