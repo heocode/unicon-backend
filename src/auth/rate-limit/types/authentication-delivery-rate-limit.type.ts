@@ -8,7 +8,11 @@ export type AuthenticationDeliveryRateLimitInput = Readonly<{
 }>;
 
 /** Provisional until the caller commits its new-Delivery admission transaction. */
-export type AuthenticationDeliveryRateLimitResult = GcraMultiAdmissionResult;
+export type AuthenticationDeliveryRateLimitResult =
+  | Extract<GcraMultiAdmissionResult, { allowed: true }>
+  | (Extract<GcraMultiAdmissionResult, { allowed: false }> & {
+      retryNotBeforeMicros: bigint;
+    });
 
 export type AuthenticationDeliveryAdmissionWindow = Readonly<{
   expiresAtMicros: bigint;

@@ -389,6 +389,7 @@ export const ModelName = {
   PasswordResetRateLimit: 'PasswordResetRateLimit',
   AccountDeletionCancellationRateLimit: 'AccountDeletionCancellationRateLimit',
   AuthenticationChallengeSubject: 'AuthenticationChallengeSubject',
+  AuthenticationOperation: 'AuthenticationOperation',
   AuthenticationChallenge: 'AuthenticationChallenge',
   AuthenticationChallengeDelivery: 'AuthenticationChallengeDelivery',
   AuthenticationRateLimit: 'AuthenticationRateLimit',
@@ -413,7 +414,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "user" | "passwordResetToken" | "passwordResetRateLimit" | "accountDeletionCancellationRateLimit" | "authenticationChallengeSubject" | "authenticationChallenge" | "authenticationChallengeDelivery" | "authenticationRateLimit" | "gcraRateLimit" | "university" | "allowedDomain" | "session" | "notificationDelivery" | "securityEvent"
+    modelProps: "user" | "passwordResetToken" | "passwordResetRateLimit" | "accountDeletionCancellationRateLimit" | "authenticationChallengeSubject" | "authenticationOperation" | "authenticationChallenge" | "authenticationChallengeDelivery" | "authenticationRateLimit" | "gcraRateLimit" | "university" | "allowedDomain" | "session" | "notificationDelivery" | "securityEvent"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
@@ -784,6 +785,80 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         count: {
           args: Prisma.AuthenticationChallengeSubjectCountArgs<ExtArgs>
           result: runtime.Types.Utils.Optional<Prisma.AuthenticationChallengeSubjectCountAggregateOutputType> | number
+        }
+      }
+    }
+    AuthenticationOperation: {
+      payload: Prisma.$AuthenticationOperationPayload<ExtArgs>
+      fields: Prisma.AuthenticationOperationFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.AuthenticationOperationFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AuthenticationOperationPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.AuthenticationOperationFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AuthenticationOperationPayload>
+        }
+        findFirst: {
+          args: Prisma.AuthenticationOperationFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AuthenticationOperationPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.AuthenticationOperationFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AuthenticationOperationPayload>
+        }
+        findMany: {
+          args: Prisma.AuthenticationOperationFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AuthenticationOperationPayload>[]
+        }
+        create: {
+          args: Prisma.AuthenticationOperationCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AuthenticationOperationPayload>
+        }
+        createMany: {
+          args: Prisma.AuthenticationOperationCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.AuthenticationOperationCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AuthenticationOperationPayload>[]
+        }
+        delete: {
+          args: Prisma.AuthenticationOperationDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AuthenticationOperationPayload>
+        }
+        update: {
+          args: Prisma.AuthenticationOperationUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AuthenticationOperationPayload>
+        }
+        deleteMany: {
+          args: Prisma.AuthenticationOperationDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.AuthenticationOperationUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.AuthenticationOperationUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AuthenticationOperationPayload>[]
+        }
+        upsert: {
+          args: Prisma.AuthenticationOperationUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AuthenticationOperationPayload>
+        }
+        aggregate: {
+          args: Prisma.AuthenticationOperationAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateAuthenticationOperation>
+        }
+        groupBy: {
+          args: Prisma.AuthenticationOperationGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AuthenticationOperationGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.AuthenticationOperationCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AuthenticationOperationCountAggregateOutputType> | number
         }
       }
     }
@@ -1561,6 +1636,28 @@ export const AuthenticationChallengeSubjectScalarFieldEnum = {
 export type AuthenticationChallengeSubjectScalarFieldEnum = (typeof AuthenticationChallengeSubjectScalarFieldEnum)[keyof typeof AuthenticationChallengeSubjectScalarFieldEnum]
 
 
+export const AuthenticationOperationScalarFieldEnum = {
+  id: 'id',
+  kind: 'kind',
+  requestHash: 'requestHash',
+  issuedAt: 'issuedAt',
+  expiresAt: 'expiresAt',
+  retentionExpiresAt: 'retentionExpiresAt',
+  outcome: 'outcome',
+  challengeId: 'challengeId',
+  challengeExpiresAt: 'challengeExpiresAt',
+  deliveryId: 'deliveryId',
+  deliveryOrigin: 'deliveryOrigin',
+  admissionNowMicros: 'admissionNowMicros',
+  denial: 'denial',
+  retryNotBeforeMicros: 'retryNotBeforeMicros',
+  deniedPolicyIds: 'deniedPolicyIds',
+  evaluatedAtMicros: 'evaluatedAtMicros'
+} as const
+
+export type AuthenticationOperationScalarFieldEnum = (typeof AuthenticationOperationScalarFieldEnum)[keyof typeof AuthenticationOperationScalarFieldEnum]
+
+
 export const AuthenticationChallengeScalarFieldEnum = {
   id: 'id',
   subjectKey: 'subjectKey',
@@ -1858,16 +1955,16 @@ export type ListEnumAuthenticationChallengePurposeFieldRefInput<$PrismaModel> = 
 
 
 /**
- * Reference to a field of type 'AuthenticationIdentityType'
+ * Reference to a field of type 'AuthenticationOperationKind'
  */
-export type EnumAuthenticationIdentityTypeFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'AuthenticationIdentityType'>
+export type EnumAuthenticationOperationKindFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'AuthenticationOperationKind'>
     
 
 
 /**
- * Reference to a field of type 'AuthenticationIdentityType[]'
+ * Reference to a field of type 'AuthenticationOperationKind[]'
  */
-export type ListEnumAuthenticationIdentityTypeFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'AuthenticationIdentityType[]'>
+export type ListEnumAuthenticationOperationKindFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'AuthenticationOperationKind[]'>
     
 
 
@@ -1886,16 +1983,16 @@ export type ListBytesFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaMode
 
 
 /**
- * Reference to a field of type 'AuthenticationDeliveryMethod'
+ * Reference to a field of type 'AuthenticationOperationOutcome'
  */
-export type EnumAuthenticationDeliveryMethodFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'AuthenticationDeliveryMethod'>
+export type EnumAuthenticationOperationOutcomeFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'AuthenticationOperationOutcome'>
     
 
 
 /**
- * Reference to a field of type 'AuthenticationDeliveryMethod[]'
+ * Reference to a field of type 'AuthenticationOperationOutcome[]'
  */
-export type ListEnumAuthenticationDeliveryMethodFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'AuthenticationDeliveryMethod[]'>
+export type ListEnumAuthenticationOperationOutcomeFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'AuthenticationOperationOutcome[]'>
     
 
 
@@ -1914,16 +2011,30 @@ export type ListEnumAuthenticationDeliveryOriginFieldRefInput<$PrismaModel> = Fi
 
 
 /**
- * Reference to a field of type 'AuthenticationDeliveryStatus'
+ * Reference to a field of type 'BigInt'
  */
-export type EnumAuthenticationDeliveryStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'AuthenticationDeliveryStatus'>
+export type BigIntFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'BigInt'>
     
 
 
 /**
- * Reference to a field of type 'AuthenticationDeliveryStatus[]'
+ * Reference to a field of type 'BigInt[]'
  */
-export type ListEnumAuthenticationDeliveryStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'AuthenticationDeliveryStatus[]'>
+export type ListBigIntFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'BigInt[]'>
+    
+
+
+/**
+ * Reference to a field of type 'AuthenticationOperationDenial'
+ */
+export type EnumAuthenticationOperationDenialFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'AuthenticationOperationDenial'>
+    
+
+
+/**
+ * Reference to a field of type 'AuthenticationOperationDenial[]'
+ */
+export type ListEnumAuthenticationOperationDenialFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'AuthenticationOperationDenial[]'>
     
 
 
@@ -1942,16 +2053,44 @@ export type ListDecimalFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaMo
 
 
 /**
- * Reference to a field of type 'BigInt'
+ * Reference to a field of type 'AuthenticationIdentityType'
  */
-export type BigIntFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'BigInt'>
+export type EnumAuthenticationIdentityTypeFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'AuthenticationIdentityType'>
     
 
 
 /**
- * Reference to a field of type 'BigInt[]'
+ * Reference to a field of type 'AuthenticationIdentityType[]'
  */
-export type ListBigIntFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'BigInt[]'>
+export type ListEnumAuthenticationIdentityTypeFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'AuthenticationIdentityType[]'>
+    
+
+
+/**
+ * Reference to a field of type 'AuthenticationDeliveryMethod'
+ */
+export type EnumAuthenticationDeliveryMethodFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'AuthenticationDeliveryMethod'>
+    
+
+
+/**
+ * Reference to a field of type 'AuthenticationDeliveryMethod[]'
+ */
+export type ListEnumAuthenticationDeliveryMethodFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'AuthenticationDeliveryMethod[]'>
+    
+
+
+/**
+ * Reference to a field of type 'AuthenticationDeliveryStatus'
+ */
+export type EnumAuthenticationDeliveryStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'AuthenticationDeliveryStatus'>
+    
+
+
+/**
+ * Reference to a field of type 'AuthenticationDeliveryStatus[]'
+ */
+export type ListEnumAuthenticationDeliveryStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'AuthenticationDeliveryStatus[]'>
     
 
 
@@ -2209,6 +2348,7 @@ export type GlobalOmitConfig = {
   passwordResetRateLimit?: Prisma.PasswordResetRateLimitOmit
   accountDeletionCancellationRateLimit?: Prisma.AccountDeletionCancellationRateLimitOmit
   authenticationChallengeSubject?: Prisma.AuthenticationChallengeSubjectOmit
+  authenticationOperation?: Prisma.AuthenticationOperationOmit
   authenticationChallenge?: Prisma.AuthenticationChallengeOmit
   authenticationChallengeDelivery?: Prisma.AuthenticationChallengeDeliveryOmit
   authenticationRateLimit?: Prisma.AuthenticationRateLimitOmit

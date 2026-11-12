@@ -183,6 +183,7 @@ describe('AuthenticationDeliveryRateLimitService (unit)', () => {
       allowed: false,
       operationNowMicros: now,
       retryAfterSeconds: wait,
+      retryNotBeforeMicros: 60_000_000n,
       deniedPolicyIds: [
         policies.challengeDeliveryCooldown.id,
         policies.identityDeliveryCooldown.id,
@@ -261,6 +262,7 @@ describe('AuthenticationDeliveryRateLimitService (unit)', () => {
       allowed: false,
       operationNowMicros: 0n,
       retryAfterSeconds: 515n,
+      retryNotBeforeMicros: 514_285_715n,
       deniedPolicyIds: [
         policies.deliveryIdentity.id,
         policies.identityDeliveryCooldown.id,

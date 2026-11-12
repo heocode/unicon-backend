@@ -666,8 +666,105 @@ rollback, actual INITIAL insert failure caught by the owner, expiry during
 subject/candidate waits, a new challenge's window closing during a bucket wait,
 and injected 40001 abort followed by one committed INITIAL/charge. Migration
 verification preserves synthetic legacy keys, timestamps, relations and hashes.
-Durable operation reconciliation, global/backlog composition and public HTTP
-eligibility/error mapping retain their later owners.
+Block 4 adds durable operation reconciliation below. Global/backlog composition
+and public HTTP eligibility/error mapping retain their later owners.
+
+#### Iteration 4 block 4 — durable operation receipts and commit reconciliation
+
+`AuthenticationOperationService` owns bounded READ COMMITTED transactions above
+the existing SIGN_IN initial/replacement and RESEND composable methods. This is
+an internal API; it does not define public HTTP headers, client ID minting or
+authorization. The caller still validates institutional-email/domain eligibility
+and resolves trustworthy source IP. Operation identity is never proof of email,
+session authority or permission to retrieve another request's result.
+
+The immutable v1 protocol permits repetition until issuedAt + 86400 seconds;
+receipt retention ends another 300 seconds later. Neither reads/replays nor
+worker transitions extend either boundary. These are protocol constants, not
+runtime tuning values: increasing the accepted age after old rows were cleaned
+could resurrect IDs. A future protocol change must preserve old-ID expiry.
+`createOperationId` uses fresh primary-DB time and crypto randomness to create
+a canonical UUIDv7 (48-bit epoch milliseconds, version/variant and 74 random
+bits). `execute` rejects future timestamps and rejects age >= 24 hours even
+when no receipt remains. It validates time after operation/receipt waits and
+again after downstream domain/bucket waits, rolling back new work if the ID
+expired while waiting. UUID time is an immutable part of this ID, not an
+authenticated assertion that a client or device is trustworthy.
+
+`AuthenticationOperation` is an additive receipt table with explicit kind,
+outcome, timestamps, minimal challenge/Delivery references, admission microseconds
+and denial metadata. There are no domain foreign keys: removing a challenge,
+Delivery or subject cannot prematurely remove replay protection. SQL constraints
+bind issuedAt to the UUID timestamp, fix both lifetime boundaries, require a
+32-byte request digest and enforce result/denial shapes. No proof, envelope,
+JWT, raw recipient/IP, provider key or arbitrary Prisma/JSON snapshot is copied
+into receipts. The provider idempotency UUID remains separate and is stable
+across confirmed-abort retries of one execute call.
+
+Binding uses SHA-256 over versioned length-prefixed operation ID, action,
+normalized identity or challenge ID, canonical source IP, template protocol and
+RESEND retention deadline. Including the random ID avoids a stable fingerprint
+across unrelated operations. This is request equality, not proof hashing or an
+authentication secret; it has no HMAC-key rotation dependency. Equivalent IP
+representations canonicalize before binding. Changing a bound input with the
+same ID is OPERATION_CONFLICT; no old receipt is overwritten and no new work
+is admitted. An internal RESEND retry must retain its original absolute
+retention deadline, not compute a new one on every attempt.
+
+The transaction first obtains an advisory lock derived from
+`hashtextextended('unicon.auth.operation.lock.v1:' || operationId, 0)`, then reads
+the receipt FOR UPDATE. This lock is acquired before subject, challenge,
+Delivery and bucket locks, including when the receipt row is absent. A committed
+receipt returns its validated historical result without running admission.
+Otherwise admission and receipt insertion commit or roll back together. Only
+confirmed PostgreSQL/Prisma aborts retry within the existing rate-limit
+transaction bounds; each retry is a new whole transaction with fresh DB time.
+The existing GcraAdmissionConfigService supplies finite timeout, connection-wait,
+lock-timeout and maximum-attempt limits.
+
+CREATED, REUSED, EXISTING and ordinary business denials are committed outcomes.
+An ordinary denial still leaves no new challenge/Delivery/charges, while the
+outer owner persists a DENIED receipt. Rate denial now propagates its original
+operation time and exact first eligible integer microsecond: max of cooldown
+boundaries and ceiling of rational GCRA eligibility. The receipt saves that
+absolute boundary as finite integer NUMERIC, preserving the existing GCRA
+range beyond signed 64-bit time; a value-preserving widening migration avoids
+truncation or a narrower receipt limit. Replay computes remaining wait from fresh DB time, possibly
+zero, but remains a historical DENIED decision; it does not pretend to be a
+fresh quota check or silently become a successful send. A new explicit action
+uses a new operation ID and passes all current checks. Stored success likewise
+does not make expired/consumed proof usable or imply provider acceptance.
+
+If callback completion is followed by an unconfirmed commit error, the owner
+performs one read-only reconciliation transaction on the primary DB. It takes
+the same operation lock before a fresh READ COMMITTED receipt read, waiting for
+any original owner to commit/roll back. A receipt proves COMMITTED; locked
+absence proves NOT_COMMITTED, without automatically repeating admission.
+Failed reconciliation yields COMMIT_OUTCOME_UNKNOWN. No path refunds budgets,
+invalidates proof or fabricates rollback based on transport failure. Explicit
+`reconcile` uses the same context/age validation and never invokes admission.
+Errors expose only safe reasons, without raw driver exceptions or causes.
+
+Receipt cleanup uses short independent bounded transactions and FOR UPDATE
+SKIP LOCKED, deleting only retention-expired rows. It does not touch domain or
+rate tables and does not need their locks. The scheduler is non-overlapping,
+unref'ed, stopped/drained at shutdown and degraded on DB failure with safe event
+logging. Like Delivery cleanup it uses the existing challenge cleanup interval,
+batch size and maximum batches per run. The 5-minute grace exceeds the configured
+maximum transaction timeout; cleanup never intentionally shortens the accepted
+retry window or depends on Delivery status.
+
+Unit tests cover ID boundaries, replay/binding, retry classification, immutable
+denials, unknown-commit decisions and bounded/non-overlapping cleanup/shutdown.
+Real PostgreSQL tests cover concurrent duplicate operations, late receipt insert
+failure and whole-owner abort/exhaustion, terminal/deleted domain records,
+pending-owner reconciliation, absolute denial waits, cleanup/grace/SKIP LOCKED,
+and expiry during both operation and downstream bucket waits. Lost commit
+acknowledgement tests delegate real SQL transactions and commits/rollbacks and
+simulate only transport acknowledgement delivery; they are not real network-
+fault tests. Iteration 7 retains actual network/commit-fault injection and
+capacity measurements. Public mapping, subject retention/finalization and
+global/backlog integration remain later gates; Iteration 4 is still in progress.
 
 ### Stage 3 decision log
 

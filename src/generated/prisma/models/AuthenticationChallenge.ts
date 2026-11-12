@@ -917,10 +917,6 @@ export type EnumAuthenticationChallengePurposeFieldUpdateOperationsInput = {
   set?: $Enums.AuthenticationChallengePurpose
 }
 
-export type BytesFieldUpdateOperationsInput = {
-  set?: runtime.Bytes
-}
-
 export type NullableBytesFieldUpdateOperationsInput = {
   set?: runtime.Bytes | null
 }

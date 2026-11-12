@@ -19,6 +19,8 @@ export type AuthenticationSignInRequestResult =
   | { outcome: 'CHALLENGE_UNAVAILABLE' | 'DELIVERY_WINDOW_CLOSED' }
   | {
       outcome: 'RATE_LIMITED';
+      operationNowMicros: bigint;
+      retryNotBeforeMicros: bigint;
       retryAfterSeconds: bigint;
       deniedPolicyIds: readonly string[];
     };

@@ -207,6 +207,46 @@ model AuthenticationChallengeSubject {
   @@unique([normalizedIdentity, purpose])
 }
 
+enum AuthenticationOperationKind {
+  SIGN_IN_REQUEST
+  RESEND
+}
+
+enum AuthenticationOperationOutcome {
+  CREATED
+  REUSED
+  EXISTING
+  DENIED
+}
+
+enum AuthenticationOperationDenial {
+  RATE_LIMITED
+  CHALLENGE_UNAVAILABLE
+  DELIVERY_WINDOW_CLOSED
+}
+
+// Independent receipt: domain retention must not cascade-delete replay protection.
+model AuthenticationOperation {
+  id                   String                         @id @db.Uuid
+  kind                 AuthenticationOperationKind
+  requestHash          Bytes
+  issuedAt             DateTime                       @db.Timestamp(3)
+  expiresAt            DateTime                       @db.Timestamp(3)
+  retentionExpiresAt   DateTime                       @db.Timestamp(3)
+  outcome              AuthenticationOperationOutcome
+  challengeId          String?
+  challengeExpiresAt   DateTime?                      @db.Timestamp(3)
+  deliveryId           String?
+  deliveryOrigin       AuthenticationDeliveryOrigin?
+  admissionNowMicros   BigInt?
+  denial               AuthenticationOperationDenial?
+  retryNotBeforeMicros Decimal?                       @db.Decimal
+  deniedPolicyIds      String[]                       @default([])
+  evaluatedAtMicros    BigInt
+
+  @@index([retentionExpiresAt, id])
+}
+
 model AuthenticationChallenge {
   id                 String                         @id @default(uuid())
   subjectKey         String

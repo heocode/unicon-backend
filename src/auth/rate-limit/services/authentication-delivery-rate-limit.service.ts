@@ -106,6 +106,7 @@ export class AuthenticationDeliveryRateLimitService {
           const wait = blockedUntil > now ? blockedUntil - now : 0n;
           return {
             ...item,
+            blockedUntil,
             retryAfterSeconds: (wait + 999_999n) / 1_000_000n,
             nextBoundary: now + BigInt(item.intervalSeconds) * 1_000_000n,
           };
@@ -116,6 +117,11 @@ export class AuthenticationDeliveryRateLimitService {
             .map(({ item, evaluation }) => ({
               policyId: item.policyId,
               retryAfterSeconds: evaluation.retryAfterSeconds,
+              blockedUntil:
+                (evaluation.eligibleAt.numerator +
+                  evaluation.eligibleAt.denominator -
+                  1n) /
+                evaluation.eligibleAt.denominator,
             })),
           ...cooldownDecisions.filter((item) => item.retryAfterSeconds > 0n),
         ].sort((left, right) =>
@@ -129,6 +135,11 @@ export class AuthenticationDeliveryRateLimitService {
           return Object.freeze({
             allowed: false as const,
             operationNowMicros: now,
+            retryNotBeforeMicros: denied.reduce(
+              (latest, item) =>
+                item.blockedUntil > latest ? item.blockedUntil : latest,
+              now,
+            ),
             retryAfterSeconds: denied.reduce(
               (latest, item) =>
                 item.retryAfterSeconds > latest

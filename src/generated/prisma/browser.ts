@@ -43,6 +43,11 @@ export type AccountDeletionCancellationRateLimit = Prisma.AccountDeletionCancell
  */
 export type AuthenticationChallengeSubject = Prisma.AuthenticationChallengeSubjectModel
 /**
+ * Model AuthenticationOperation
+ * 
+ */
+export type AuthenticationOperation = Prisma.AuthenticationOperationModel
+/**
  * Model AuthenticationChallenge
  * 
  */

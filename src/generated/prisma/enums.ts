@@ -166,3 +166,30 @@ export const NotificationDeliveryStatus = {
 } as const
 
 export type NotificationDeliveryStatus = (typeof NotificationDeliveryStatus)[keyof typeof NotificationDeliveryStatus]
+
+
+export const AuthenticationOperationKind = {
+  SIGN_IN_REQUEST: 'SIGN_IN_REQUEST',
+  RESEND: 'RESEND'
+} as const
+
+export type AuthenticationOperationKind = (typeof AuthenticationOperationKind)[keyof typeof AuthenticationOperationKind]
+
+
+export const AuthenticationOperationOutcome = {
+  CREATED: 'CREATED',
+  REUSED: 'REUSED',
+  EXISTING: 'EXISTING',
+  DENIED: 'DENIED'
+} as const
+
+export type AuthenticationOperationOutcome = (typeof AuthenticationOperationOutcome)[keyof typeof AuthenticationOperationOutcome]
+
+
+export const AuthenticationOperationDenial = {
+  RATE_LIMITED: 'RATE_LIMITED',
+  CHALLENGE_UNAVAILABLE: 'CHALLENGE_UNAVAILABLE',
+  DELIVERY_WINDOW_CLOSED: 'DELIVERY_WINDOW_CLOSED'
+} as const
+
+export type AuthenticationOperationDenial = (typeof AuthenticationOperationDenial)[keyof typeof AuthenticationOperationDenial]

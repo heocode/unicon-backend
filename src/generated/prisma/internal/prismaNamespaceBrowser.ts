@@ -56,6 +56,7 @@ export const ModelName = {
   PasswordResetRateLimit: 'PasswordResetRateLimit',
   AccountDeletionCancellationRateLimit: 'AccountDeletionCancellationRateLimit',
   AuthenticationChallengeSubject: 'AuthenticationChallengeSubject',
+  AuthenticationOperation: 'AuthenticationOperation',
   AuthenticationChallenge: 'AuthenticationChallenge',
   AuthenticationChallengeDelivery: 'AuthenticationChallengeDelivery',
   AuthenticationRateLimit: 'AuthenticationRateLimit',
@@ -150,6 +151,28 @@ export const AuthenticationChallengeSubjectScalarFieldEnum = {
 } as const
 
 export type AuthenticationChallengeSubjectScalarFieldEnum = (typeof AuthenticationChallengeSubjectScalarFieldEnum)[keyof typeof AuthenticationChallengeSubjectScalarFieldEnum]
+
+
+export const AuthenticationOperationScalarFieldEnum = {
+  id: 'id',
+  kind: 'kind',
+  requestHash: 'requestHash',
+  issuedAt: 'issuedAt',
+  expiresAt: 'expiresAt',
+  retentionExpiresAt: 'retentionExpiresAt',
+  outcome: 'outcome',
+  challengeId: 'challengeId',
+  challengeExpiresAt: 'challengeExpiresAt',
+  deliveryId: 'deliveryId',
+  deliveryOrigin: 'deliveryOrigin',
+  admissionNowMicros: 'admissionNowMicros',
+  denial: 'denial',
+  retryNotBeforeMicros: 'retryNotBeforeMicros',
+  deniedPolicyIds: 'deniedPolicyIds',
+  evaluatedAtMicros: 'evaluatedAtMicros'
+} as const
+
+export type AuthenticationOperationScalarFieldEnum = (typeof AuthenticationOperationScalarFieldEnum)[keyof typeof AuthenticationOperationScalarFieldEnum]
 
 
 export const AuthenticationChallengeScalarFieldEnum = {

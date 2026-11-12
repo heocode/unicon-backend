@@ -1010,9 +1010,22 @@ and support evidence. Telemetry outages do not change enforcement.
    races, legacy reuse, inherited identity/IP debt, contradictory live state,
    unchanged predecessors, late insert failure, lock waits and whole-owner
    confirmed-abort retries. No HTTP/User/Session creation is introduced.
-   Next: durable operation reconciliation and integrated concurrency/failure
-   tests. Unknown commit reconciliation and identified-subject retention/
-   finalization integration remain gates before public use. Existing
+   Block 4 is complete: an internal transaction owner atomically saves minimal
+   operation receipts for initial/replacement/RESEND results and business
+   denials. Fixed UUIDv7 age permits repeats for 24 hours with five additional
+   retention minutes; expired IDs remain rejected after receipt cleanup. Bound
+   context conflicts do not execute new work. Committed receipts replay without
+   another charge, even after terminalization/domain retention. Unknown commit
+   triggers read-only operation-lock reconciliation, with explicit unknown or
+   proven-not-committed outcomes and no blind admission replay/refund. Exact
+   absolute denial boundaries avoid stale wait seconds. Cleanup is bounded,
+   non-overlapping and follows the shared auth cleanup configuration. Real
+   PostgreSQL tests establish races, rollback, confirmed abort retries, receipt
+   retention and lock waits; acknowledgement-loss tests wrap real commits and
+   simulate transport responses, not actual network faults. No HTTP integration
+   is introduced. Next: integrated concurrency/failure verification and
+   identified-subject retention/finalization integration before public use.
+   Iteration 7 retains real network-fault/load tests. Existing
    transitional OTP eligibility remains until Iteration 5's gated replacement.
    Introduce the common next-Delivery path
    and transaction-composable resend persistence. Check lifecycle, Delivery

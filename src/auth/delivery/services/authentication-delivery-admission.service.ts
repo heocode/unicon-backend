@@ -122,6 +122,8 @@ export class AuthenticationDeliveryAdmissionService {
     if (!rate.allowed)
       return {
         outcome: 'RATE_LIMITED',
+        operationNowMicros: rate.operationNowMicros,
+        retryNotBeforeMicros: rate.retryNotBeforeMicros,
         retryAfterSeconds: rate.retryAfterSeconds,
         deniedPolicyIds: rate.deniedPolicyIds,
       };

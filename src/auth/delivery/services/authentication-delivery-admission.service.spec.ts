@@ -154,11 +154,14 @@ describe('AuthenticationDeliveryAdmissionService (unit)', () => {
       allowed: false,
       operationNowMicros: 5n,
       retryAfterSeconds: 54n,
+      retryNotBeforeMicros: 54_000_005n,
       deniedPolicyIds: ['cooldown'],
     });
     expect(await service.admitResendInTransaction(transaction, input)).toEqual({
       outcome: 'RATE_LIMITED',
       retryAfterSeconds: 54n,
+      operationNowMicros: 5n,
+      retryNotBeforeMicros: 54_000_005n,
       deniedPolicyIds: ['cooldown'],
     });
     expect(repository.createResendDeliveryInTransaction).not.toHaveBeenCalled();
