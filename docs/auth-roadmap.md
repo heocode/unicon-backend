@@ -1078,8 +1078,25 @@ and support evidence. Telemetry outages do not change enforcement.
    lock kinds, migration replay and debt retention through challenge cleanup.
    Request reuse and Delivery processing/resend tests no longer depend on a
    failure-count threshold. Public HTTP and user/session issuance are unchanged.
-   Iteration 5 remains IN PROGRESS; subsequent blocks cover broader cross-flow
-   behavior and final concurrency/failure/regression checks.
+   Block 3 adds 16 real PostgreSQL cross-flow checks in
+   `test/authentication-verification-lifecycle.e2e-spec.ts`. Chains begin with
+   actual operation/request admission and real receipts, then use the verifier,
+   resend admission, decryption/rendering/worker persistence and cleanup. Only
+   the external email provider is replaced. Verification denial preserves reuse
+   with pending/sent INITIAL; unfinished work resolves without new charges.
+   Eligible new RESEND sends the same OTP/link and changes only its own Delivery
+   budgets/cooldowns, while cooldown/window/Delivery-budget denial still applies.
+   Expiry replacement through request admission, with or without cleanup, keeps
+   identity/IP verification debt; replay of the original receipt cannot recreate
+   work. Short-term eligibility does not clear a long-term restriction or deny
+   Delivery by itself. Independently committed request accounting survives proof
+   denial, mismatch, malformed input, limiter-state failure, owner rollback and
+   success. Cooldown/expiry/partial-recovery cases use explicit DB time/state
+   fixtures, not elapsed-time or production-capacity measurements. Block 2 owns
+   the actual timed same-challenge recovery check. No production code, schema,
+   HTTP wiring or session issuance changes are needed for block 3.
+   Iteration 5 remains IN PROGRESS; block 4 owns final concurrency/failure and
+   regression checks.
    Keep abuse budgets conceptually separate from
    proof failure accounting, but compose admission, proof comparison, and result
    mutations in one short PostgreSQL transaction. Serialize challenge and all

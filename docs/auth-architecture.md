@@ -1626,6 +1626,26 @@ with the challenge verifier and consumption, removes attempt thresholds from
 request/Delivery paths, and retains diagnostic counts and historical lockedAt.
 User/session issuance and public HTTP integration remain later-stage work.
 
+Iteration 5 block 3 verifies the mitigation boundary through real PostgreSQL
+service chains (`test/authentication-verification-lifecycle.e2e-spec.ts`). A
+verification-policy denial neither creates replacement proof on reuse nor stops
+existing Delivery resolution or eligible resend. The worker sends the original
+OTP/link; new Delivery admission changes only its own GCRA/cooldown state and
+remains subject to its own interval, validity window and budgets. Verification
+debt survives actual request-driven expiry replacement and challenge retention
+cleanup; old operation-receipt replay never repeats admission. Recovered
+short-term capacity leaves long-term restrictions intact. Separately committed
+request accounting is preserved across verification results and rollback.
+
+These tests use real crypto, repositories, operation receipts, transaction owners,
+rendering, worker persistence and cleanup, replacing only the external email
+provider. The internal request service's institutional-email eligibility remains
+an owner precondition; public validation/guard wiring is not claimed here.
+Explicit historical cooldown/expiry and partial-recovery bucket fixtures isolate
+the boundaries without claiming elapsed wall time or production load. The actual
+timed same-challenge recovery test remains in block 2. Block 3 adds tests and
+documentation only; final concurrency/failure closure remains block 4 work.
+
 The complete integration target remains: use one short PostgreSQL
 transaction for verification abuse admission, proof comparison, and the resulting
 proof/domain mutations. Serialize the challenge and all applicable verification
