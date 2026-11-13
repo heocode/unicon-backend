@@ -2747,6 +2747,11 @@ IP buckets: concurrent admissions share one burst, IP-only denials leave no doma
 rows or partial charges, and repeat denials preserve the next-admission boundary.
 Other IPs remain subject to their own and global budgets; no campus capacity,
 production sizing or active-state configuration rollout is inferred.
+The third step runs both auth and notification schedulers in two OS processes
+against the unchanged shared gate. Committed deferral reads verify retained work
+without processing-attempt spend; all accepted work reaches SENT once, without
+admission recharge or proof/TTL changes. These diagnostic reads are test-only and
+add overhead; observed completion order does not establish queue priority/fairness.
 See [the load stand guide](auth-iteration-7-load-stand.md) for
 the exact boundary, retained-state behavior, command and remaining blocks.
 

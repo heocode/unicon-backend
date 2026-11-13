@@ -7,12 +7,18 @@ import { performance } from 'node:perf_hooks';
 
 import { AuthModule } from '../../src/auth/auth.module';
 import { AuthenticationDeliveryWorkerService } from '../../src/auth/delivery/services/authentication-delivery-worker.service';
+import { AuthenticationDeliveryRepository } from '../../src/auth/delivery/repositories/authentication-delivery.repository';
 import { AuthenticationOperationError } from '../../src/auth/operations/errors/authentication-operation.error';
 import { AuthenticationOperationService } from '../../src/auth/operations/services/authentication-operation.service';
 import type { AuthenticationOperationRequest } from '../../src/auth/operations/types/authentication-operation.type';
 import { validateEnvironment } from '../../src/config/environment.validation';
 import { MailSubmissionGateService } from '../../src/mail/services/mail-submission-gate.service';
 import { ResendMailHttpClient } from '../../src/mail/services/resend-mail-http-client.service';
+import { MailService } from '../../src/mail/mail.service';
+import { MailDeliveryRepository } from '../../src/mail/repositories/mail-delivery.repository';
+import { MailDeliveryWorkerService } from '../../src/mail/services/mail-delivery-worker.service';
+import { PrismaService } from '../../src/prisma/prisma.service';
+import { observeMailDeferrals } from './observe-mail-deferrals';
 import type {
   ReplicaCommand,
   ReplicaExecution,
@@ -21,6 +27,7 @@ import type {
 
 let testingModule: TestingModule | undefined;
 let started = false;
+let notificationsStarted = false;
 const observed: ReplicaStopped = { grants: [], deferredCount: 0 };
 let prepared: { id: string; request: AuthenticationOperationRequest }[] = [];
 
@@ -36,6 +43,10 @@ async function close() {
       ?.get(AuthenticationDeliveryWorkerService)
       .onModuleDestroy();
     started = false;
+  }
+  if (notificationsStarted) {
+    await testingModule?.get(MailDeliveryWorkerService).onModuleDestroy();
+    notificationsStarted = false;
   }
   await testingModule?.close();
   testingModule = undefined;
@@ -78,6 +89,13 @@ async function initialize() {
     .useClass(LocalClient)
     .compile();
   const gate = testingModule.get(MailSubmissionGateService);
+  if (process.env.LOAD_STAND_SCENARIO === 'mixed-mail') {
+    observed.deferrals = observeMailDeferrals(
+      testingModule.get(PrismaService),
+      testingModule.get(AuthenticationDeliveryRepository),
+      testingModule.get(MailDeliveryRepository),
+    );
+  }
   const acquire = gate.tryAcquire.bind(gate) as typeof gate.tryAcquire;
   // Observe committed results only. The real gate/transaction is always called;
   // no policy, clock, database state, outcome or failure is substituted.
@@ -107,6 +125,8 @@ async function initialize() {
       'AUTH_IDENTITY_DELIVERY_COOLDOWN_SECONDS',
       'AUTH_DELIVERY_WORKER_CONCURRENCY',
       'AUTH_DELIVERY_WORKER_MAX_DELIVERIES_PER_CYCLE',
+      'MAIL_DELIVERY_WORKER_INTERVAL_SECONDS',
+      'MAIL_DELIVERY_WORKER_BATCH_SIZE',
     ].map((key) => [key, config.getOrThrow<number>(key)]),
   );
   await reply(0, true, { pid: process.pid, settings });
@@ -163,6 +183,38 @@ async function handle(command: ReplicaCommand) {
       const worker = testingModule.get(AuthenticationDeliveryWorkerService);
       worker.onModuleInit();
       return { summary: await worker.runOnce() };
+    }
+    case 'ENQUEUE_NOTIFICATIONS': {
+      if (
+        process.env.LOAD_STAND_SCENARIO !== 'mixed-mail' ||
+        command.notifications.length < 1 ||
+        command.notifications.length > 4
+      )
+        throw new Error('Invalid bounded notification batch.');
+      return Promise.all(
+        command.notifications.map((notification) =>
+          testingModule!.get(MailService).sendNewSessionEmail(notification),
+        ),
+      );
+    }
+    case 'START_MIXED_WORKERS': {
+      if (
+        process.env.LOAD_STAND_SCENARIO !== 'mixed-mail' ||
+        started ||
+        notificationsStarted
+      )
+        throw new Error('Invalid mixed worker startup.');
+      started = true;
+      notificationsStarted = true;
+      const auth = testingModule.get(AuthenticationDeliveryWorkerService),
+        mail = testingModule.get(MailDeliveryWorkerService);
+      auth.onModuleInit();
+      mail.onModuleInit();
+      const [summary, notifications] = await Promise.all([
+        auth.runOnce(),
+        mail.runOnce(),
+      ]);
+      return { summary, notifications };
     }
     case 'STOP':
       await close();

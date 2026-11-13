@@ -9,7 +9,13 @@ import pg from 'pg';
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const mode = process.argv[2] ?? 'smoke';
 if (
-  !['smoke', 'concurrency', 'identity-isolation', 'shared-ip'].includes(mode) ||
+  ![
+    'smoke',
+    'concurrency',
+    'identity-isolation',
+    'shared-ip',
+    'mixed-mail',
+  ].includes(mode) ||
   process.argv.length > 3
 ) {
   throw new Error('Unsupported auth load stand mode.');

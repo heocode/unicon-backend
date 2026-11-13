@@ -18,6 +18,7 @@ import { AUTHENTICATION_GLOBAL_DELIVERY_ADMISSION as globalAdmission } from '../
 import { AUTHENTICATION_RATE_LIMIT_POLICIES as policies } from '../../src/auth/rate-limit/constants/authentication-rate-limit-policies.constants';
 import { validateEnvironment } from '../../src/config/environment.validation';
 import { MAIL_SUBMISSION_GATE } from '../../src/mail/constants/mail-submission-gate.constants';
+import type { NewSessionEmail } from '../../src/mail/types/new-session-email.type';
 import { PrismaService } from '../../src/prisma/prisma.service';
 import { RateLimitBucketKeyService } from '../../src/rate-limit/services/rate-limit-bucket-key.service';
 import { ConcurrencyProcess } from './concurrency-process';
@@ -26,6 +27,8 @@ import type {
   ReplicaReady,
   ReplicaStopped,
   ReplicaWorkerStarted,
+  ReplicaMixedStarted,
+  DeferralObservations,
 } from './concurrency-protocol';
 import { distribution } from './load-utils';
 
@@ -41,6 +44,12 @@ type Cooldown = {
   updatedAt: Date;
 };
 type Rational = { n: bigint; d: bigint };
+type ProviderCall = {
+  key: string;
+  digest: string;
+  replica: number;
+  respondedAtMs?: number;
+};
 
 // Independent receipt-based accounting oracle. It does not call the limiter's
 // charge/evaluation helpers: max(previous TAT, admission time) + period/rate.
@@ -71,16 +80,21 @@ function charged(
 
 const isolation = process.env.LOAD_STAND_SCENARIO === 'identity-isolation';
 const sharedIp = process.env.LOAD_STAND_SCENARIO === 'shared-ip';
-const scenarioLabel = sharedIp
-  ? 'block 2.2: shared IP'
-  : isolation
-    ? 'block 2.2: identity isolation'
-    : 'block 2.1: two OS processes';
-const testName = sharedIp
-  ? 'shares one IP budget across processes without blocking another IP or charging denials'
-  : isolation
-    ? 'preserves personal cooldown and independent admission during repeated initial/resend traffic'
-    : 'shares admission, stable challenge/resend and scheduled delivery across two processes';
+const mixedMail = process.env.LOAD_STAND_SCENARIO === 'mixed-mail';
+const scenarioLabel = mixedMail
+  ? 'block 2.2: mixed mail queues'
+  : sharedIp
+    ? 'block 2.2: shared IP'
+    : isolation
+      ? 'block 2.2: identity isolation'
+      : 'block 2.1: two OS processes';
+const testName = mixedMail
+  ? 'drains auth and notifications across two processes through one real gate without charging capacity waits'
+  : sharedIp
+    ? 'shares one IP budget across processes without blocking another IP or charging denials'
+    : isolation
+      ? 'preserves personal cooldown and independent admission during repeated initial/resend traffic'
+      : 'shares admission, stable challenge/resend and scheduled delivery across two processes';
 describe(`Stage 4 Iteration 7 ${scenarioLabel}`, () => {
   jest.setTimeout(180000);
 
@@ -110,7 +124,7 @@ describe(`Stage 4 Iteration 7 ${scenarioLabel}`, () => {
       policy: (typeof policies)[keyof typeof policies],
       value: string,
     ) => derivation.deriveKeys(policy, value).buckets.map((item) => item.key);
-    const calls: { key: string; digest: string; replica: number }[] = [];
+    const calls: ProviderCall[] = [];
     let invalidHttp = 0;
     const server = createServer((request, response) => {
       const hash = createHash('sha256');
@@ -124,12 +138,14 @@ describe(`Stage 4 Iteration 7 ${scenarioLabel}`, () => {
           return;
         }
         // Only transient correlation/digest. Never persist bodies, hashes or keys.
-        calls.push({
+        const call: ProviderCall = {
           key,
           digest: hash.digest('hex'),
           replica: Number(match[1]),
-        });
+        };
+        calls.push(call);
         void delay(100).then(() => {
+          call.respondedAtMs = performance.now();
           response.writeHead(200, { 'content-type': 'application/json' });
           response.end(JSON.stringify({ id: 'concurrency-local-accepted' }));
         });
@@ -1141,6 +1157,329 @@ describe(`Stage 4 Iteration 7 ${scenarioLabel}`, () => {
       });
       expect(Object.values(checks).every(Boolean)).toBe(true);
     }
+    async function mixMail(
+      endpoint: string,
+      initial: (identity: string, ip: string) => Input,
+    ) {
+      const ready = await newPair(endpoint);
+      const beforeRates = await rates(),
+        beforeCooldown = await cooldowns();
+      const inputs = Array.from({ length: 4 }, (_, index) =>
+        initial(
+          `${runId}-mixed-auth-${index}@load.example.edu`,
+          `2001:db8:5::${index + 1}`,
+        ),
+      );
+      const batch = await executeBatch(inputs);
+      const afterAuthRates = await rates(),
+        afterAuthCooldown = await cooldowns();
+      const authRows = await prisma.authenticationChallengeDelivery.findMany({
+        where: {
+          id: {
+            in: batch.receipts.flatMap((row) =>
+              row.deliveryId ? [row.deliveryId] : [],
+            ),
+          },
+        },
+        orderBy: { id: 'asc' },
+      });
+      const proof = await Promise.all(
+        authRows.map((row) => proofSnapshot(row.challengeId)),
+      );
+      const receiptIds = batch.receipts.map((row) => row.id);
+      const receiptBefore = await prisma.authenticationOperation.findMany({
+        where: { id: { in: receiptIds } },
+        orderBy: { id: 'asc' },
+      });
+      const notifications: NewSessionEmail[] = Array.from(
+        { length: 4 },
+        (_, index) => ({
+          recipient: `${runId}-mixed-notification-${index}@load.example.edu`,
+          idempotencyKey: `load:mixed:${runId}:${index}`,
+          occurredAt: new Date(),
+          platform: 'WEB',
+          deviceModel: null,
+          osVersion: null,
+          appVersion: null,
+          locationCountryCode: null,
+          locationCity: null,
+          riskLevel: null,
+          riskSignals: [],
+        }),
+      );
+      const notificationIds = (
+        await Promise.all(
+          pair.map((item, index) =>
+            item.call<string[]>({
+              kind: 'ENQUEUE_NOTIFICATIONS',
+              notifications: notifications.slice(index * 2, index * 2 + 2),
+            }),
+          ),
+        )
+      ).flat();
+      const notificationRows = await prisma.notificationDelivery.findMany({
+        where: { id: { in: notificationIds } },
+        orderBy: { id: 'asc' },
+      });
+      const afterEnqueueRates = await rates(),
+        afterEnqueueCooldown = await cooldowns();
+      const beforeGate = afterEnqueueRates.find(
+        (row) => row.key === MAIL_SUBMISSION_GATE.key,
+      );
+      const checks: Record<string, boolean> = {
+        fourAuthAdmitted:
+          batch.receipts.length === 4 &&
+          batch.receipts.every((row) => row.outcome === 'CREATED') &&
+          batch.all.every(
+            (item) =>
+              item.response?.result.outcome === 'CREATED' &&
+              !item.error &&
+              !item.response.replayed,
+          ),
+        exactAuthCharges:
+          checkAccounting(
+            beforeRates,
+            afterAuthRates,
+            batch.receipts,
+            batch.byId,
+          ) &&
+          checkCooldowns(
+            beforeCooldown,
+            afterAuthCooldown,
+            batch.receipts,
+            batch.byId,
+          ),
+        authQueuedUncharged:
+          authRows.length === 4 &&
+          authRows.every(
+            (row) =>
+              row.status === 'PENDING' &&
+              row.attemptCount === 0 &&
+              row.attemptedAt === null &&
+              row.processingLeaseId === null,
+          ),
+        notificationsDurablyQueued:
+          notificationRows.length === 4 &&
+          new Set(notificationIds).size === 4 &&
+          notificationRows.every(
+            (row) =>
+              row.status === 'PENDING' &&
+              row.channel === 'EMAIL' &&
+              row.type === 'NEW_SESSION' &&
+              row.mailQueuedAt !== null &&
+              row.mailPayload !== null &&
+              row.mailAttemptCount === 0 &&
+              row.attemptedAt === null &&
+              row.mailLeaseId === null,
+          ),
+        notificationsDoNotChargeAuth:
+          isDeepStrictEqual(afterAuthRates, afterEnqueueRates) &&
+          isDeepStrictEqual(afterAuthCooldown, afterEnqueueCooldown),
+        noHttpBeforeWorkers: calls.length === 0,
+      };
+      const entry = {
+        name: 'mixed-mail-queues',
+        processes: ready,
+        queued: {
+          auth: authRows.length,
+          notifications: notificationRows.length,
+        },
+        checks,
+      };
+      scenarios.push(entry);
+      expect(Object.values(checks).every(Boolean)).toBe(true);
+      const workerStart = performance.now();
+      const workers = await Promise.all(
+        pair.map((item) =>
+          item.call<ReplicaMixedStarted>({ kind: 'START_MIXED_WORKERS' }),
+        ),
+      );
+      const deadline = performance.now() + 20000;
+      let unfinished: number;
+      do {
+        const pending = await Promise.all([
+          prisma.authenticationChallengeDelivery.count({
+            where: {
+              id: { in: authRows.map((row) => row.id) },
+              status: { in: ['PENDING', 'PROCESSING'] },
+            },
+          }),
+          prisma.notificationDelivery.count({
+            where: { id: { in: notificationIds }, status: 'PENDING' },
+          }),
+        ]);
+        unfinished = pending.reduce((a, b) => a + b, 0);
+        if (unfinished) await delay(100);
+      } while (unfinished && performance.now() < deadline);
+      const stopped = await stopPair();
+      const finalAuth = await prisma.authenticationChallengeDelivery.findMany({
+        where: { id: { in: authRows.map((row) => row.id) } },
+        orderBy: { id: 'asc' },
+      });
+      const finalNotifications = await prisma.notificationDelivery.findMany({
+        where: { id: { in: notificationIds } },
+        orderBy: { id: 'asc' },
+      });
+      const afterWorkers = await rates();
+      const grants = stopped
+        .flatMap((item) => item.grants)
+        .sort((a, b) => Number(a.now - b.now));
+      const oldGate = beforeGate ? persisted(beforeGate) : { n: 0n, d: 1n };
+      const finalGate = afterWorkers.find(
+        (row) => row.key === MAIL_SUBMISSION_GATE.key,
+      );
+      const observations = (
+        kind: 'auth' | 'notifications',
+      ): DeferralObservations => {
+        const values = stopped.map((item) => item.deferrals?.[kind]);
+        return {
+          transitions: values.reduce(
+            (sum, item) => sum + (item?.transitions ?? 0),
+            0,
+          ),
+          snapshots: values.reduce(
+            (sum, item) => sum + (item?.snapshots ?? 0),
+            0,
+          ),
+          racedReads: values.reduce(
+            (sum, item) => sum + (item?.racedReads ?? 0),
+            0,
+          ),
+          invalidSnapshots: values.reduce(
+            (sum, item) => sum + (item?.invalidSnapshots ?? 0),
+            0,
+          ),
+          readErrors: values.reduce(
+            (sum, item) => sum + (item?.readErrors ?? 1),
+            0,
+          ),
+        };
+      };
+      const deferrals = {
+        auth: observations('auth'),
+        notifications: observations('notifications'),
+      };
+      const authKeys = new Set(authRows.map((row) => row.idempotencyKey)),
+        mailKeys = new Set(notificationIds);
+      const authCalls = calls.filter((call) => authKeys.has(call.key)),
+        notificationCalls = calls.filter((call) => mailKeys.has(call.key));
+      checks.sharedGateSpacing =
+        grants.length === 8 &&
+        grants.every(
+          (grant, index) =>
+            grant.next === grant.now + 125000n &&
+            (index
+              ? grant.now >= grants[index - 1].next
+              : grant.now * oldGate.d >= oldGate.n),
+        );
+      checks.sharedGatePersisted =
+        !!finalGate &&
+        finalGate.tatNumerator.toFixed(0) === grants.at(-1)?.next.toString() &&
+        finalGate.tatDenominator.toFixed(0) === '1';
+      checks.authSentOnce =
+        finalAuth.length === 4 &&
+        finalAuth.every(
+          (row) =>
+            row.status === 'SENT' &&
+            row.attemptCount === 1 &&
+            row.lastSafeFailureCode === null &&
+            row.processingLeaseId === null &&
+            authRows.some(
+              (before) =>
+                before.id === row.id &&
+                before.idempotencyKey === row.idempotencyKey &&
+                before.challengeId === row.challengeId,
+            ),
+        );
+      checks.notificationsSentOnce =
+        finalNotifications.length === 4 &&
+        finalNotifications.every(
+          (row) =>
+            row.status === 'SENT' &&
+            row.mailAttemptCount === 1 &&
+            row.failureCode === null &&
+            row.mailLeaseId === null &&
+            row.mailPayload === null &&
+            row.mailIv === null &&
+            row.mailTag === null &&
+            notificationRows.some(
+              (before) =>
+                before.id === row.id &&
+                before.idempotencyKey === row.idempotencyKey &&
+                before.recipient === row.recipient &&
+                isDeepStrictEqual(before.mailExpiresAt, row.mailExpiresAt) &&
+                isDeepStrictEqual(
+                  before.retentionExpiresAt,
+                  row.retentionExpiresAt,
+                ),
+            ),
+        );
+      checks.exactlyEightHttpSubmissions =
+        calls.length === 8 &&
+        new Set(calls.map((call) => call.key)).size === 8 &&
+        authCalls.length === 4 &&
+        notificationCalls.length === 4 &&
+        calls.every((call) => typeof call.respondedAtMs === 'number') &&
+        invalidHttp === 0;
+      checks.validPersistedDeferralSnapshots = Object.values(deferrals).every(
+        (value) =>
+          value.transitions > 0 &&
+          value.snapshots > 0 &&
+          value.invalidSnapshots === 0 &&
+          value.readErrors === 0,
+      );
+      checks.noAdmissionRecharge =
+        isDeepStrictEqual(
+          afterEnqueueRates.filter(
+            (row) => row.key !== MAIL_SUBMISSION_GATE.key,
+          ),
+          afterWorkers.filter((row) => row.key !== MAIL_SUBMISSION_GATE.key),
+        ) && isDeepStrictEqual(afterEnqueueCooldown, await cooldowns());
+      checks.receiptsImmutable = isDeepStrictEqual(
+        receiptBefore,
+        await prisma.authenticationOperation.findMany({
+          where: { id: { in: receiptIds } },
+          orderBy: { id: 'asc' },
+        }),
+      );
+      checks.authProofAndLifetimeUnchanged = isDeepStrictEqual(
+        proof,
+        await Promise.all(
+          authRows.map((row) => proofSnapshot(row.challengeId)),
+        ),
+      );
+      scenarios.push({
+        name: 'mixed-mail-results',
+        auth: {
+          sent: finalAuth.filter((row) => row.status === 'SENT').length,
+          httpSubmissions: authCalls.length,
+          deferrals: deferrals.auth,
+          workerStartToProviderResponseMs: distribution(
+            authCalls.map((call) => (call.respondedAtMs ?? NaN) - workerStart),
+          ),
+        },
+        notifications: {
+          sent: finalNotifications.filter((row) => row.status === 'SENT')
+            .length,
+          httpSubmissions: notificationCalls.length,
+          deferrals: deferrals.notifications,
+          workerStartToProviderResponseMs: distribution(
+            notificationCalls.map(
+              (call) => (call.respondedAtMs ?? NaN) - workerStart,
+            ),
+          ),
+        },
+        initialAuthClaimsByProcess: workers.map(
+          (worker) => worker.summary.claimedCount,
+        ),
+        initialNotificationOutcomesByProcess: workers.map((worker) =>
+          worker.notifications.map((result) => result.outcome),
+        ),
+        sharedGateGrants: grants.length,
+        checks,
+      });
+      expect(Object.values(checks).every(Boolean)).toBe(true);
+    }
     try {
       await prisma.$connect();
       const [authPending, notificationPending] = await Promise.all([
@@ -1165,7 +1504,9 @@ describe(`Stage 4 Iteration 7 ${scenarioLabel}`, () => {
           },
         },
       });
-      if (sharedIp) {
+      if (mixedMail) {
+        await mixMail(endpoint, initial);
+      } else if (sharedIp) {
         await shareIp(endpoint, initial);
       } else if (isolation) {
         await isolateIdentity(endpoint, initial);
@@ -1255,11 +1596,13 @@ describe(`Stage 4 Iteration 7 ${scenarioLabel}`, () => {
       await new Promise<void>((done) => server.close(() => done()));
       const report = {
         schemaVersion: 1,
-        scenario: sharedIp
-          ? 'internal-auth-shared-ip-budget'
-          : isolation
-            ? 'internal-auth-identity-cooldown-isolation'
-            : 'internal-auth-two-process-concurrency',
+        scenario: mixedMail
+          ? 'internal-auth-and-notification-shared-gate'
+          : sharedIp
+            ? 'internal-auth-shared-ip-budget'
+            : isolation
+              ? 'internal-auth-identity-cooldown-isolation'
+              : 'internal-auth-two-process-concurrency',
         runId,
         recordedAt: new Date().toISOString(),
         commit: execFileSync('git', ['rev-parse', 'HEAD'], {
@@ -1283,7 +1626,13 @@ describe(`Stage 4 Iteration 7 ${scenarioLabel}`, () => {
           'Internal services after email/domain eligibility; not public HTTP or mailbox delivery.',
           'Two local OS processes share host resources; no production capacity or fairness claim.',
           'Always-200 fake provider; process/network faults and commit ambiguity are later work.',
-          'No notifications, configuration/key rotation or cleanup scenarios in this command.',
+          'No configuration/key rotation, cleanup or provider-fault scenarios in this command.',
+          ...(mixedMail
+            ? [
+                'Deferral observers add DB reads; these timings do not establish capacity or queue fairness.',
+                'Response latency is from parent dispatch of worker startup to fake-provider response emission, including IPC and test coordination.',
+              ]
+            : ['Notification competition is not exercised by this command.']),
           'Personal identity GCRA exhaustion and heavy traffic are not exercised.',
           ...(sharedIp
             ? [

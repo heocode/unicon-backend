@@ -341,7 +341,8 @@ the fake provider, preserving all rows and debt, before the complete reruns.
 That failed run and its recovery are not counted as passed scenario coverage.
 
 Shared-IP saturation, identity GCRA exhaustion, notification competition and heavy
-traffic remain outside this first step. Block 2.2 is still IN PROGRESS.
+traffic remain outside this first step. The subsequent steps below complete the
+agreed bounded scope of block 2.2.
 
 Handoff checks passed: both complete identity-isolation runs; the unchanged 2.1
 scenarios after shared batch extraction; original smoke and its three helper tests
@@ -422,7 +423,7 @@ latency sample counts and invariant results; no actual IPs, identities, internal
 IDs, bucket keys or proof are written. These deliberately small fixture values
 are not proposed production/campus limits. The test does not establish latency
 fairness, sustainable capacity or the public HTTP request limiter's behavior.
-Mixed auth/notification queues remain step 3 of block 2.2.
+Mixed auth/notification queues are covered by step 3 below.
 
 Handoff checks: build and lint without fixes passed; the scoped replica compilation
 passed for both new runs and existing-mode regressions. Both identity-isolation
@@ -441,6 +442,93 @@ in 24 suites. No session runtime, assertion, timeout or guard was changed. The
 socket failure's cause is not established; a successful repeat does not establish
 that this stability observation is resolved. All runs avoided repository `.env`,
 the primary database and live Resend.
+
+## Block 2.2, third step: mixed auth and notification queues
+
+```bash
+npm run test:load:mixed-mail
+```
+
+Both child processes now support bounded notification enqueue and mixed worker
+startup over the existing private IPC protocol. Four fresh auth identities/IPs
+are admitted through the real operation service. Each child also queues two
+`NEW_SESSION` mail fixtures through `MailService.sendNewSessionEmail`, with no
+User/Session context. These are synthetic transport snapshots, not actual session
+creation or a change to the Stage 9 notification policy.
+
+Before processing, the observer checks four committed auth receipts, exact
+GCRA/cooldown charges, four auth Deliveries and four encrypted durable notification
+rows, all with zero processing attempts and no HTTP calls. Notification enqueue
+must not alter auth admission state. Both actual auth and notification worker
+schedulers are then started in each process, with a manual first real cycle.
+The ordinary send gate stays at eight permissions/second (team ceiling ten);
+no policy, production runtime or schema change is introduced.
+
+`observe-mail-deferrals.ts` is installed only in this test mode. It delegates to
+the real repository deferral methods without substituting outcomes/arguments and
+reads persisted state after successful DEFERRED transitions. Auth additionally
+captures a pre-transition row while the worker owns its lease; notifications use
+the actual claimed snapshot. For an observable pending/unleased row it checks:
+
+- attempt count remains zero, attempted time/failure fields are unchanged;
+- lease fields are cleared and the next processing time respects the returned
+  gate boundary, rounded upward to milliseconds;
+- auth idempotency/challenge/recipient/template/retention metadata is unchanged;
+- notification idempotency/recipient/type/channel, encrypted payload/envelope,
+  queued time, expiry and retention metadata remain unchanged.
+
+The post-transition read is not atomic with the transition. If another worker
+has already claimed/completed the row, the read is counted as `racedReads`, not
+used as evidence of a pending-state invariant. At least one usable snapshot and
+one real DEFERRED transition per queue are required, with zero invalid snapshots
+or diagnostic read errors. Extra diagnostic read failures are counted rather than
+substituting an enforcement result; actual failure injection remains later work.
+Missing rows are invalid observations. No locks/sleeps are added to force a sample.
+
+Final checks require four SENT/one-attempt rows per queue, eight unique matching
+HTTP submissions, eight combined committed gate grants spaced by at least 125 ms,
+and the correct final gate TAT. Auth admission debt, cooldowns and receipts remain
+unchanged through processing, as do challenge proof/envelope/TTL/attempt state.
+Notification payload envelopes are cleared on successful delivery as required by
+the existing lifecycle. Nothing is reset/refunded between runs.
+
+Reports separate auth/notification HTTP counts, deferral observations and
+worker-start-to-provider-response latencies. This timing starts at parent dispatch
+of mixed worker startup, includes IPC/coordination and additional observation reads,
+and ends at fake-provider response emission. It is not public request latency or
+an individual gate/worker wait measurement. Four samples per queue cannot establish
+p99 SLOs, sustainable throughput or priority/fairness. IDs, proof, payloads and
+payload digests remain outside the report.
+
+Two complete runs passed on 2026-11-13, based on HEAD `dde4c55` plus this worktree:
+
+| Queue (each run) | SENT / HTTP submissions | DEFERRED transitions / usable snapshots | Invalid / read errors |
+| --- | --- | --- | --- |
+| Auth | 4 / 4 | 10 / 10 | 0 / 0 |
+| Notifications | 4 / 4 | 4 / 4 | 0 / 0 |
+
+Both runs had eight shared grants and no raced reads. The repeat observed maximum
+worker-start-to-provider-response times of about 725 ms for auth and 1432 ms for
+notifications. This completion order is an observation under this small workload;
+no priority/reservation or scheduler change was made to equalize it. Deferral
+counts and ordering are not required to be identical across future runs.
+
+Ignored artifacts: `load-results/mixed-mail-1794607376101.json` and
+`load-results/mixed-mail-1794607502020.json`. Block 2.2's three agreed local steps
+are complete. Configuration/key rotation, broader rollback/cleanup/telemetry
+failure isolation remain block 2.3; provider faults/heavy traffic/target deployment
+capacity measurements remain their later blocks.
+
+Handoff checks passed: both complete mixed-mail runs; shared-IP,
+identity-isolation and full 2.1 concurrency regressions; original smoke plus three
+helper tests (four checks); build; lint without fixes; 1085 unit tests in 88 suites;
+456 existing e2e tests in 24 suites; Prisma validate and migrate status (39 current
+migrations on the stand database); launcher syntax and diff checks. Scoped replica
+compilation passes; the repository-wide TypeScript scan retains the same 67
+pre-existing diagnostics with none in the changed files. Full e2e ran separately
+on `unicon_iteration6_closure_test`, from an isolated temporary directory. No
+repository `.env`, primary database or live Resend was used. Earlier recorded
+session-test socket stability observations are not claimed resolved by this pass.
 
 Methodology references: [k6 open arrival models](https://grafana.com/docs/k6/latest/using-k6/scenarios/concepts/open-vs-closed/),
 [repeatable performance testing](https://grafana.com/docs/k6/latest/testing-guides/automated-performance-testing/),
