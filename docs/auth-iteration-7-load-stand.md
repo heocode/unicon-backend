@@ -47,8 +47,10 @@ at most 100 arrivals, `LOAD_PROVIDER_DELAY_MS` 1â€“2000, `LOAD_DRAIN_SECONDS` 1â
 (default 15). Heavy/fault workloads are intentionally deferred.
 
 Only the actual auth worker scheduler is started. The stand does not initialize
-the entire app or run unrelated cleanup/notification schedulers. An advisory lock
-prevents cooperating stand launches from running together. Do not run other
+the entire app or run unrelated cleanup/notification schedulers. The shared
+[test launcher](test-infrastructure.md) takes an advisory lock in the admin
+database before database creation/migrations and holds it through Jest and any
+replica processes. It prevents cooperating stand launches from running together. Do not run other
 applications/tests against this dedicated database concurrently. A preflight
 rejects unfinished auth or notification work before starting the worker.
 

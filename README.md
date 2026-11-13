@@ -112,9 +112,10 @@ Start it only when database-backed tests are needed:
 docker compose --profile test up -d postgres-test
 ```
 
-It exposes only the disposable `unicon_test` database at `localhost:5433`.
-`TEST_DATABASE_URL` in `.env` selects it; never point that setting at the
-development database.
+It exposes the dedicated test PostgreSQL instance at `localhost:5433`.
+Ordinary e2e uses `unicon_test`; load scenarios use `unicon_load_test`.
+The guarded launchers ignore repository `.env` and accept only these fixed
+local targets. See [test infrastructure](docs/test-infrastructure.md).
 
 ### 4. Apply migrations and seed development data
 
@@ -220,18 +221,35 @@ npm test -- --runInBand
 npm run test:e2e -- --runInBand
 ```
 
-The e2e command loads `.env`, prepares the dedicated test PostgreSQL database,
-applies migrations, and runs real HTTP flows through guards, services, and
-Prisma. It uses `TEST_DATABASE_URL` when provided, otherwise it defaults to the
-separate Compose test service:
+The e2e launcher prepares the dedicated test PostgreSQL database, applies
+migrations, and runs real HTTP flows through guards, services, and Prisma.
+It runs migration and Jest subprocesses from an isolated temporary directory,
+without reading repository `.env` or forwarding inherited application secrets.
+It defaults to the separate Compose test service:
 
 ```text
 postgresql://unicon_e2e:unicon_e2e_local@localhost:5433/unicon_test
 ```
 
-For safety, preparation and destructive cleanup refuse to operate unless the
-database name ends with `_test`. Do not point e2e tests at development,
-staging, or production data.
+An explicitly exported `TEST_DATABASE_URL` must still use `unicon_e2e`,
+localhost/127.0.0.1, port 5433 and exactly `unicon_test`, without URL parameters.
+An arbitrary `_test` suffix is insufficient. A PostgreSQL advisory lock spans
+preparation and the complete serial Jest run; another cooperating invocation
+fails before migrations or fixture cleanup. Standalone `test:e2e:prepare`
+uses the same guard and lock. Load scenarios use the same mechanism with their
+separate fixed database. Existing databases and volumes are not removed.
+
+For a focused run:
+
+```bash
+npm run test:e2e -- --testPathPatterns=test-environment.e2e-spec
+npm run test:infra
+npm run test:infra:db
+```
+
+Supported Jest options are `--runInBand`, `--verbose`, `--silent`,
+`--testPathPatterns=...` and `--testNamePattern=...`. Direct Jest invocation
+does not provide the required isolation and is rejected by e2e setup.
 
 The target suite covers validation and public errors, stable challenge proof
 and resend behavior, sessions, refresh rotation and reuse, profile safety,
@@ -327,6 +345,8 @@ treated as proof of identity or physical presence.
 | `npm run format`                    | Format source and tests                          |
 | `npm test -- --runInBand`           | Run unit tests serially                          |
 | `npm run test:e2e -- --runInBand`   | Prepare the test DB and run all e2e tests        |
+| `npm run test:infra`               | Check launcher guards and subprocess isolation |
+| `npm run test:infra:db`            | Check launcher locking against local PostgreSQL |
 | `docker compose --profile test up -d postgres-test` | Start isolated e2e PostgreSQL       |
 | `npm run geoip:update`              | Download GeoLite2 City with the official updater |
 | `npm run geoip:lookup -- <ip>`      | Inspect a local GeoIP result                     |

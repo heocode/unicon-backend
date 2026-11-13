@@ -26,7 +26,9 @@
     "test:load:identity-isolation": "node scripts/run-auth-load-smoke.mjs identity-isolation",
     "test:load:shared-ip": "node scripts/run-auth-load-smoke.mjs shared-ip",
     "test:load:mixed-mail": "node scripts/run-auth-load-smoke.mjs mixed-mail",
-    "test:e2e": "npm run test:e2e:prepare && node --experimental-vm-modules ./node_modules/jest/bin/jest.js --config ./test/jest-e2e.json"
+    "test:e2e": "node scripts/run-e2e.mjs",
+    "test:infra": "node --test scripts/tests/test-runtime.test.mjs",
+    "test:infra:db": "node --test scripts/tests/test-runtime-db.test.mjs"
   },
   "dependencies": {
     "@maxmind/geoip2-node": "^7.1.0",

@@ -1,57 +1,25 @@
-import 'dotenv/config';
+import {
+  testTarget,
+  testEnvironment,
+  TestRun,
+  withTestWorkdir,
+  withTestDatabase,
+} from './test-runtime.mjs';
 
-import { spawnSync } from 'node:child_process';
-import process from 'node:process';
-import pg from 'pg';
-
-const testDatabaseUrl =
-  process.env.TEST_DATABASE_URL ??
-  'postgresql://unicon_e2e:unicon_e2e_local@localhost:5433/unicon_test';
-const parsedUrl = new URL(testDatabaseUrl);
-const databaseName = parsedUrl.pathname.slice(1);
-
-if (!databaseName.endsWith('_test')) {
-  throw new Error(
-    `Refusing to prepare database "${databaseName}" because its name does not end with "_test".`,
-  );
-}
-
-if (!/^[a-zA-Z0-9_]+$/.test(databaseName)) {
-  throw new Error('The test database name contains unsupported characters.');
-}
-
-const adminUrl = new URL(parsedUrl);
-adminUrl.pathname = '/postgres';
-
-const client = new pg.Client({ connectionString: adminUrl.toString() });
-await client.connect();
-
+// Standalone preparation uses the same target checks/lock as the complete run.
+const run = new TestRun();
 try {
-  const existingDatabase = await client.query(
-    'SELECT 1 FROM pg_database WHERE datname = $1',
-    [databaseName],
+  if (process.argv.length !== 2)
+    throw new Error('Test database preparation accepts no arguments.');
+  const target = testTarget('e2e', process.env.TEST_DATABASE_URL);
+  await withTestWorkdir((directory) =>
+    withTestDatabase(target, run, (database) =>
+      database.prepare(directory, testEnvironment(target)),
+    ),
   );
-
-  if (existingDatabase.rowCount === 0) {
-    await client.query(`CREATE DATABASE "${databaseName}"`);
-  }
+} catch (error) {
+  console.error(error.message);
+  process.exitCode = 1;
 } finally {
-  await client.end();
-}
-
-const npxCommand = process.platform === 'win32' ? 'npx.cmd' : 'npx';
-const migration = spawnSync(npxCommand, ['prisma', 'migrate', 'deploy'], {
-  env: {
-    ...process.env,
-    DATABASE_URL: testDatabaseUrl,
-  },
-  stdio: 'inherit',
-});
-
-if (migration.error) {
-  throw migration.error;
-}
-
-if (migration.status !== 0) {
-  process.exit(migration.status ?? 1);
+  run.dispose();
 }

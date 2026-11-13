@@ -1,4 +1,40 @@
-import 'dotenv/config';
+import { existsSync } from 'node:fs';
+import { resolve } from 'node:path';
+
+// This runs before AppModule can inspect cwd/.env. Direct Jest invocation is
+// unsupported: use the guarded npm e2e/load commands.
+const target = process.env.UNICON_TEST_TARGET;
+const expectedDatabase =
+  target === 'e2e'
+    ? 'unicon_test'
+    : target === 'load'
+      ? 'unicon_load_test'
+      : undefined;
+let targetUrl: URL;
+try {
+  targetUrl = new URL(process.env.TEST_DATABASE_URL ?? '');
+} catch {
+  throw new Error('Use the guarded e2e or load launcher.');
+}
+if (
+  !expectedDatabase ||
+  process.env.DOTENV_CONFIG_PATH !== '/dev/null' ||
+  !['postgres:', 'postgresql:'].includes(targetUrl.protocol) ||
+  !['localhost', '127.0.0.1'].includes(targetUrl.hostname) ||
+  targetUrl.port !== '5433' ||
+  targetUrl.username !== 'unicon_e2e' ||
+  !targetUrl.password ||
+  targetUrl.pathname !== `/${expectedDatabase}` ||
+  targetUrl.search ||
+  targetUrl.hash ||
+  process.env.DATABASE_URL !== targetUrl.toString() ||
+  existsSync(resolve(process.cwd(), '.env')) ||
+  resolve(process.cwd()) === resolve(__dirname, '..')
+) {
+  throw new Error(
+    'Tests require the guarded launcher and an isolated working directory.',
+  );
+}
 
 process.env.DATABASE_URL =
   process.env.TEST_DATABASE_URL ??
