@@ -2731,6 +2731,13 @@ budget and expected launch traffic remain product inputs to refine. Validate
 preliminary settings against pilot traffic before treating them as established
 human-use thresholds.
 
+Iteration 7 block 1 supplies a bounded local stand using these real internal
+services and a loopback HTTP provider. Its report includes arrival scheduling,
+operation/HTTP/response-emission latency and sampled backlog; individual worker
+and gate waits remain later instrumentation work. This is not a production
+capacity result. See [the load stand guide](auth-iteration-7-load-stand.md) for
+the exact boundary, retained-state behavior, command and remaining blocks.
+
 ### Accepted shared Resend send gate and mail integration boundary
 
 Status: **ACCEPTED / FIXED** as configurable V1 starting values. The internal

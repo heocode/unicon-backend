@@ -1316,6 +1316,17 @@ and support evidence. Telemetry outages do not change enforcement.
    attribution, and verify configuration changes preserve agreed active-state
    semantics and telemetry failure does not affect enforcement.
 
+### Iteration 7 execution blocks
+
+Iteration 7 is IN PROGRESS. Block 1 adds a bounded local real-PostgreSQL/auth-worker
+smoke with an open-arrival generator, loopback HTTP provider and privacy-safe JSON
+report. No production capacity or quota conclusion is claimed. Instructions,
+measurement boundaries, retained-state behavior and the six agreed execution
+blocks are recorded in [the load stand guide](auth-iteration-7-load-stand.md).
+The remaining blocks cover concurrency/configuration/rotation, local overload and
+faults, target-platform staging, capacity measurements, and preliminary tuning.
+Public request-to-session HTTP coverage remains Stage 5–6 work.
+
 ## Stage 5: Request and resend endpoints
 
 Implement:
