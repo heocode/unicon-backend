@@ -2734,8 +2734,11 @@ human-use thresholds.
 Iteration 7 block 1 supplies a bounded local stand using these real internal
 services and a loopback HTTP provider. Its report includes arrival scheduling,
 operation/HTTP/response-emission latency and sampled backlog; individual worker
-and gate waits remain later instrumentation work. This is not a production
-capacity result. See [the load stand guide](auth-iteration-7-load-stand.md) for
+and gate waits remain later instrumentation work. Block 2.1 extends this with
+two independent OS processes, concurrent INITIAL/RESEND resolution and observed
+committed shared-gate grants, with receipt-based admission accounting. These are
+small internal correctness checks, not production capacity results.
+See [the load stand guide](auth-iteration-7-load-stand.md) for
 the exact boundary, retained-state behavior, command and remaining blocks.
 
 ### Accepted shared Resend send gate and mail integration boundary

@@ -151,6 +151,125 @@ HTTP end-to-end tests remain Stage 5–6 work. A provider-pressure response/pers
 crash gap is not implicitly solved by this stand; any design correction needs its
 own concrete explanation and agreement.
 
+## Block 2.1: independent OS processes
+
+Run the bounded concurrency scenarios with:
+
+```bash
+npm run test:load:concurrency
+```
+
+It uses the same guarded `unicon_load_test`, sanitized environment and exclusive
+stand lock as the smoke command. The launcher compiles only the test replica and
+its imported source dependencies into a temporary directory before starting Jest.
+Production `dist` files are not used or modified by this command. No additional
+public HTTP endpoint or application configuration is introduced.
+
+The observer starts two Node.js children with separate Nest service graphs and
+Prisma clients. Readiness includes distinct OS PIDs and matching configuration.
+Each child prepares four independent operation IDs. After both acknowledge that
+preparation is complete, the observer releases both batches over IPC. Real
+admission transactions execute concurrently; workers start only after admission
+results have been checked, preserving unfinished-work resolution during the race.
+
+The three scenarios are:
+
+| Scenario | Concurrent operations | Expected database result before workers |
+| --- | --- | --- |
+| Independent identities/IPs | Eight, four per process | Eight challenges and eight INITIAL Deliveries |
+| Same identity INITIAL | Eight, four per process | One challenge, one INITIAL Delivery; seven REUSED receipts |
+| Same challenge RESEND | Eight, four per process | One new RESEND Delivery; seven EXISTING receipts |
+
+Each phase starts a fresh pair (six child launches, at most two active together).
+Both real worker schedulers compete for the same queue. A manual first `runOnce`
+kicks the real worker cycle; later capacity wakes and interval cycles use its
+unchanged scheduling. For the independent-identity phase both workers must claim
+work; the test does not require equal shares or guarantee fairness.
+
+After the same-identity INITIAL is SENT, its workers are shut down. The observer
+waits until both persisted challenge/identity cooldown boundaries have actually
+passed according to PostgreSQL time. The 60-second settings and all existing
+debt remain intact. The following RESEND race uses a fresh pair so workers cannot
+finish the new Delivery before competing requests resolve it. Expect the complete
+command to take over a minute, including real cooldown waiting and compilation.
+
+The observer verifies actual receipts, challenge/Delivery counts, zero attempts
+before workers, SENT/one attempt afterwards, and one HTTP submission per new
+Delivery. It independently reconstructs GCRA TAT as
+`max(previous TAT, committed admission time) + period/rate`, using exact bigint
+fractions and actual receipt timestamps for global/identity/IP buckets. Cooldown
+boundaries must match committed admission time plus their configured intervals.
+Worker execution must leave admission debt and cooldown rows unchanged.
+
+Only the HTTP destination is substituted. The real shared gate method is wrapped
+for observation: it is always called unchanged, and its committed GRANTED times
+and future boundaries are collected transiently. Combined grants from both
+processes must respect the shared 125 ms spacing at eight permissions/second and
+match the final persisted gate TAT. HTTP arrival spacing itself is not treated as
+the authoritative grant interval.
+
+The challenge's proof hashes, encrypted envelope, protocol/key versions, fixed
+expiration, failed-attempt count and consumption/lock state are compared before
+and after processing and resend. Fake-provider payload digests are compared in
+memory to establish identical content across INITIAL/RESEND. No raw body, proof,
+digest, recipient, idempotency key, operation/challenge ID or bucket key is written
+to the JSON report. IPC carries only internal test requests/results and committed
+gate observations; child stdout/stderr are discarded.
+
+`load-results/concurrency-<timestamp>.json` records per-process outcome counts,
+operation latency, real PIDs, selected configuration, worker claims, provider-call
+counts by process, grant/deferral counts, invariant checks and overall status.
+Operation latency is measured inside the child around `execute`, after operation
+IDs have been prepared; it excludes ID preparation and IPC. It is not directly
+the same timing boundary as block 1's operation-entry measurement.
+Admission errors or missing child responses fail the scenario; there are no
+test-level retries or refunds. IPC responses and drain/shutdown waits are bounded;
+an unresponsive child is terminated during teardown. Failure can leave retained
+unfinished work, which must be inspected before another run. The launcher never
+deletes it or resets enforcement state.
+
+This is still an internal, small local concurrency check. It does not measure
+sustainable capacity, public HTTP behavior, real mailbox arrival, notifications,
+rotation/configuration rollout, cleanup, process/network faults or commit
+ambiguity. Those remain their agreed later blocks.
+
+### Block 2.1 observed results
+
+Two complete local runs passed on 2026-11-13, based on HEAD `53716d5` plus this
+block's worktree changes. Each ran 24 operations and sent ten Deliveries, with
+no admission errors, repeated provider submissions or additional processing
+attempts. Both initial/reuse and resend/existing results matched real receipts.
+
+| Scenario (per run) | CREATED | REUSED / EXISTING | New Deliveries SENT | Shared gate grants |
+| --- | --- | --- | --- | --- |
+| Eight distinct identities | 8 | 0 | 8 | 8 |
+| Eight INITIAL requests, one identity | 1 | 7 REUSED | 1 | 1 |
+| Eight RESEND requests, one challenge | 1 | 7 EXISTING | 1 | 1 |
+
+In the repeat, both workers initially claimed four jobs in the distinct-identity
+phase and ultimately made four provider calls each. That split is an observation,
+not a fairness guarantee. There were 28 capacity deferrals and eight granted
+permissions in that phase; deferrals did not spend processing attempts. The
+real DB-clock cooldown wait was approximately 59.7 seconds. Every receipt-based
+GCRA/cooldown, grant-spacing, proof/envelope/lifetime and worker no-recharge check
+passed. No debt or queue reset was performed between runs.
+
+Ignored local artifacts: `load-results/concurrency-1794603045519.json` and
+`load-results/concurrency-1794603234326.json`. The first run's cooldown `waitedMs`
+also included the following phase; the final repeat records the actual wait
+alone. Earlier bootstrap failures happened before admission and are not counted
+as completed scenario runs.
+
+Block 2.1 handoff checks passed: build, lint without fixes, the replica's scoped
+TypeScript compilation, both complete concurrency runs, the previous smoke plus
+three helper tests (four checks total), 1085 unit tests in 88 suites, 456 existing
+e2e tests in 24 suites, Prisma validate/migrate status (39 migrations on the stand
+database), launcher syntax and diff checks. Full e2e used the separate
+`unicon_iteration6_closure_test` from an isolated temporary working directory.
+The repository-wide TypeScript scan retains the 67 pre-existing diagnostics;
+none are in the added files. No primary database, repository `.env`, live Resend,
+production runtime or schema was changed.
+
 Methodology references: [k6 open arrival models](https://grafana.com/docs/k6/latest/using-k6/scenarios/concepts/open-vs-closed/),
 [repeatable performance testing](https://grafana.com/docs/k6/latest/testing-guides/automated-performance-testing/),
 [Google SRE capacity testing](https://sre.google/sre-book/service-best-practices/).

@@ -7,6 +7,10 @@ import pg from 'pg';
 
 // Deliberately no dotenv: the stand never loads the application's .env.
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+const mode = process.argv[2] ?? 'smoke';
+if (!['smoke', 'concurrency'].includes(mode) || process.argv.length > 3) {
+  throw new Error('Unsupported auth load stand mode.');
+}
 const databaseUrl =
   process.env.TEST_DATABASE_URL ??
   'postgresql://unicon_e2e:unicon_e2e_local@localhost:5433/unicon_load_test';
@@ -21,11 +25,11 @@ if (
   url.hash
 ) {
   throw new Error(
-    'Smoke stand requires local unicon_e2e PostgreSQL on port 5433 and database unicon_load_test.',
+    'Auth load stand requires local unicon_e2e PostgreSQL on port 5433 and database unicon_load_test.',
   );
 }
 const directory = await mkdtemp(join(tmpdir(), 'unicon-load-'));
-const report = join(root, 'load-results', `smoke-${Date.now()}.json`);
+const report = join(root, 'load-results', `${mode}-${Date.now()}.json`);
 // Do not inherit application secrets/configuration into the stand.
 const env = {
   PATH: process.env.PATH,
@@ -49,7 +53,7 @@ async function run(executable, args, cwd) {
     child.once('error', reject);
     child.once('exit', resolveExit);
   });
-  if (code !== 0) throw new Error('Smoke stand subprocess failed.');
+  if (code !== 0) throw new Error('Auth load stand subprocess failed.');
 }
 let lock;
 try {
@@ -63,22 +67,41 @@ try {
   const { rows } = await lock.query(
     'SELECT pg_try_advisory_lock(704007001) AS acquired',
   );
-  if (!rows[0].acquired) throw new Error('Another smoke stand is running.');
+  if (!rows[0].acquired) throw new Error('Another auth load stand is running.');
   await mkdir(dirname(report), { recursive: true });
   await symlink(join(root, 'assets'), join(directory, 'assets'));
-  console.log(`Smoke report target: ${report}`);
+  if (mode === 'concurrency') {
+    const compiled = join(directory, 'compiled');
+    await run(
+      process.execPath,
+      [
+        join(root, 'node_modules/typescript/bin/tsc'),
+        '--project',
+        join(root, 'test/load/tsconfig.replica.json'),
+        '--outDir',
+        compiled,
+      ],
+      root,
+    );
+    await symlink(join(root, 'node_modules'), join(compiled, 'node_modules'));
+    env.LOAD_REPLICA_PATH = join(compiled, 'test/load/concurrency-replica.js');
+  }
+  console.log(`Load report target: ${report}`);
   await run(
     process.execPath,
     [
       '--experimental-vm-modules',
       join(root, 'node_modules/jest/bin/jest.js'),
       '--config',
-      join(root, 'test/load/jest-load.json'),
+      join(
+        root,
+        `test/load/${mode === 'concurrency' ? 'jest-concurrency' : 'jest-load'}.json`,
+      ),
       '--runInBand',
     ],
     directory,
   );
-  console.log(`Smoke report: ${report}`);
+  console.log(`Load report: ${report}`);
 } finally {
   await lock?.end();
   await rm(directory, { recursive: true, force: true });

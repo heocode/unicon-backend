@@ -1,7 +1,10 @@
 {
   "rootDir": "../..",
   "testEnvironment": "node",
-  "testMatch": ["<rootDir>/test/load/*.spec.ts"],
+  "testMatch": [
+    "<rootDir>/test/load/auth-smoke.spec.ts",
+    "<rootDir>/test/load/load-utils.spec.ts"
+  ],
   "setupFiles": ["<rootDir>/test/setup-env.ts", "<rootDir>/test/load/setup.ts"],
   "moduleNameMapper": { "^(\\.{1,2}/.*)\\.js$": "$1" },
   "transform": { "^.+\\.(t|j)s$": "ts-jest" }

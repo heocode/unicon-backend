@@ -1325,6 +1325,11 @@ measurement boundaries, retained-state behavior and the six agreed execution
 blocks are recorded in [the load stand guide](auth-iteration-7-load-stand.md).
 The remaining blocks cover concurrency/configuration/rotation, local overload and
 faults, target-platform staging, capacity measurements, and preliminary tuning.
+Block 2.1 is COMPLETE: three small real-PostgreSQL scenarios with two independent OS
+processes: distinct identities, concurrent INITIAL reuse and concurrent RESEND
+after real cooldown expiry. It checks receipt-based exact charges, stable proof,
+worker competition and shared gate grants; no production runtime/schema changes
+or capacity conclusion. Blocks 2.2–2.3 remain pending.
 Public request-to-session HTTP coverage remains Stage 5–6 work.
 
 ## Stage 5: Request and resend endpoints

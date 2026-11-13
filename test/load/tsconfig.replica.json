@@ -1,0 +1,11 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "rootDir": "../..",
+    "declaration": false,
+    "sourceMap": false,
+    "incremental": false
+  },
+  "include": ["concurrency-replica.ts"],
+  "exclude": ["../../node_modules", "../../dist", "**/*.spec.ts"]
+}
