@@ -2738,6 +2738,10 @@ and gate waits remain later instrumentation work. Block 2.1 extends this with
 two independent OS processes, concurrent INITIAL/RESEND resolution and observed
 committed shared-gate grants, with receipt-based admission accounting. These are
 small internal correctness checks, not production capacity results.
+The first step of block 2.2 verifies personal cooldown denial attribution and
+independent-identity admission under repeated INITIAL/RESEND traffic. It preserves
+active debt and absolute cooldown boundaries; it does not exercise personal GCRA
+exhaustion, shared-IP saturation or establish latency isolation under heavy load.
 See [the load stand guide](auth-iteration-7-load-stand.md) for
 the exact boundary, retained-state behavior, command and remaining blocks.
 

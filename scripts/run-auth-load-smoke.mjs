@@ -8,7 +8,10 @@ import pg from 'pg';
 // Deliberately no dotenv: the stand never loads the application's .env.
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const mode = process.argv[2] ?? 'smoke';
-if (!['smoke', 'concurrency'].includes(mode) || process.argv.length > 3) {
+if (
+  !['smoke', 'concurrency', 'identity-isolation'].includes(mode) ||
+  process.argv.length > 3
+) {
   throw new Error('Unsupported auth load stand mode.');
 }
 const databaseUrl =
@@ -38,6 +41,7 @@ const env = {
   TEST_DATABASE_URL: databaseUrl,
   DATABASE_URL: databaseUrl,
   LOAD_REPORT_PATH: report,
+  LOAD_STAND_SCENARIO: mode,
 };
 for (const key of [
   'LOAD_RATE',
@@ -70,7 +74,7 @@ try {
   if (!rows[0].acquired) throw new Error('Another auth load stand is running.');
   await mkdir(dirname(report), { recursive: true });
   await symlink(join(root, 'assets'), join(directory, 'assets'));
-  if (mode === 'concurrency') {
+  if (mode !== 'smoke') {
     const compiled = join(directory, 'compiled');
     await run(
       process.execPath,
@@ -95,7 +99,7 @@ try {
       '--config',
       join(
         root,
-        `test/load/${mode === 'concurrency' ? 'jest-concurrency' : 'jest-load'}.json`,
+        `test/load/${mode === 'smoke' ? 'jest-load' : 'jest-concurrency'}.json`,
       ),
       '--runInBand',
     ],

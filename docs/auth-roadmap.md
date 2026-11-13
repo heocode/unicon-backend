@@ -1329,7 +1329,11 @@ Block 2.1 is COMPLETE: three small real-PostgreSQL scenarios with two independen
 processes: distinct identities, concurrent INITIAL reuse and concurrent RESEND
 after real cooldown expiry. It checks receipt-based exact charges, stable proof,
 worker competition and shared gate grants; no production runtime/schema changes
-or capacity conclusion. Blocks 2.2–2.3 remain pending.
+or capacity conclusion. Block 2.2 is IN PROGRESS: its first step is COMPLETE and
+verifies repeated
+INITIAL reuse and early RESEND cooldown denials alongside independent identities,
+using two real processes and unchanged policy settings. Shared-IP competition
+and mixed auth/notification queues remain later steps of 2.2; 2.3 remains pending.
 Public request-to-session HTTP coverage remains Stage 5–6 work.
 
 ## Stage 5: Request and resend endpoints

@@ -270,6 +270,89 @@ The repository-wide TypeScript scan retains the 67 pre-existing diagnostics;
 none are in the added files. No primary database, repository `.env`, live Resend,
 production runtime or schema was changed.
 
+## Block 2.2, first step: personal cooldown isolation
+
+```bash
+npm run test:load:identity-isolation
+```
+
+This is an additional explicit mode of the same guarded launcher and observer,
+reusing the two compiled child processes, real services, receipt-based accounting
+oracle and fake HTTP provider. Existing smoke/concurrency commands keep their
+own scenarios. No application settings, runtime code or schema are changed.
+The launcher fixes the mode in its sanitized environment; no inherited scenario
+selection, application secrets or repository `.env` are used.
+
+The seed phase races two INITIAL requests for one fresh active identity, obtaining
+one CREATED and one REUSED receipt. Its real initial Delivery reaches SENT, and
+the first pair of workers shuts down. A second pair then executes three successive
+small concurrent waves while that challenge's real 60-second cooldown is active:
+
+| Input in each wave | Expected result |
+| --- | --- |
+| Four INITIAL requests for the active identity | Four REUSED receipts, no new Delivery or admission charge |
+| Four early RESEND requests for its live challenge | Four RATE_LIMITED receipts, each attributed to both challenge and identity cooldown |
+| One INITIAL for a new independent identity on another IP | One CREATED receipt and one pending Delivery |
+
+Both replicas receive two repeated INITIALs and two RESENDs in each wave. The
+three independent requests use three fresh identities/IPs, with global capacity
+available. They all go to the same replica in this bounded scenario; no load
+balancing/fairness conclusion is inferred. Workers are paused until all waves
+finish so denial/reuse semantics cannot be confused with processing completion.
+
+Checks inspect real DB state after every wave:
+
+- Nine committed receipts and matching process responses, including exactly four
+  denials with both precise policy IDs and the original absolute retry boundary.
+  Overlapping policies are counted separately: four denials have eight policy
+  attributions; these are not eight denied operations.
+- Exactly one new independent challenge/Delivery, still PENDING with zero
+  processing attempts and no HTTP call before worker startup.
+- Exact global/identity/IP GCRA and cooldown accounting from the one CREATED
+  receipt; repeated INITIALs and denied RESENDs contribute no extra charge.
+- Unchanged active-identity/IP debt, cooldown boundaries and updated timestamps,
+  challenge/proof/lifetime/attempt state and existing Delivery records.
+
+Both real workers then drain the three independent Deliveries. Each must reach
+SENT with one processing attempt and one matching HTTP submission; exactly three
+shared permissions are spent, without changing admission debt or cooldown state.
+No policy is disabled and no clock, debt, cooldown or queued job is reset.
+
+The JSON report records per-process outcomes, observed vs expected reuse/denial
+counts, fixed policy attribution, independent-operation latency with sample count
+and all invariant results. Operation timing excludes prepared IDs/IPC, as in 2.1.
+No standalone normal-traffic baseline or latency-isolation SLO is asserted.
+This tiny scenario does not establish that other users remain fast under an
+arbitrary flood; it verifies that these personal cooldown denials do not reject
+independent admissions while the tested shared capacity is available.
+
+Two complete local runs passed on 2026-11-13, based on HEAD `69a0eab` plus the
+current worktree. Each had 29 operations: seed (one CREATED, one REUSED), then
+12 REUSED, 12 RATE_LIMITED and three independent CREATED outcomes across the
+waves. Four Deliveries total reached SENT with one attempt each. The reports are
+`load-results/identity-isolation-1794605104068.json` and
+`load-results/identity-isolation-1794605131693.json` (ignored by Git).
+
+The initial development run stopped on a cross-realm array-comparison issue
+between child IPC responses and the observer's Jest context. Exact policy IDs
+are now compared element by element; no domain assertion was removed. Its one
+unfinished independent job was processed separately by the real worker against
+the fake provider, preserving all rows and debt, before the complete reruns.
+That failed run and its recovery are not counted as passed scenario coverage.
+
+Shared-IP saturation, identity GCRA exhaustion, notification competition and heavy
+traffic remain outside this first step. Block 2.2 is still IN PROGRESS.
+
+Handoff checks passed: both complete identity-isolation runs; the unchanged 2.1
+scenarios after shared batch extraction; original smoke and its three helper tests
+(four checks); build; lint without fixes; 1085 unit tests/88 suites; 456 existing
+e2e tests/24 suites; Prisma validate and migrate status (39 current migrations in
+`unicon_load_test`); launcher syntax and diff checks. Full e2e used the separate
+`unicon_iteration6_closure_test` with no repository `.env` loading. The full
+TypeScript scan still has the same 67 pre-existing test diagnostics and none in
+the changed files; the replica's scoped compilation passes. The primary database
+and live Resend were not used.
+
 Methodology references: [k6 open arrival models](https://grafana.com/docs/k6/latest/using-k6/scenarios/concepts/open-vs-closed/),
 [repeatable performance testing](https://grafana.com/docs/k6/latest/testing-guides/automated-performance-testing/),
 [Google SRE capacity testing](https://sre.google/sre-book/service-best-practices/).

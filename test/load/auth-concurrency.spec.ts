@@ -34,7 +34,12 @@ type Input = {
   identity: string;
   ip: string;
 };
-type Cooldown = { key: string; count: number; boundary: string };
+type Cooldown = {
+  key: string;
+  count: number;
+  boundary: string;
+  updatedAt: Date;
+};
 type Rational = { n: bigint; d: bigint };
 
 // Independent receipt-based accounting oracle. It does not call the limiter's
@@ -64,10 +69,14 @@ function charged(
   );
 }
 
-describe('Stage 4 Iteration 7 block 2.1: two OS processes', () => {
+const isolation = process.env.LOAD_STAND_SCENARIO === 'identity-isolation';
+const testName = isolation
+  ? 'preserves personal cooldown and independent admission during repeated initial/resend traffic'
+  : 'shares admission, stable challenge/resend and scheduled delivery across two processes';
+describe(`Stage 4 Iteration 7 ${isolation ? 'block 2.2: identity isolation' : 'block 2.1: two OS processes'}`, () => {
   jest.setTimeout(180000);
 
-  it('shares admission, stable challenge/resend and scheduled delivery across two processes', async () => {
+  it(testName, async () => {
     if (
       !process.env.LOAD_REPLICA_PATH ||
       !process.env.LOAD_REPORT_PATH ||
@@ -125,7 +134,7 @@ describe('Stage 4 Iteration 7 block 2.1: two OS processes', () => {
     const runId = randomUUID();
     const start = performance.now();
     const cooldowns = () => prisma.$queryRaw<Cooldown[]>`
-      SELECT key, count, trunc(EXTRACT(EPOCH FROM "windowEndAt") * 1000000)::text AS boundary
+      SELECT key, count, trunc(EXTRACT(EPOCH FROM "windowEndAt") * 1000000)::text AS boundary, "updatedAt"
       FROM "AuthenticationRateLimit" ORDER BY key`;
     const rates = () =>
       prisma.gcraRateLimit.findMany({ orderBy: { key: 'asc' } });
@@ -319,15 +328,7 @@ describe('Stage 4 Iteration 7 block 2.1: two OS processes', () => {
           consumedAt: true,
         },
       });
-    async function phase(
-      name: string,
-      inputs: Input[],
-      expectedCreated: number,
-      expectedOther: 'REUSED' | 'EXISTING' | undefined,
-      ready: ReplicaReady[],
-    ) {
-      const beforeRates = await rates(),
-        beforeCooldown = await cooldowns();
+    async function executeBatch(inputs: Input[]) {
       const partitions = [
         inputs.filter((_, index) => index % 2 === 0),
         inputs.filter((_, index) => index % 2 === 1),
@@ -352,6 +353,18 @@ describe('Stage 4 Iteration 7 block 2.1: two OS processes', () => {
       const receipts = await prisma.authenticationOperation.findMany({
         where: { id: { in: [...byId.keys()] } },
       });
+      return { byId, execution, all, receipts };
+    }
+    async function phase(
+      name: string,
+      inputs: Input[],
+      expectedCreated: number,
+      expectedOther: 'REUSED' | 'EXISTING' | undefined,
+      ready: ReplicaReady[],
+    ) {
+      const beforeRates = await rates(),
+        beforeCooldown = await cooldowns();
+      const { byId, execution, all, receipts } = await executeBatch(inputs);
       const afterAdmission = await rates(),
         afterCooldown = await cooldowns();
       const created = receipts.filter((item) => item.outcome === 'CREATED');
@@ -549,6 +562,307 @@ describe('Stage 4 Iteration 7 block 2.1: two OS processes', () => {
         checks,
       };
     }
+    async function isolateIdentity(
+      endpoint: string,
+      initial: (identity: string, ip: string) => Input,
+    ) {
+      const identity = `${runId}-active@load.example.edu`,
+        ip = '2001:db8:3::1';
+      const activeInitial = initial(identity, ip);
+      const seed = await phase(
+        'active-identity-seed',
+        [activeInitial, activeInitial],
+        1,
+        'REUSED',
+        await newPair(endpoint),
+      );
+      const activeChallenge =
+        await prisma.authenticationChallenge.findUniqueOrThrow({
+          where: { id: seed.challengeId },
+        });
+      const activeDeliveries =
+        await prisma.authenticationChallengeDelivery.findMany({
+          where: { challengeId: seed.challengeId },
+          orderBy: { id: 'asc' },
+        });
+      const activeRateKeys = [
+        ...keys(policies.deliveryIdentity, identity),
+        ...keys(policies.deliveryIp, ip),
+      ];
+      const activeCooldownKeys = [
+        ...keys(policies.identityDeliveryCooldown, identity),
+        ...keys(policies.challengeDeliveryCooldown, seed.challengeId),
+      ];
+      const seedCooldowns = (await cooldowns()).filter((item) =>
+        activeCooldownKeys.includes(item.key),
+      );
+      expect(seedCooldowns.length).toBe(activeCooldownKeys.length);
+      const boundary = seedCooldowns
+        .map((item) => BigInt(item.boundary))
+        .reduce((a, b) => (a > b ? a : b));
+      const activeResend: Input = {
+        identity,
+        ip,
+        request: {
+          kind: 'RESEND',
+          input: {
+            challengeId: seed.challengeId,
+            ipAddress: ip,
+            templateProtocolVersion: 1,
+            retentionExpiresAt: activeChallenge.retentionExpiresAt,
+          },
+        },
+      };
+      const ready = await newPair(endpoint);
+      const normalDeliveryIds: string[] = [];
+      const previousCalls = calls.length;
+      const normalLatency: number[] = [];
+      const denialPolicies = [
+        policies.challengeDeliveryCooldown.id,
+        policies.identityDeliveryCooldown.id,
+      ].sort();
+      for (let wave = 0; wave < 3; wave++) {
+        // Each process gets two INITIALs + two RESENDs; one also gets the
+        // independent identity. This tests both kinds on both replicas.
+        const normal = initial(
+          `${runId}-independent-${wave}@load.example.edu`,
+          `2001:db8:4::${wave + 1}`,
+        );
+        const inputs = [
+          ...Array.from({ length: 8 }, (_, index) =>
+            index % 4 < 2 ? activeInitial : activeResend,
+          ),
+          normal,
+        ];
+        expect((await now()) < boundary).toBe(true);
+        const beforeRates = await rates(),
+          beforeCooldown = await cooldowns();
+        const { all, receipts, byId, execution } = await executeBatch(inputs);
+        const afterRates = await rates(),
+          afterCooldown = await cooldowns();
+        const normalResult = all.find(
+          (item) => byId.get(item.operationId)?.identity === normal.identity,
+        );
+        if (normalResult) normalLatency.push(normalResult.elapsedMs);
+        const normalRows = await prisma.authenticationChallenge.findMany({
+          where: { normalizedIdentity: normal.identity },
+          select: { id: true },
+        });
+        const deliveries =
+          await prisma.authenticationChallengeDelivery.findMany({
+            where: { challengeId: { in: normalRows.map((row) => row.id) } },
+          });
+        normalDeliveryIds.push(...deliveries.map((row) => row.id));
+        const denied = receipts.filter((row) => row.outcome === 'DENIED');
+        const checks = {
+          allOperationsCommitted:
+            receipts.length === 9 &&
+            new Set(receipts.map((row) => row.id)).size === 9 &&
+            all.length === 9 &&
+            all.every(
+              (item) =>
+                !item.error &&
+                item.response &&
+                !item.response.replayed &&
+                item.response.operationId === item.operationId,
+            ),
+          expectedIdentityOutcomes: receipts.every((row) => {
+            const input = byId.get(row.id)!;
+            const expected =
+              input.identity === normal.identity
+                ? 'CREATED'
+                : input.request.kind === 'SIGN_IN_REQUEST'
+                  ? 'REUSED'
+                  : 'DENIED';
+            return (
+              row.outcome === expected &&
+              (expected === 'DENIED'
+                ? row.challengeId === null && row.deliveryId === null
+                : row.challengeId ===
+                  (expected === 'REUSED'
+                    ? seed.challengeId
+                    : normalRows[0]?.id))
+            );
+          }),
+          exactCooldownDenialReasons:
+            denied.length === 4 &&
+            denied.every(
+              (row) =>
+                row.denial === 'RATE_LIMITED' &&
+                isDeepStrictEqual(row.deniedPolicyIds, denialPolicies) &&
+                row.retryNotBeforeMicros?.toFixed(0) === boundary.toString() &&
+                row.evaluatedAtMicros < boundary &&
+                row.admissionNowMicros === null,
+            ),
+          responsesMatchReceipts: receipts.every((row) => {
+            const response = all.find((item) => item.operationId === row.id)
+              ?.response?.result;
+            return (
+              response &&
+              response.outcome === row.outcome &&
+              (response.outcome === 'DENIED'
+                ? response.denial === row.denial &&
+                  response.retryNotBeforeMicros === boundary &&
+                  response.deniedPolicyIds.length ===
+                    row.deniedPolicyIds.length &&
+                  response.deniedPolicyIds.every(
+                    (policy, index) => policy === row.deniedPolicyIds[index],
+                  ) &&
+                  response.remainingWaitSeconds !== null &&
+                  response.remainingWaitSeconds > 0n &&
+                  response.remainingWaitSeconds <= 60n
+                : response.challengeId === row.challengeId &&
+                  (!('deliveryId' in response) ||
+                    response.deliveryId === row.deliveryId))
+            );
+          }),
+          independentIdentityAdmitted:
+            normalResult?.response?.result.outcome === 'CREATED' &&
+            normalRows.length === 1 &&
+            deliveries.length === 1 &&
+            deliveries[0].status === 'PENDING' &&
+            deliveries[0].attemptCount === 0 &&
+            deliveries[0].origin === 'INITIAL',
+          onlyIndependentDeliveryCharged: checkAccounting(
+            beforeRates,
+            afterRates,
+            receipts,
+            byId,
+          ),
+          exactCooldownAccounting: checkCooldowns(
+            beforeCooldown,
+            afterCooldown,
+            receipts,
+            byId,
+          ),
+          activePersonalDebtUnchanged: isDeepStrictEqual(
+            beforeRates.filter((item) => activeRateKeys.includes(item.key)),
+            afterRates.filter((item) => activeRateKeys.includes(item.key)),
+          ),
+          activeCooldownNotExtended: isDeepStrictEqual(
+            seedCooldowns,
+            afterCooldown.filter((item) =>
+              activeCooldownKeys.includes(item.key),
+            ),
+          ),
+          activeChallengeUnchanged: isDeepStrictEqual(
+            activeChallenge,
+            await prisma.authenticationChallenge.findUniqueOrThrow({
+              where: { id: seed.challengeId },
+            }),
+          ),
+          noActiveDeliveryCreatedOrChanged: isDeepStrictEqual(
+            activeDeliveries,
+            await prisma.authenticationChallengeDelivery.findMany({
+              where: { challengeId: seed.challengeId },
+              orderBy: { id: 'asc' },
+            }),
+          ),
+          noHttpBeforeWorkers: calls.length === previousCalls,
+        };
+        scenarios.push({
+          name: `identity-isolation-wave-${wave + 1}`,
+          processes: ready,
+          operations: 9,
+          activeIdentityOutcomes: {
+            expectedReused: 4,
+            expectedRateLimited: 4,
+            observedReused: receipts.filter((row) => row.outcome === 'REUSED')
+              .length,
+            observedRateLimited: denied.filter(
+              (row) => row.denial === 'RATE_LIMITED',
+            ).length,
+          },
+          outcomesByProcess: execution.map((entries) => {
+            const counts: Record<string, number> = {};
+            for (const item of entries) {
+              const result = item.response?.result;
+              const label =
+                item.error ??
+                (result?.outcome === 'DENIED'
+                  ? result.denial
+                  : (result?.outcome ?? 'MISSING'));
+              counts[label] = (counts[label] ?? 0) + 1;
+            }
+            return counts;
+          }),
+          deniedPolicyCounts: Object.fromEntries(
+            denialPolicies.map((policy) => [
+              policy,
+              denied.filter((row) => row.deniedPolicyIds.includes(policy))
+                .length,
+            ]),
+          ),
+          independentOperationLatencyMs: distribution(
+            normalResult ? [normalResult.elapsedMs] : [],
+          ),
+          allOperationLatencyMs: distribution(
+            all.map((item) => item.elapsedMs),
+          ),
+          checks,
+        });
+        expect(Object.values(checks).every(Boolean)).toBe(true);
+      }
+      const beforeWorkers = await rates(),
+        cooldownBeforeWorkers = await cooldowns();
+      await Promise.all(
+        pair.map((item) =>
+          item.call<ReplicaWorkerStarted>({ kind: 'START_WORKER' }),
+        ),
+      );
+      const deadline = performance.now() + 20000;
+      let pending: number;
+      do {
+        pending = await prisma.authenticationChallengeDelivery.count({
+          where: {
+            id: { in: normalDeliveryIds },
+            status: { in: ['PENDING', 'PROCESSING'] },
+          },
+        });
+        if (pending) await delay(100);
+      } while (pending && performance.now() < deadline);
+      const stopped = await stopPair();
+      const final = await prisma.authenticationChallengeDelivery.findMany({
+        where: { id: { in: normalDeliveryIds } },
+      });
+      const submissions = calls.slice(previousCalls),
+        afterWorkers = await rates();
+      const checks = {
+        independentDeliveriesSentOnce:
+          final.length === 3 &&
+          final.every((row) => row.status === 'SENT' && row.attemptCount === 1),
+        noDuplicateHttp:
+          submissions.length === 3 &&
+          new Set(submissions.map((item) => item.key)).size === 3 &&
+          final.every((row) =>
+            submissions.some((call) => call.key === row.idempotencyKey),
+          ),
+        exactlyThreeSharedPermissions:
+          stopped.reduce((sum, item) => sum + item.grants.length, 0) === 3,
+        noAdmissionRecharge:
+          isDeepStrictEqual(
+            beforeWorkers.filter(
+              (item) => item.key !== MAIL_SUBMISSION_GATE.key,
+            ),
+            afterWorkers.filter(
+              (item) => item.key !== MAIL_SUBMISSION_GATE.key,
+            ),
+          ) && isDeepStrictEqual(cooldownBeforeWorkers, await cooldowns()),
+        activeProofAndLifetimeUnchanged: isDeepStrictEqual(
+          seed.proof,
+          await proofSnapshot(seed.challengeId),
+        ),
+        noInvalidHttp: invalidHttp === 0,
+      };
+      scenarios.push({
+        name: 'independent-delivery-drain',
+        independentOperationLatencyMs: distribution(normalLatency),
+        sent: final.filter((row) => row.status === 'SENT').length,
+        providerCalls: submissions.length,
+        checks,
+      });
+      expect(Object.values(checks).every(Boolean)).toBe(true);
+    }
     try {
       await prisma.$connect();
       const [authPending, notificationPending] = await Promise.all([
@@ -573,80 +887,85 @@ describe('Stage 4 Iteration 7 block 2.1: two OS processes', () => {
           },
         },
       });
-      const distinct = Array.from({ length: 8 }, (_, index) =>
-        initial(
-          `${runId}-${index}@load.example.edu`,
-          `2001:db8:1::${index + 1}`,
-        ),
-      );
-      await phase(
-        'distinct-identities',
-        distinct,
-        8,
-        undefined,
-        await newPair(endpoint),
-      );
-      const identity = `${runId}-same@load.example.edu`,
-        ip = '2001:db8:2::1';
-      const same = Array.from({ length: 8 }, () => initial(identity, ip));
-      const first = await phase(
-        'same-identity-initial',
-        same,
-        1,
-        'REUSED',
-        await newPair(endpoint),
-      );
-      const cooldownKeys = [
-        ...keys(policies.challengeDeliveryCooldown, first.challengeId),
-        ...keys(policies.identityDeliveryCooldown, identity),
-      ];
-      const boundaries = (await cooldowns())
-        .filter((row) => cooldownKeys.includes(row.key))
-        .map((row) => BigInt(row.boundary));
-      expect(boundaries.length).toBe(cooldownKeys.length);
-      const boundary = boundaries.reduce((a, b) => (a > b ? a : b));
-      const waitStart = performance.now();
-      let remaining: bigint;
-      do {
-        remaining = boundary - (await now());
-        if (remaining > 0n)
-          await delay(Math.min(500, Number((remaining + 999n) / 1000n)));
-      } while (remaining > 0n && performance.now() - waitStart < 65000);
-      expect(remaining <= 0n).toBe(true);
-      const waitedMs = performance.now() - waitStart;
-      const challenge = await prisma.authenticationChallenge.findUniqueOrThrow({
-        where: { id: first.challengeId },
-      });
-      const resend: Input[] = Array.from({ length: 8 }, () => ({
-        identity,
-        ip,
-        request: {
-          kind: 'RESEND',
-          input: {
-            challengeId: first.challengeId,
-            ipAddress: ip,
-            templateProtocolVersion: 1,
-            retentionExpiresAt: challenge.retentionExpiresAt,
+      if (isolation) {
+        await isolateIdentity(endpoint, initial);
+      } else {
+        const distinct = Array.from({ length: 8 }, (_, index) =>
+          initial(
+            `${runId}-${index}@load.example.edu`,
+            `2001:db8:1::${index + 1}`,
+          ),
+        );
+        await phase(
+          'distinct-identities',
+          distinct,
+          8,
+          undefined,
+          await newPair(endpoint),
+        );
+        const identity = `${runId}-same@load.example.edu`,
+          ip = '2001:db8:2::1';
+        const same = Array.from({ length: 8 }, () => initial(identity, ip));
+        const first = await phase(
+          'same-identity-initial',
+          same,
+          1,
+          'REUSED',
+          await newPair(endpoint),
+        );
+        const cooldownKeys = [
+          ...keys(policies.challengeDeliveryCooldown, first.challengeId),
+          ...keys(policies.identityDeliveryCooldown, identity),
+        ];
+        const boundaries = (await cooldowns())
+          .filter((row) => cooldownKeys.includes(row.key))
+          .map((row) => BigInt(row.boundary));
+        expect(boundaries.length).toBe(cooldownKeys.length);
+        const boundary = boundaries.reduce((a, b) => (a > b ? a : b));
+        const waitStart = performance.now();
+        let remaining: bigint;
+        do {
+          remaining = boundary - (await now());
+          if (remaining > 0n)
+            await delay(Math.min(500, Number((remaining + 999n) / 1000n)));
+        } while (remaining > 0n && performance.now() - waitStart < 65000);
+        expect(remaining <= 0n).toBe(true);
+        const waitedMs = performance.now() - waitStart;
+        const challenge =
+          await prisma.authenticationChallenge.findUniqueOrThrow({
+            where: { id: first.challengeId },
+          });
+        const resend: Input[] = Array.from({ length: 8 }, () => ({
+          identity,
+          ip,
+          request: {
+            kind: 'RESEND',
+            input: {
+              challengeId: first.challengeId,
+              ipAddress: ip,
+              templateProtocolVersion: 1,
+              retentionExpiresAt: challenge.retentionExpiresAt,
+            },
           },
-        },
-      }));
-      const last = await phase(
-        'same-challenge-resend',
-        resend,
-        1,
-        'EXISTING',
-        await newPair(endpoint),
-      );
-      last.checks.stableAcrossResend =
-        isDeepStrictEqual(first.proof, last.proof) &&
-        first.initialDigest === last.initialDigest;
-      last.checks.cooldownElapsedOnDatabaseClock = remaining <= 0n;
-      expect(last.checks.stableAcrossResend).toBe(true);
-      scenarios.push({
-        name: 'cooldown-wait',
-        waitedMs,
-        basis: 'persisted cooldown boundaries and PostgreSQL clock; no reset',
-      });
+        }));
+        const last = await phase(
+          'same-challenge-resend',
+          resend,
+          1,
+          'EXISTING',
+          await newPair(endpoint),
+        );
+        last.checks.stableAcrossResend =
+          isDeepStrictEqual(first.proof, last.proof) &&
+          first.initialDigest === last.initialDigest;
+        last.checks.cooldownElapsedOnDatabaseClock = remaining <= 0n;
+        expect(last.checks.stableAcrossResend).toBe(true);
+        scenarios.push({
+          name: 'cooldown-wait',
+          waitedMs,
+          basis: 'persisted cooldown boundaries and PostgreSQL clock; no reset',
+        });
+      }
       passed = true;
     } finally {
       const cleanup = await Promise.allSettled(pair.map((item) => item.stop()));
@@ -656,7 +975,9 @@ describe('Stage 4 Iteration 7 block 2.1: two OS processes', () => {
       await new Promise<void>((done) => server.close(() => done()));
       const report = {
         schemaVersion: 1,
-        scenario: 'internal-auth-two-process-concurrency',
+        scenario: isolation
+          ? 'internal-auth-identity-cooldown-isolation'
+          : 'internal-auth-two-process-concurrency',
         runId,
         recordedAt: new Date().toISOString(),
         commit: execFileSync('git', ['rev-parse', 'HEAD'], {
@@ -680,7 +1001,8 @@ describe('Stage 4 Iteration 7 block 2.1: two OS processes', () => {
           'Internal services after email/domain eligibility; not public HTTP or mailbox delivery.',
           'Two local OS processes share host resources; no production capacity or fairness claim.',
           'Always-200 fake provider; process/network faults and commit ambiguity are later work.',
-          'No notifications, configuration/key rotation or cleanup scenarios in block 2.1.',
+          'No shared-IP exhaustion, notifications, configuration/key rotation or cleanup scenarios in this command.',
+          'Personal GCRA exhaustion and heavy traffic are not exercised by the identity-cooldown scenario.',
           'Active state and fixture data are retained; no reset or refund.',
         ],
       };
