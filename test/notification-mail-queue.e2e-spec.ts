@@ -12,6 +12,9 @@ import { AccountDeletionFinalizationService } from '../src/account/services/acco
 import { AccountDeletionNotificationService } from '../src/notifications/services/account-deletion-notification.service';
 import { MailDeliveryEncryptionService } from '../src/mail/services/mail-delivery-encryption.service';
 import { AuthenticationChallengeProofFactoryService } from '../src/auth/challenge/services/authentication-challenge-proof-factory.service';
+import { AuthenticationOperationService } from '../src/auth/operations/services/authentication-operation.service';
+import { AuthenticationDeliveryCleanupRepository } from '../src/auth/delivery/repositories/authentication-delivery-cleanup.repository';
+import { NotificationDeliveryService } from '../src/notifications/services/notification-delivery.service';
 import { AuthenticationDeliveryRepository } from '../src/auth/delivery/repositories/authentication-delivery.repository';
 import { AuthenticationDeliveryOrchestrationService } from '../src/auth/delivery/services/authentication-delivery-orchestration.service';
 import { validateEnvironment } from '../src/config/environment.validation';
@@ -43,7 +46,11 @@ describe('Durable notification mail (PostgreSQL + HTTP)', () => {
     disconnect = false,
     breakPressure = false;
   let calls: { key: string; hash: string; recipient: string }[] = [];
+  let holdResponse: Promise<void> | undefined;
   const prefix = 'e2e:notification-mail:';
+  const operationIds = new Set<string>(),
+    admissionKeys = new Set<string>(),
+    cooldownKeys = new Set<string>();
   class LocalClient extends ResendMailHttpClient {
     protected readonly endpoint = endpoint;
   }
@@ -76,6 +83,7 @@ describe('Durable notification mail (PostgreSQL + HTTP)', () => {
             hash: createHash('sha256').update(body).digest('hex'),
             recipient: payload.to[0],
           });
+          if (holdResponse) await holdResponse;
           if (breakPressure)
             await prisma.mailProviderPressure.delete({ where: { id: 1 } });
           if (disconnect) {
@@ -119,8 +127,25 @@ describe('Durable notification mail (PostgreSQL + HTTP)', () => {
     return time.now.getTime();
   }
   async function clean() {
+    await prisma.authenticationOperation.deleteMany({
+      where: { id: { in: [...operationIds] } },
+    });
+    await prisma.gcraRateLimit.deleteMany({
+      where: { key: { in: [...admissionKeys] } },
+    });
+    await prisma.authenticationRateLimit.deleteMany({
+      where: { key: { in: [...cooldownKeys] } },
+    });
+    operationIds.clear();
+    admissionKeys.clear();
+    cooldownKeys.clear();
     await prisma.authenticationChallengeSubject.deleteMany({
-      where: { key: { startsWith: prefix } },
+      where: {
+        OR: [
+          { key: { startsWith: prefix } },
+          { normalizedIdentity: { endsWith: '@mail-queue.example.edu' } },
+        ],
+      },
     });
     await prisma.notificationDelivery.deleteMany({
       where: { recipient: { endsWith: '@mail-queue.example.edu' } },
@@ -147,6 +172,7 @@ describe('Durable notification mail (PostgreSQL + HTTP)', () => {
     headers = {};
     disconnect = false;
     breakPressure = false;
+    holdResponse = undefined;
     calls = [];
     email = `${randomUUID()}@mail-queue.example.edu`;
     userId = (
@@ -208,6 +234,93 @@ describe('Durable notification mail (PostgreSQL + HTTP)', () => {
     const claim = await instance.get(MailDeliveryRepository).claimNext();
     if (!claim) throw new Error('Expected queued mail.');
     return instance.get(MailDeliveryWorkerService).process(claim);
+  }
+
+  async function admittedAuth() {
+    const beforeGcra = new Set(
+      (await prisma.gcraRateLimit.findMany({ select: { key: true } })).map(
+        (item) => item.key,
+      ),
+    );
+    const beforeCooldown = new Set(
+      (
+        await prisma.authenticationRateLimit.findMany({ select: { key: true } })
+      ).map((item) => item.key),
+    );
+    const operations = first.get(AuthenticationOperationService);
+    const operationId = await operations.createOperationId();
+    operationIds.add(operationId);
+    try {
+      const response = await operations.execute(operationId, {
+        kind: 'SIGN_IN_REQUEST',
+        input: {
+          normalizedIdentity: email,
+          ipAddress: `2001:db8:${randomUUID().slice(0, 4)}::1`,
+          templateProtocolVersion: 1,
+        },
+      });
+      if (response.result.outcome !== 'CREATED')
+        throw new Error('Expected admitted auth work.');
+      return {
+        id: response.result.deliveryId,
+        challengeId: response.result.challengeId,
+      };
+    } finally {
+      for (const item of await prisma.gcraRateLimit.findMany({
+        select: { key: true },
+      }))
+        if (!beforeGcra.has(item.key)) admissionKeys.add(item.key);
+      for (const item of await prisma.authenticationRateLimit.findMany({
+        select: { key: true },
+      }))
+        if (!beforeCooldown.has(item.key)) cooldownKeys.add(item.key);
+    }
+  }
+  async function admissionSnapshot() {
+    return {
+      rates: await prisma.gcraRateLimit.findMany({
+        where: { key: { in: [...admissionKeys] } },
+        orderBy: { key: 'asc' },
+      }),
+      cooldowns: await prisma.authenticationRateLimit.findMany({
+        where: { key: { in: [...cooldownKeys] } },
+        orderBy: { key: 'asc' },
+      }),
+      receipts: await prisma.authenticationOperation.findMany({
+        where: { id: { in: [...operationIds] } },
+        orderBy: { id: 'asc' },
+      }),
+    };
+  }
+  async function authRow(id: string) {
+    return prisma.authenticationChallengeDelivery.findUniqueOrThrow({
+      where: { id },
+    });
+  }
+  async function runAuth(instance = first) {
+    const claim = await instance
+      .get(AuthenticationDeliveryRepository)
+      .claimNextDelivery();
+    return claim
+      ? instance.get(AuthenticationDeliveryOrchestrationService).process(claim)
+      : null;
+  }
+  async function drainBoth(authId: string, mailId: string) {
+    for (let i = 0; i < 8; i++) {
+      await waitPermission();
+      await Promise.all([runAuth(second), worker.runOnce()]);
+      if (
+        (await authRow(authId)).status === 'SENT' &&
+        (await row(mailId)).status === 'SENT'
+      )
+        return;
+    }
+    throw new Error(
+      'Expected both queues to drain after authoritative eligibility.',
+    );
+  }
+  async function waitUntil(milliseconds: number) {
+    await prisma.$queryRaw`SELECT 1 FROM pg_sleep(GREATEST(0,(${String(milliseconds)}::numeric-EXTRACT(EPOCH FROM clock_timestamp())*1000)/1000)::double precision)`;
   }
 
   it('durably queues before HTTP and records SENT only after provider acceptance, wiping the envelope', async () => {
@@ -844,5 +957,259 @@ describe('Durable notification mail (PostgreSQL + HTTP)', () => {
       await tx.$executeRaw`ROLLBACK TO SAVEPOINT mail_envelope_invalid`;
       await tx.$executeRawUnsafe(`DROP SCHEMA "${schema}" CASCADE`);
     });
+  });
+  it('integrates admitted auth and notification sends across replicas without recharging admission', async () => {
+    const auth = await admittedAuth(),
+      mailId = await enqueue();
+    const budget = await admissionSnapshot();
+    expect(budget.rates.length).toBeGreaterThan(0);
+    expect(budget.cooldowns.length).toBeGreaterThan(0);
+    const challenge = await prisma.authenticationChallenge.findUniqueOrThrow({
+      where: { id: auth.challengeId },
+    });
+    await drainBoth(auth.id, mailId);
+    expect(calls).toHaveLength(2);
+    expect(new Set(calls.map((call) => call.key))).toEqual(
+      new Set([(await authRow(auth.id)).idempotencyKey, mailId]),
+    );
+    expect((await authRow(auth.id)).attemptCount).toBe(1);
+    expect((await row(mailId)).mailAttemptCount).toBe(1);
+    expect(
+      await prisma.authenticationChallenge.findUniqueOrThrow({
+        where: { id: auth.challengeId },
+      }),
+    ).toEqual(challenge);
+    expect(await admissionSnapshot()).toEqual(budget);
+  });
+
+  it('auth-imposed Retry-After stops both queues and timed recovery preserves proof, keys and admission debt', async () => {
+    const auth = await admittedAuth();
+    const budget = await admissionSnapshot();
+    const challenge = await prisma.authenticationChallenge.findUniqueOrThrow({
+      where: { id: auth.challengeId },
+    });
+    status = 429;
+    errorName = 'rate_limit_exceeded';
+    headers = { 'retry-after': '1' };
+    expect(await runAuth()).toEqual({ outcome: 'RETRY_SCHEDULED' });
+    const firstAttempt = await authRow(auth.id),
+      mailId = await enqueue();
+    const pressure = await prisma.mailProviderPressure.findUniqueOrThrow({
+      where: { id: 1 },
+    });
+    expect(
+      (await second.get(MailDeliveryWorkerService).runOnce())[0],
+    ).toMatchObject({
+      outcome: 'DEFERRED',
+      retryNotBeforeMicros: pressure.retryNotBeforeMicros,
+    });
+    expect(await row(mailId)).toMatchObject({
+      mailAttemptCount: 0,
+      attemptedAt: null,
+      failureCode: null,
+    });
+    expect(await authRow(auth.id)).toEqual(firstAttempt);
+    expect(calls).toHaveLength(1);
+    status = 200;
+    headers = {};
+    // Wait for actual persisted auth policy backoff, not a reset/frozen-clock fixture.
+    await waitUntil(
+      Math.max(
+        firstAttempt.nextAttemptAt!.getTime(),
+        (await row(mailId)).mailNextAttemptAt!.getTime(),
+      ),
+    );
+    await drainBoth(auth.id, mailId);
+    const authCalls = calls.filter(
+      (call) => call.key === firstAttempt.idempotencyKey,
+    );
+    expect(authCalls).toHaveLength(2);
+    expect(authCalls[1]).toEqual(authCalls[0]);
+    expect(calls).toHaveLength(3);
+    expect((await authRow(auth.id)).attemptCount).toBe(2);
+    expect((await row(mailId)).mailAttemptCount).toBe(1);
+    expect(await admissionSnapshot()).toEqual(budget);
+    expect(
+      await prisma.authenticationChallenge.findUniqueOrThrow({
+        where: { id: auth.challengeId },
+      }),
+    ).toEqual(challenge);
+    expect(
+      await prisma.mailProviderPressure.findUniqueOrThrow({ where: { id: 1 } }),
+    ).toEqual(pressure);
+  });
+
+  it('terminalization and cleanup progress for both queues during monthly pause without erasing active debt', async () => {
+    const auth = await admittedAuth(),
+      mailId = await enqueue();
+    const budget = await admissionSnapshot();
+    const pressureService = first.get(MailProviderPressureService);
+    await pressureService.observe({
+      statusCode: 429,
+      errorName: 'monthly_quota_exceeded',
+      headers: {},
+    });
+    const pressure = await prisma.mailProviderPressure.findUniqueOrThrow({
+      where: { id: 1 },
+    });
+    expect((await runAuth())?.outcome).toBe('DEFERRED');
+    expect((await worker.runOnce())[0].outcome).toBe('DEFERRED');
+    const now = await databaseNow();
+    await prisma.authenticationChallenge.update({
+      where: { id: auth.challengeId },
+      data: {
+        consumedAt: new Date(now),
+        encryptedProof: null,
+        proofEncryptionIv: null,
+        proofEncryptionTag: null,
+      },
+    });
+    await prisma.authenticationChallengeDelivery.update({
+      where: { id: auth.id },
+      data: { retentionExpiresAt: new Date(now - 1000) },
+    });
+    // Explicit expired-history fixture: production enqueue never rewrites this bound/AAD.
+    await prisma.notificationDelivery.update({
+      where: { id: mailId },
+      data: {
+        mailQueuedAt: new Date(now - 3600000),
+        mailExpiresAt: new Date(now - 2000),
+        retentionExpiresAt: new Date(now - 1000),
+      },
+    });
+    expect(await runAuth(second)).toEqual({ outcome: 'CANCELLED' });
+    expect(await processNext()).toEqual({ outcome: 'FAILED' });
+    expect((await authRow(auth.id)).attemptCount).toBe(0);
+    expect((await row(mailId)).mailAttemptCount).toBe(0);
+    expect(
+      await first
+        .get(AuthenticationDeliveryCleanupRepository)
+        .deleteOneRetainedTerminalBatch(10),
+    ).toBe(1);
+    expect(
+      await first
+        .get(NotificationDeliveryService)
+        .deleteExpired(new Date(await databaseNow())),
+    ).toBe(1);
+    expect(
+      await prisma.authenticationChallengeDelivery.findUnique({
+        where: { id: auth.id },
+      }),
+    ).toBeNull();
+    expect(
+      await prisma.notificationDelivery.findUnique({ where: { id: mailId } }),
+    ).toBeNull();
+    expect(await admissionSnapshot()).toEqual(budget);
+    expect(calls).toHaveLength(0);
+    expect(
+      await prisma.mailProviderPressure.findUniqueOrThrow({ where: { id: 1 } }),
+    ).toEqual(pressure);
+  });
+
+  it('both queues fail closed on shared gate infrastructure loss and resume without losing or recharging work', async () => {
+    const auth = await admittedAuth(),
+      mailId = await enqueue();
+    const budget = await admissionSnapshot();
+    const pressure = await prisma.mailProviderPressure.findUniqueOrThrow({
+      where: { id: 1 },
+    });
+    await prisma.mailProviderPressure.delete({ where: { id: 1 } });
+    expect((await runAuth())?.outcome).toBe('DEFERRED');
+    expect(
+      (await second.get(MailDeliveryWorkerService).runOnce())[0].outcome,
+    ).toBe('DEFERRED');
+    expect((await authRow(auth.id)).attemptCount).toBe(0);
+    expect((await row(mailId)).mailAttemptCount).toBe(0);
+    expect(calls).toHaveLength(0);
+    expect(await admissionSnapshot()).toEqual(budget);
+    // Controlled infrastructure repair; runtime gate must never recreate missing state.
+    await prisma.mailProviderPressure.create({ data: pressure });
+    await waitUntil(
+      Math.max(
+        (await authRow(auth.id)).nextAttemptAt!.getTime(),
+        (await row(mailId)).mailNextAttemptAt!.getTime(),
+      ),
+    );
+    await drainBoth(auth.id, mailId);
+    expect(calls).toHaveLength(2);
+    expect(await admissionSnapshot()).toEqual(budget);
+    expect((await authRow(auth.id)).attemptCount).toBe(1);
+    expect((await row(mailId)).mailAttemptCount).toBe(1);
+  });
+  it('cleanup preserves an in-flight leased notification until its known acceptance is recorded', async () => {
+    const id = await enqueue(),
+      original = await row(id);
+    const encryption = first.get(MailDeliveryEncryptionService);
+    const payload = encryption.decrypt(original);
+    const now = await databaseNow(),
+      deadline = new Date(now + 1500);
+    // Historical-time fixture with a real authenticated envelope; no runtime
+    // expiry or lease policy is changed and no clock/service is mocked.
+    await prisma.notificationDelivery.update({
+      where: { id },
+      data: {
+        mailQueuedAt: new Date(now - 3600000),
+        mailExpiresAt: deadline,
+        retentionExpiresAt: deadline,
+        ...encryption.encrypt(
+          { ...original, mailExpiresAt: deadline },
+          payload,
+        ),
+      },
+    });
+    let release!: () => void;
+    holdResponse = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const claim = (await repository.claimNext())!;
+    const pending = worker.process(claim);
+    void pending.catch(() => undefined);
+    try {
+      for (let i = 0; i < 100 && calls.length === 0; i++)
+        await new Promise((resolve) => setTimeout(resolve, 10));
+      expect(calls).toHaveLength(1);
+      const sending = await row(id);
+      expect(sending).toMatchObject({
+        mailAttemptStarted: true,
+        mailAttemptCount: 1,
+        status: 'PENDING',
+      });
+      const gate = await prisma.gcraRateLimit.findUniqueOrThrow({
+        where: { key: MAIL_SUBMISSION_GATE.key },
+      });
+      const cleanup = first.get(NotificationDeliveryService);
+      // Retention cutoff is an input, not authority to revoke a DB-active lease.
+      expect(
+        await cleanup.deleteExpired(new Date(deadline.getTime() + 60000)),
+      ).toBe(0);
+      await waitUntil(deadline.getTime() + 5);
+      expect(await cleanup.deleteExpired(new Date(await databaseNow()))).toBe(
+        0,
+      );
+      expect(await row(id)).toEqual(sending);
+      release();
+      expect(await pending).toEqual({ outcome: 'SENT' });
+      expect(await row(id)).toMatchObject({
+        status: 'SENT',
+        mailAttemptCount: 1,
+        mailPayload: null,
+        mailLeaseId: null,
+      });
+      expect(await cleanup.deleteExpired(new Date(await databaseNow()))).toBe(
+        1,
+      );
+      expect(
+        await prisma.notificationDelivery.findUnique({ where: { id } }),
+      ).toBeNull();
+      expect(
+        await prisma.gcraRateLimit.findUnique({
+          where: { key: MAIL_SUBMISSION_GATE.key },
+        }),
+      ).toEqual(gate);
+    } finally {
+      release();
+      await Promise.allSettled([pending]);
+      holdResponse = undefined;
+    }
   });
 });

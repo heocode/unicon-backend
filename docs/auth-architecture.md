@@ -2737,8 +2737,10 @@ Status: **ACCEPTED / FIXED** as configurable V1 starting values. The internal
 permission core is implemented in Iteration 6 block 3.1; shared provider pressure
 and the common transport are implemented in block 3.2. Auth worker integration
 is implemented in block 4; block 5 routes all remaining application senders
-through the shared transport with durable notification deferral. Final integration
-checks remain block 6 work.
+through the shared transport with durable notification deferral. Block 6 completes
+internal integration checks; the scenario matrix and evidence are recorded in
+[Iteration 6 verification](auth-iteration-6-verification.md). Load/fault metrics,
+production capacity selection and broader hardening remain Iteration 7 work.
 The operator confirmed the current Resend team API ceiling is 10 requests per
 second. This applies to the team across keys and replicas, not each worker.
 Resend documents the team scope and rate-limit/Retry-After headers in
@@ -3060,7 +3062,9 @@ finalization summary retriedCompletionDeliveries remains zero for compatibility;
 it no longer counts worker attempts. Other post-commit notifications become
 reliable once enqueue commits; this block does not promise recovery from a crash
 before their enqueue or introduce a universal event outbox. Notification retention
-cleanup skips active mail leases. Existing rows without mailQueuedAt/envelopes
+cleanup skips active mail leases using PostgreSQL clock_timestamp(), independent
+of the caller-supplied retention cutoff. Block 6's real held-HTTP test reproduces
+the old premature deletion with a future cutoff and verifies the correction. Existing rows without mailQueuedAt/envelopes
 are preserved unchanged and never guessed/replayed; a duplicate pending/failed
 historical key reports enqueue unavailability instead of false queued success.
 Such historical work needs explicit review before rollout.
@@ -3082,7 +3086,8 @@ assert actual persisted PENDING enqueue with background sending disabled; the
 separate worker/HTTP suite exercises real sending and transitions without DB or
 provider-service mocks. Tests and fault fixtures do not establish live-provider
 idempotency, real process/commit-ack loss, production throughput or rollout
-readiness; block 6 and Iteration 7 retain their respective verification owners.
+readiness. Block 6 verifies internal composition; Iteration 7 retains load,
+telemetry, tuning and extended process/network fault verification.
 
 Device metadata is informational and spoofable. It contributes to throttling
 and risk context but is never identity proof.

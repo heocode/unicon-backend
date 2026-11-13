@@ -1146,7 +1146,7 @@ and support evidence. Telemetry outages do not change enforcement.
    lock transition: failures do not clear proof/cancel Delivery, GCRA denial
    resumes on the same live challenge, and expiry/single-use/fail-closed behavior
    remains enforced. Do not remove legacy protection before these checks pass.
-6. **Global/provider pressure — IN PROGRESS.** Block 1 implements the internal
+6. **Global/provider pressure — COMPLETE (internal Stage 4 scope).** Block 1 implements the internal
    auth Delivery backlog gate. AUTH_DELIVERY_BACKLOG_LIMIT is a required positive
    safe integer; .env.example uses experimental 1000, not a production sizing
    recommendation. AuthenticationDeliveryBacklogRepository updates a singleton
@@ -1269,8 +1269,23 @@ and support evidence. Telemetry outages do not change enforcement.
    The additive migration preserves old data and enforces envelope/lease/window
    constraints. Real PostgreSQL/local HTTP checks cover workers, proof guards,
    retries/recovery, rollback, quota waits, acceptance persistence and migration.
-   The last remaining Iteration 6 block is block 6 integration verification;
-   Iteration 6 is IN PROGRESS. Bulk/fault measurements remain Iteration 7.
+   Block 6 completes internal integration verification. Five additional real
+   PostgreSQL/local-HTTP scenarios combine admitted auth, notifications, retries,
+   cross-replica pressure/recovery and cleanup, asserting unchanged admission
+   rates/cooldowns/receipts and stable proof/idempotency. A held-HTTP regression
+   reproduced cleanup deleting a DB-active lease when given a future retention
+   cutoff. Notification cleanup now evaluates lease expiration with PostgreSQL
+   clock_timestamp(), independently of the bound retention cutoff; known
+   acceptance can be recorded before terminal retention cleanup.
+   Final closure checks pass: build/lint/Prisma validation, 1085 unit tests and
+   456 e2e tests (24 suites). All 39 migrations are current on a dedicated test
+   database; no main-database rollout is performed. Full TypeScript retains its
+   67 pre-existing diagnostics with no new diagnostics in the changed suite.
+   Iteration 6 is COMPLETE within its internal scope. Iteration 7 remains for
+   load/fault measurements, metrics, wider configuration/rotation checks and
+   preliminary limit tuning; public HTTP wiring remains Stage 5–6 work.
+   See [the scenario report](auth-iteration-6-verification.md) for evidence,
+   rollout prerequisites and explicitly unverified behavior.
    Final block 5 validation: build/lint/Prisma validation pass; 1085 unit tests
    and 451 e2e tests pass, including 24 new real PostgreSQL/local-HTTP checks.
    All 39 migrations are applied only to a dedicated test database. Fixture

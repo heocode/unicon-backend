@@ -7,15 +7,12 @@ import { PrismaService } from '../../prisma/prisma.service';
 export class NotificationDeliveryService {
   constructor(private readonly prisma: PrismaService) {}
   async deleteExpired(now: Date = new Date()): Promise<number> {
-    const result = await this.prisma.notificationDelivery.deleteMany({
-      where: {
-        retentionExpiresAt: { lte: now },
-        OR: [
-          { mailLeaseExpiresAt: null },
-          { mailLeaseExpiresAt: { lte: now } },
-        ],
-      },
-    });
-    return result.count;
+    // The caller selects a retention cutoff, not a clock that can revoke leases.
+    // PostgreSQL remains authoritative even with a future cutoff or host skew.
+    return this.prisma.$executeRaw`
+      DELETE FROM "NotificationDelivery"
+      WHERE "retentionExpiresAt" <= ${now}
+        AND ("mailLeaseExpiresAt" IS NULL OR "mailLeaseExpiresAt" <= clock_timestamp())
+    `;
   }
 }

@@ -2,21 +2,15 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { NotificationDeliveryService } from './notification-delivery.service';
 
 describe('NotificationDeliveryService retention', () => {
-  it('does not delete retained work with an active lease', async () => {
-    const deleteMany = jest.fn().mockResolvedValue({ count: 2 });
+  // Active-lease semantics are exercised with actual PostgreSQL and held HTTP
+  // responses in notification-mail-queue.e2e-spec.ts.
+  it('returns the deleted count and binds the requested retention cutoff', async () => {
+    const executeRaw = jest.fn().mockResolvedValue(2);
     const service = new NotificationDeliveryService({
-      notificationDelivery: { deleteMany },
+      $executeRaw: executeRaw,
     } as unknown as PrismaService);
     const now = new Date();
     expect(await service.deleteExpired(now)).toBe(2);
-    expect(deleteMany).toHaveBeenCalledWith({
-      where: {
-        retentionExpiresAt: { lte: now },
-        OR: [
-          { mailLeaseExpiresAt: null },
-          { mailLeaseExpiresAt: { lte: now } },
-        ],
-      },
-    });
+    expect(executeRaw).toHaveBeenCalledWith(expect.any(Array), now);
   });
 });
