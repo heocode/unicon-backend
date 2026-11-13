@@ -95,6 +95,10 @@ describe('Authentication challenge verification (e2e)', () => {
     await moduleFixture.close();
   });
 
+  async function databaseNow(): Promise<number> {
+    return Number((await rateRepository.operationNowMicros(prisma)) / 1000n);
+  }
+
   async function createChallenge(options?: {
     expiresAt?: Date;
     failedAttemptCount?: number;
@@ -151,7 +155,8 @@ describe('Authentication challenge verification (e2e)', () => {
             encryptionKeyVersion:
               generated.persistence.encryption.encryptionKeyVersion,
             expiresAt:
-              options?.expiresAt ?? new Date(Date.now() + 10 * 60 * 1000),
+              options?.expiresAt ??
+              new Date((await databaseNow()) + 10 * 60 * 1000),
             failedAttemptCount: options?.failedAttemptCount ?? 0,
             ...(options?.locked
               ? {
@@ -161,7 +166,9 @@ describe('Authentication challenge verification (e2e)', () => {
                   proofEncryptionTag: null,
                 }
               : {}),
-            retentionExpiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+            retentionExpiresAt: new Date(
+              (await databaseNow()) + 24 * 60 * 60 * 1000,
+            ),
           },
         },
       },
@@ -419,7 +426,7 @@ describe('Authentication challenge verification (e2e)', () => {
   });
 
   it('clears an expired envelope without changing terminal timestamps', async () => {
-    const expiresAt = new Date(Date.now() - 1_000);
+    const expiresAt = new Date((await databaseNow()) - 1_000);
     const { context, proof } = await createChallenge({ expiresAt });
 
     await expect(verifyOtp(context, proof.otp)).resolves.toEqual({
@@ -803,7 +810,7 @@ describe('Authentication challenge verification (e2e)', () => {
     'rechecks expiry after %s bucket-lock waits before proof consumption',
     async (kind) => {
       const { context, proof } = await createChallenge({
-        expiresAt: new Date(Date.now() + 900),
+        expiresAt: new Date((await databaseNow()) + 900),
       });
       const policy = policies.verificationIdentityLongTerm;
       const alias = buckets.deriveKeys(policy, context.normalizedIdentity)
@@ -875,8 +882,8 @@ describe('Authentication challenge verification (e2e)', () => {
     await prisma.authenticationChallenge.update({
       where: { id: context.challengeId },
       data: {
-        expiresAt: new Date(Date.now() - 2000),
-        retentionExpiresAt: new Date(Date.now() - 1000),
+        expiresAt: new Date((await databaseNow()) - 2000),
+        retentionExpiresAt: new Date((await databaseNow()) - 1000),
       },
     });
     const cleanup = moduleFixture.get(AuthenticationChallengeCleanupRepository);

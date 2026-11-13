@@ -105,3 +105,8 @@ export type ClaimedAuthenticationDelivery = {
   leaseExpiresAt: Date;
   claimKind: AuthenticationDeliveryClaimKind;
 };
+
+export type AuthenticationDeliveryAttemptStart =
+  | { outcome: 'STARTED'; attemptCount: number }
+  | { outcome: 'CANCELLED' }
+  | { outcome: 'LEASE_LOST' };

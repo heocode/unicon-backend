@@ -8,6 +8,7 @@ import { AccountDeletionFinalizationService } from '../src/account/services/acco
 import { PasswordService } from '../src/auth/password/services/password.service';
 import { configureApp } from '../src/configure-app';
 import { MailService } from '../src/mail/mail.service';
+import { MailDeliveryWorkerService } from '../src/mail/services/mail-delivery-worker.service';
 import { PrismaService } from '../src/prisma/prisma.service';
 import {
   expectNoInternalFields,
@@ -58,7 +59,10 @@ describe('Account password change with PostgreSQL (e2e)', () => {
 
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
-    }).compile();
+    })
+      .overrideProvider(MailDeliveryWorkerService)
+      .useValue({})
+      .compile();
 
     app = moduleFixture.createNestApplication();
     configureApp(app);
@@ -71,26 +75,27 @@ describe('Account password change with PostgreSQL (e2e)', () => {
   });
 
   beforeEach(async () => {
+    jest.restoreAllMocks();
     jest.clearAllMocks();
-    jest
-      .spyOn(mailService, 'sendNewSessionEmail')
-      .mockResolvedValue('test-provider-message-id');
-    jest
-      .spyOn(mailService, 'sendSuspiciousActivityEmail')
-      .mockResolvedValue('test-suspicious-provider-message-id');
-    sendPasswordChangedEmail = jest
-      .spyOn(mailService, 'sendPasswordChangedEmail')
-      .mockResolvedValue('test-password-provider-message-id');
-    sendDeletionRequestedEmail = jest
-      .spyOn(mailService, 'sendAccountDeletionRequestedEmail')
-      .mockResolvedValue('test-deletion-request-provider-message-id');
-    sendDeletionCancelledEmail = jest
-      .spyOn(mailService, 'sendAccountDeletionCancelledEmail')
-      .mockResolvedValue('test-deletion-cancel-provider-message-id');
-    sendAccountDeletedEmail = jest
-      .spyOn(mailService, 'sendAccountDeletedEmail')
-      .mockResolvedValue('test-account-deleted-provider-message-id');
-    jest.spyOn(mailService, 'sendVerificationEmail').mockResolvedValue();
+    jest.spyOn(mailService, 'sendNewSessionEmail');
+    jest.spyOn(mailService, 'sendSuspiciousActivityEmail');
+    sendPasswordChangedEmail = jest.spyOn(
+      mailService,
+      'sendPasswordChangedEmail',
+    );
+    sendDeletionRequestedEmail = jest.spyOn(
+      mailService,
+      'sendAccountDeletionRequestedEmail',
+    );
+    sendDeletionCancelledEmail = jest.spyOn(
+      mailService,
+      'sendAccountDeletionCancelledEmail',
+    );
+    sendAccountDeletedEmail = jest.spyOn(
+      mailService,
+      'sendAccountDeletedEmail',
+    );
+    jest.spyOn(mailService, 'sendVerificationEmail');
 
     await cleanDatabase();
 
@@ -196,10 +201,10 @@ describe('Account password change with PostgreSQL (e2e)', () => {
     });
 
     expect(delivery).toMatchObject({
-      status: 'SENT',
+      status: 'PENDING',
       userId: event?.userId,
       sessionId: event?.actorSessionId,
-      providerMessageId: 'test-password-provider-message-id',
+      providerMessageId: null,
       idempotencyKey: `PASSWORD_CHANGED:${event?.id}`,
     });
     expect(sendPasswordChangedEmail).toHaveBeenCalledTimes(1);
@@ -241,7 +246,7 @@ describe('Account password change with PostgreSQL (e2e)', () => {
     expect(
       deliveries.every(({ sessionId }) => typeof sessionId === 'string'),
     ).toBe(true);
-    expect(deliveries.every(({ status }) => status === 'SENT')).toBe(true);
+    expect(deliveries.every(({ status }) => status === 'PENDING')).toBe(true);
     expect(sendPasswordChangedEmail).toHaveBeenCalledTimes(2);
   });
 
@@ -431,7 +436,7 @@ describe('Account password change with PostgreSQL (e2e)', () => {
       'ACCOUNT_DELETION_REQUESTED',
       'ACCOUNT_DELETION_CANCELLED',
     ]);
-    expect(deletionDeliveries.every(({ status }) => status === 'SENT')).toBe(
+    expect(deletionDeliveries.every(({ status }) => status === 'PENDING')).toBe(
       true,
     );
     expect(
@@ -493,7 +498,7 @@ describe('Account password change with PostgreSQL (e2e)', () => {
     ).toBe(1);
   });
 
-  it('keeps deletion scheduled when its confirmation email fails', async () => {
+  it('keeps deletion scheduled when notification enqueue fails', async () => {
     sendDeletionRequestedEmail.mockRejectedValue(
       new Error('Provider unavailable.'),
     );
@@ -511,14 +516,11 @@ describe('Account password change with PostgreSQL (e2e)', () => {
     });
     expect(user.status).toBe('DELETION_SCHEDULED');
 
-    const delivery = await prisma.notificationDelivery.findFirstOrThrow({
-      where: { type: 'ACCOUNT_DELETION_REQUESTED' },
-      select: { status: true, failureCode: true },
-    });
-    expect(delivery).toEqual({
-      status: 'FAILED',
-      failureCode: 'EMAIL_DELIVERY_FAILED',
-    });
+    expect(
+      await prisma.notificationDelivery.count({
+        where: { type: 'ACCOUNT_DELETION_REQUESTED' },
+      }),
+    ).toBe(0);
   });
 
   it('finalizes an expired account, retains audit, and releases its email', async () => {
@@ -603,7 +605,7 @@ describe('Account password change with PostgreSQL (e2e)', () => {
       });
     expect(completionDelivery).toMatchObject({
       recipient: email,
-      status: 'SENT',
+      status: 'PENDING',
     });
     expect(completionDelivery.idempotencyKey).toMatch(/^ACCOUNT_DELETED:/);
     expect(sendAccountDeletedEmail).toHaveBeenCalledTimes(1);

@@ -99,6 +99,7 @@ enum SecurityRiskSignal {
 }
 
 enum NotificationType {
+  LEGACY_EMAIL_VERIFICATION
   NEW_SESSION
   SUSPICIOUS_ACTIVITY
   PASSWORD_CHANGED
@@ -307,6 +308,7 @@ model AuthenticationChallengeDelivery {
   idempotencyKey           String                       @unique
   templateProtocolVersion  Int
   attemptCount             Int                          @default(0)
+  processingAttemptStarted Boolean                      @default(false)
   nextAttemptAt            DateTime?
   processingLeaseId        String?                      @db.Uuid
   processingLeaseExpiresAt DateTime?
@@ -439,6 +441,18 @@ model NotificationDelivery {
   retentionExpiresAt DateTime
   createdAt          DateTime                   @default(now())
   updatedAt          DateTime                   @updatedAt
+  mailQueuedAt       DateTime?
+  mailExpiresAt      DateTime?
+  mailPayload        Bytes?
+  mailIv             Bytes?
+  mailTag            Bytes?
+  mailProtocol       Int?
+  mailKeyVersion     Int?
+  mailAttemptCount   Int                        @default(0)
+  mailAttemptStarted Boolean                    @default(false)
+  mailNextAttemptAt  DateTime?
+  mailLeaseId        String?                    @db.Uuid
+  mailLeaseExpiresAt DateTime?
 
   user    User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
   session Session? @relation(fields: [sessionId], references: [id], onDelete: SetNull)
@@ -446,6 +460,8 @@ model NotificationDelivery {
   @@index([userId, createdAt])
   @@index([status, createdAt])
   @@index([retentionExpiresAt])
+  @@index([status, mailNextAttemptAt])
+  @@index([mailExpiresAt])
 }
 
 model SecurityEvent {

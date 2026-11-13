@@ -47,7 +47,7 @@ export class EmailVerificationService {
     resendAvailableInSeconds: number;
   }> {
     try {
-      await this.mailService.sendVerificationEmail(email, token);
+      await this.mailService.sendVerificationEmail(email, token, userId);
     } catch (error) {
       if (error instanceof MailDeliveryError) {
         throw new ServiceUnavailableException({
@@ -71,13 +71,13 @@ export class EmailVerificationService {
       });
     } catch (error) {
       this.logger.error(
-        `Verification email was sent, but its timestamp was not saved for user ${userId}.`,
+        `Verification email was queued, but its timestamp was not saved for user ${userId}.`,
         error instanceof Error ? error.stack : undefined,
       );
     }
 
     return {
-      message: 'Verification email sent successfully.',
+      message: 'Verification email queued successfully.',
       email,
       resendAvailableInSeconds: 60,
     };
@@ -186,7 +186,7 @@ export class EmailVerificationService {
 
     if (!user || user.status !== 'PENDING' || user.emailVerified) {
       return {
-        message: 'Verification email sent successfully.',
+        message: 'Verification email queued successfully.',
       };
     }
 
@@ -221,6 +221,6 @@ export class EmailVerificationService {
 
     await this.sendVerificationEmail(user.id, user.email, verification.token);
 
-    return { message: 'Verification email sent successfully.' };
+    return { message: 'Verification email queued successfully.' };
   }
 }

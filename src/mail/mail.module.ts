@@ -12,13 +12,21 @@ import { ResendMailHttpClient } from './services/resend-mail-http-client.service
 import { ResendMailTransportService } from './services/resend-mail-transport.service';
 import { MailService } from './mail.service';
 import { ResendAuthenticationEmailAdapter } from './adapters/resend-authentication-email.adapter';
-import { ResendAuthenticationEmailTransportService } from './services/resend-authentication-email-transport.service';
 import { AuthenticationEmailAssetService } from './services/authentication-email-asset.service';
 import { AuthenticationEmailProviderPort } from '../auth/delivery/ports/authentication-email-provider.port';
+
+import { MailDeliveryRepository } from './repositories/mail-delivery.repository';
+import { MailDeliveryConfigService } from './services/mail-delivery-config.service';
+import { MailDeliveryEncryptionService } from './services/mail-delivery-encryption.service';
+import { MailDeliveryWorkerService } from './services/mail-delivery-worker.service';
 
 @Module({
   imports: [PrismaModule, RateLimitModule],
   providers: [
+    MailDeliveryRepository,
+    MailDeliveryConfigService,
+    MailDeliveryEncryptionService,
+    MailDeliveryWorkerService,
     MailProviderPressureRepository,
     MailProviderPressureService,
     ResendMailHttpClient,
@@ -26,7 +34,6 @@ import { AuthenticationEmailProviderPort } from '../auth/delivery/ports/authenti
     MailSubmissionGateService,
     MailSubmissionGateConfigService,
     MailService,
-    ResendAuthenticationEmailTransportService,
     ResendAuthenticationEmailAdapter,
     AuthenticationEmailAssetService,
     {
@@ -35,6 +42,8 @@ import { AuthenticationEmailProviderPort } from '../auth/delivery/ports/authenti
     },
   ],
   exports: [
+    MailDeliveryWorkerService,
+    MailDeliveryRepository,
     ResendMailTransportService,
     MailProviderPressureService,
     MailSubmissionGateService,

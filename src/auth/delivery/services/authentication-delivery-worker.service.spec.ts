@@ -211,4 +211,35 @@ describe('AuthenticationDeliveryWorkerService', () => {
     await shutdown;
     expect(shutdownFinished).toBe(true);
   });
+  it('stops new claims across lanes when shared capacity defers work', async () => {
+    repository.claimNextDelivery.mockImplementation(() =>
+      Promise.resolve(delivery(1)),
+    );
+    orchestration.process.mockResolvedValue({ outcome: 'DEFERRED' });
+    const summary = await service.runOnce();
+    expect(summary.deferredCount).toBe(4);
+    expect(repository.claimNextDelivery).toHaveBeenCalledTimes(4);
+    expect(summary.retryScheduledCount).toBe(0);
+  });
+
+  it('wakes at subsecond capacity eligibility and clears both timers on shutdown', async () => {
+    jest.useFakeTimers();
+    jest.setSystemTime(new Date('2026-11-12T12:00:00.000Z'));
+    repository.claimNextDelivery.mockResolvedValue(delivery(1));
+    orchestration.process.mockImplementation(() =>
+      Promise.resolve({
+        outcome: 'DEFERRED',
+        retryNotBeforeMicros: BigInt(Date.now() + 125) * 1000n,
+      }),
+    );
+    service.onModuleInit();
+    await jest.advanceTimersByTimeAsync(1000);
+    expect(repository.claimNextDelivery).toHaveBeenCalledTimes(4);
+    await jest.advanceTimersByTimeAsync(124);
+    expect(repository.claimNextDelivery).toHaveBeenCalledTimes(4);
+    await jest.advanceTimersByTimeAsync(1);
+    expect(repository.claimNextDelivery).toHaveBeenCalledTimes(8);
+    await service.onModuleDestroy();
+    expect(jest.getTimerCount()).toBe(0);
+  });
 });

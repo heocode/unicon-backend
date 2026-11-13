@@ -1,3 +1,4 @@
+import { MailDeliveryWorkerService } from '../src/mail/services/mail-delivery-worker.service';
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';
@@ -33,7 +34,10 @@ describe('Profile with PostgreSQL (e2e)', () => {
 
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
-    }).compile();
+    })
+      .overrideProvider(MailDeliveryWorkerService)
+      .useValue({})
+      .compile();
 
     app = moduleFixture.createNestApplication();
     configureApp(app);

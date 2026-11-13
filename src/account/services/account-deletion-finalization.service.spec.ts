@@ -134,7 +134,6 @@ describe('AccountDeletionFinalizationService', () => {
     expect(sequence).toEqual([
       'transaction-start',
       'transaction-commit',
-      'notification',
       'transaction-start',
       'transaction-commit',
     ]);
@@ -188,14 +187,14 @@ describe('AccountDeletionFinalizationService', () => {
     await expect(service.finalizeBatch(now)).resolves.toBe(1);
   });
 
-  it('retries old completion deliveries before finalizing accounts', async () => {
+  it('leaves completion delivery retries to the mail worker', async () => {
     prisma.$queryRaw.mockReset().mockResolvedValue([]);
     notificationService.retryDeletionCompleted.mockResolvedValue(3);
 
     await expect(service.run()).resolves.toEqual({
       finalizedAccounts: 0,
-      retriedCompletionDeliveries: 3,
+      retriedCompletionDeliveries: 0,
     });
-    expect(notificationService.retryDeletionCompleted).toHaveBeenCalledWith(2);
+    expect(notificationService.retryDeletionCompleted).not.toHaveBeenCalled();
   });
 });

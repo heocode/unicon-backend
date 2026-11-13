@@ -35,6 +35,8 @@ export class AuthenticationDeliveryWorkerService
     AuthenticationDeliveryWorkerService.name,
   );
   private timer: NodeJS.Timeout | null = null;
+  private capacityTimer: NodeJS.Timeout | null = null;
+  private nextCapacityWakeMicros: bigint | undefined;
   private activeCycle: Promise<AuthenticationDeliveryWorkerSummary> | null =
     null;
   private stopping = false;
@@ -59,6 +61,10 @@ export class AuthenticationDeliveryWorkerService
       clearInterval(this.timer);
       this.timer = null;
     }
+    if (this.capacityTimer) {
+      clearTimeout(this.capacityTimer);
+      this.capacityTimer = null;
+    }
     await this.activeCycle;
   }
 
@@ -69,6 +75,7 @@ export class AuthenticationDeliveryWorkerService
 
     this.activeCycle = this.runCycle().finally(() => {
       this.activeCycle = null;
+      this.scheduleCapacityWake();
     });
     return this.activeCycle;
   }
@@ -95,6 +102,7 @@ export class AuthenticationDeliveryWorkerService
   }
 
   private async runCycle(): Promise<AuthenticationDeliveryWorkerSummary> {
+    this.nextCapacityWakeMicros = undefined;
     const summary = this.emptySummary(false);
     summary.exhaustedLeaseCount =
       await this.repository.terminalizeExpiredExhaustedLeases(
@@ -136,6 +144,18 @@ export class AuthenticationDeliveryWorkerService
         try {
           const result = await this.orchestration.process(delivery);
           this.recordOutcome(summary, result);
+          // Shared capacity denial applies to all lanes. Do not churn the same
+          // queue or consume cycle slots waiting for the provider to recover.
+          if (result.outcome === 'DEFERRED') {
+            stopClaiming = true;
+            if (
+              result.retryNotBeforeMicros !== undefined &&
+              (this.nextCapacityWakeMicros === undefined ||
+                result.retryNotBeforeMicros < this.nextCapacityWakeMicros)
+            ) {
+              this.nextCapacityWakeMicros = result.retryNotBeforeMicros;
+            }
+          }
         } catch {
           summary.unexpectedFailureCount++;
           this.logger.error({
@@ -161,6 +181,33 @@ export class AuthenticationDeliveryWorkerService
     return summary;
   }
 
+  private scheduleCapacityWake(): void {
+    if (this.capacityTimer) clearTimeout(this.capacityTimer);
+    this.capacityTimer = null;
+    if (
+      this.stopping ||
+      !this.timer ||
+      this.nextCapacityWakeMicros === undefined
+    )
+      return;
+    // Advisory wake only: every cycle rechecks the authoritative DB gate.
+    // Keep subsecond capacity waits rather than reducing an 8/s gate to 1/s.
+    const remaining =
+      (this.nextCapacityWakeMicros + 999n) / 1000n - BigInt(Date.now());
+    const bounded =
+      remaining < BigInt(this.policy.workerIntervalSeconds * 1000)
+        ? remaining
+        : BigInt(this.policy.workerIntervalSeconds * 1000);
+    this.capacityTimer = setTimeout(
+      () => {
+        this.capacityTimer = null;
+        this.startScheduledCycle();
+      },
+      Math.max(1, Number(bounded)),
+    );
+    this.capacityTimer.unref();
+  }
+
   private recordOutcome(
     summary: MutableWorkerSummary,
     result: AuthenticationDeliveryOrchestrationResult,
@@ -171,6 +218,9 @@ export class AuthenticationDeliveryWorkerService
         break;
       case 'RETRY_SCHEDULED':
         summary.retryScheduledCount++;
+        break;
+      case 'DEFERRED':
+        summary.deferredCount++;
         break;
       case 'FAILED':
         summary.failedCount++;
@@ -191,6 +241,7 @@ export class AuthenticationDeliveryWorkerService
       reclaimedClaimCount: 0,
       sentCount: 0,
       retryScheduledCount: 0,
+      deferredCount: 0,
       failedCount: 0,
       cancelledCount: 0,
       leaseLostCount: 0,

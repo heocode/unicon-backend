@@ -20,8 +20,22 @@ export type NotificationDeliveryModel = runtime.Types.Result.DefaultSelection<Pr
 
 export type AggregateNotificationDelivery = {
   _count: NotificationDeliveryCountAggregateOutputType | null
+  _avg: NotificationDeliveryAvgAggregateOutputType | null
+  _sum: NotificationDeliverySumAggregateOutputType | null
   _min: NotificationDeliveryMinAggregateOutputType | null
   _max: NotificationDeliveryMaxAggregateOutputType | null
+}
+
+export type NotificationDeliveryAvgAggregateOutputType = {
+  mailProtocol: number | null
+  mailKeyVersion: number | null
+  mailAttemptCount: number | null
+}
+
+export type NotificationDeliverySumAggregateOutputType = {
+  mailProtocol: number | null
+  mailKeyVersion: number | null
+  mailAttemptCount: number | null
 }
 
 export type NotificationDeliveryMinAggregateOutputType = {
@@ -40,6 +54,18 @@ export type NotificationDeliveryMinAggregateOutputType = {
   retentionExpiresAt: Date | null
   createdAt: Date | null
   updatedAt: Date | null
+  mailQueuedAt: Date | null
+  mailExpiresAt: Date | null
+  mailPayload: runtime.Bytes | null
+  mailIv: runtime.Bytes | null
+  mailTag: runtime.Bytes | null
+  mailProtocol: number | null
+  mailKeyVersion: number | null
+  mailAttemptCount: number | null
+  mailAttemptStarted: boolean | null
+  mailNextAttemptAt: Date | null
+  mailLeaseId: string | null
+  mailLeaseExpiresAt: Date | null
 }
 
 export type NotificationDeliveryMaxAggregateOutputType = {
@@ -58,6 +84,18 @@ export type NotificationDeliveryMaxAggregateOutputType = {
   retentionExpiresAt: Date | null
   createdAt: Date | null
   updatedAt: Date | null
+  mailQueuedAt: Date | null
+  mailExpiresAt: Date | null
+  mailPayload: runtime.Bytes | null
+  mailIv: runtime.Bytes | null
+  mailTag: runtime.Bytes | null
+  mailProtocol: number | null
+  mailKeyVersion: number | null
+  mailAttemptCount: number | null
+  mailAttemptStarted: boolean | null
+  mailNextAttemptAt: Date | null
+  mailLeaseId: string | null
+  mailLeaseExpiresAt: Date | null
 }
 
 export type NotificationDeliveryCountAggregateOutputType = {
@@ -76,9 +114,33 @@ export type NotificationDeliveryCountAggregateOutputType = {
   retentionExpiresAt: number
   createdAt: number
   updatedAt: number
+  mailQueuedAt: number
+  mailExpiresAt: number
+  mailPayload: number
+  mailIv: number
+  mailTag: number
+  mailProtocol: number
+  mailKeyVersion: number
+  mailAttemptCount: number
+  mailAttemptStarted: number
+  mailNextAttemptAt: number
+  mailLeaseId: number
+  mailLeaseExpiresAt: number
   _all: number
 }
 
+
+export type NotificationDeliveryAvgAggregateInputType = {
+  mailProtocol?: true
+  mailKeyVersion?: true
+  mailAttemptCount?: true
+}
+
+export type NotificationDeliverySumAggregateInputType = {
+  mailProtocol?: true
+  mailKeyVersion?: true
+  mailAttemptCount?: true
+}
 
 export type NotificationDeliveryMinAggregateInputType = {
   id?: true
@@ -96,6 +158,18 @@ export type NotificationDeliveryMinAggregateInputType = {
   retentionExpiresAt?: true
   createdAt?: true
   updatedAt?: true
+  mailQueuedAt?: true
+  mailExpiresAt?: true
+  mailPayload?: true
+  mailIv?: true
+  mailTag?: true
+  mailProtocol?: true
+  mailKeyVersion?: true
+  mailAttemptCount?: true
+  mailAttemptStarted?: true
+  mailNextAttemptAt?: true
+  mailLeaseId?: true
+  mailLeaseExpiresAt?: true
 }
 
 export type NotificationDeliveryMaxAggregateInputType = {
@@ -114,6 +188,18 @@ export type NotificationDeliveryMaxAggregateInputType = {
   retentionExpiresAt?: true
   createdAt?: true
   updatedAt?: true
+  mailQueuedAt?: true
+  mailExpiresAt?: true
+  mailPayload?: true
+  mailIv?: true
+  mailTag?: true
+  mailProtocol?: true
+  mailKeyVersion?: true
+  mailAttemptCount?: true
+  mailAttemptStarted?: true
+  mailNextAttemptAt?: true
+  mailLeaseId?: true
+  mailLeaseExpiresAt?: true
 }
 
 export type NotificationDeliveryCountAggregateInputType = {
@@ -132,6 +218,18 @@ export type NotificationDeliveryCountAggregateInputType = {
   retentionExpiresAt?: true
   createdAt?: true
   updatedAt?: true
+  mailQueuedAt?: true
+  mailExpiresAt?: true
+  mailPayload?: true
+  mailIv?: true
+  mailTag?: true
+  mailProtocol?: true
+  mailKeyVersion?: true
+  mailAttemptCount?: true
+  mailAttemptStarted?: true
+  mailNextAttemptAt?: true
+  mailLeaseId?: true
+  mailLeaseExpiresAt?: true
   _all?: true
 }
 
@@ -173,6 +271,18 @@ export type NotificationDeliveryAggregateArgs<ExtArgs extends runtime.Types.Exte
   /**
    * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
    * 
+   * Select which fields to average
+  **/
+  _avg?: NotificationDeliveryAvgAggregateInputType
+  /**
+   * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+   * 
+   * Select which fields to sum
+  **/
+  _sum?: NotificationDeliverySumAggregateInputType
+  /**
+   * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+   * 
    * Select which fields to find the minimum value
   **/
   _min?: NotificationDeliveryMinAggregateInputType
@@ -203,6 +313,8 @@ export type NotificationDeliveryGroupByArgs<ExtArgs extends runtime.Types.Extens
   take?: number
   skip?: number
   _count?: NotificationDeliveryCountAggregateInputType | true
+  _avg?: NotificationDeliveryAvgAggregateInputType
+  _sum?: NotificationDeliverySumAggregateInputType
   _min?: NotificationDeliveryMinAggregateInputType
   _max?: NotificationDeliveryMaxAggregateInputType
 }
@@ -223,7 +335,21 @@ export type NotificationDeliveryGroupByOutputType = {
   retentionExpiresAt: Date
   createdAt: Date
   updatedAt: Date
+  mailQueuedAt: Date | null
+  mailExpiresAt: Date | null
+  mailPayload: runtime.Bytes | null
+  mailIv: runtime.Bytes | null
+  mailTag: runtime.Bytes | null
+  mailProtocol: number | null
+  mailKeyVersion: number | null
+  mailAttemptCount: number
+  mailAttemptStarted: boolean
+  mailNextAttemptAt: Date | null
+  mailLeaseId: string | null
+  mailLeaseExpiresAt: Date | null
   _count: NotificationDeliveryCountAggregateOutputType | null
+  _avg: NotificationDeliveryAvgAggregateOutputType | null
+  _sum: NotificationDeliverySumAggregateOutputType | null
   _min: NotificationDeliveryMinAggregateOutputType | null
   _max: NotificationDeliveryMaxAggregateOutputType | null
 }
@@ -262,6 +388,18 @@ export type NotificationDeliveryWhereInput = {
   retentionExpiresAt?: Prisma.DateTimeFilter<"NotificationDelivery"> | Date | string
   createdAt?: Prisma.DateTimeFilter<"NotificationDelivery"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"NotificationDelivery"> | Date | string
+  mailQueuedAt?: Prisma.DateTimeNullableFilter<"NotificationDelivery"> | Date | string | null
+  mailExpiresAt?: Prisma.DateTimeNullableFilter<"NotificationDelivery"> | Date | string | null
+  mailPayload?: Prisma.BytesNullableFilter<"NotificationDelivery"> | runtime.Bytes | null
+  mailIv?: Prisma.BytesNullableFilter<"NotificationDelivery"> | runtime.Bytes | null
+  mailTag?: Prisma.BytesNullableFilter<"NotificationDelivery"> | runtime.Bytes | null
+  mailProtocol?: Prisma.IntNullableFilter<"NotificationDelivery"> | number | null
+  mailKeyVersion?: Prisma.IntNullableFilter<"NotificationDelivery"> | number | null
+  mailAttemptCount?: Prisma.IntFilter<"NotificationDelivery"> | number
+  mailAttemptStarted?: Prisma.BoolFilter<"NotificationDelivery"> | boolean
+  mailNextAttemptAt?: Prisma.DateTimeNullableFilter<"NotificationDelivery"> | Date | string | null
+  mailLeaseId?: Prisma.UuidNullableFilter<"NotificationDelivery"> | string | null
+  mailLeaseExpiresAt?: Prisma.DateTimeNullableFilter<"NotificationDelivery"> | Date | string | null
   user?: Prisma.XOR<Prisma.UserNullableScalarRelationFilter, Prisma.UserWhereInput> | null
   session?: Prisma.XOR<Prisma.SessionNullableScalarRelationFilter, Prisma.SessionWhereInput> | null
 }
@@ -282,6 +420,18 @@ export type NotificationDeliveryOrderByWithRelationInput = {
   retentionExpiresAt?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
+  mailQueuedAt?: Prisma.SortOrderInput | Prisma.SortOrder
+  mailExpiresAt?: Prisma.SortOrderInput | Prisma.SortOrder
+  mailPayload?: Prisma.SortOrderInput | Prisma.SortOrder
+  mailIv?: Prisma.SortOrderInput | Prisma.SortOrder
+  mailTag?: Prisma.SortOrderInput | Prisma.SortOrder
+  mailProtocol?: Prisma.SortOrderInput | Prisma.SortOrder
+  mailKeyVersion?: Prisma.SortOrderInput | Prisma.SortOrder
+  mailAttemptCount?: Prisma.SortOrder
+  mailAttemptStarted?: Prisma.SortOrder
+  mailNextAttemptAt?: Prisma.SortOrderInput | Prisma.SortOrder
+  mailLeaseId?: Prisma.SortOrderInput | Prisma.SortOrder
+  mailLeaseExpiresAt?: Prisma.SortOrderInput | Prisma.SortOrder
   user?: Prisma.UserOrderByWithRelationInput
   session?: Prisma.SessionOrderByWithRelationInput
 }
@@ -305,6 +455,18 @@ export type NotificationDeliveryWhereUniqueInput = Prisma.AtLeast<{
   retentionExpiresAt?: Prisma.DateTimeFilter<"NotificationDelivery"> | Date | string
   createdAt?: Prisma.DateTimeFilter<"NotificationDelivery"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"NotificationDelivery"> | Date | string
+  mailQueuedAt?: Prisma.DateTimeNullableFilter<"NotificationDelivery"> | Date | string | null
+  mailExpiresAt?: Prisma.DateTimeNullableFilter<"NotificationDelivery"> | Date | string | null
+  mailPayload?: Prisma.BytesNullableFilter<"NotificationDelivery"> | runtime.Bytes | null
+  mailIv?: Prisma.BytesNullableFilter<"NotificationDelivery"> | runtime.Bytes | null
+  mailTag?: Prisma.BytesNullableFilter<"NotificationDelivery"> | runtime.Bytes | null
+  mailProtocol?: Prisma.IntNullableFilter<"NotificationDelivery"> | number | null
+  mailKeyVersion?: Prisma.IntNullableFilter<"NotificationDelivery"> | number | null
+  mailAttemptCount?: Prisma.IntFilter<"NotificationDelivery"> | number
+  mailAttemptStarted?: Prisma.BoolFilter<"NotificationDelivery"> | boolean
+  mailNextAttemptAt?: Prisma.DateTimeNullableFilter<"NotificationDelivery"> | Date | string | null
+  mailLeaseId?: Prisma.UuidNullableFilter<"NotificationDelivery"> | string | null
+  mailLeaseExpiresAt?: Prisma.DateTimeNullableFilter<"NotificationDelivery"> | Date | string | null
   user?: Prisma.XOR<Prisma.UserNullableScalarRelationFilter, Prisma.UserWhereInput> | null
   session?: Prisma.XOR<Prisma.SessionNullableScalarRelationFilter, Prisma.SessionWhereInput> | null
 }, "id" | "idempotencyKey">
@@ -325,9 +487,23 @@ export type NotificationDeliveryOrderByWithAggregationInput = {
   retentionExpiresAt?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
+  mailQueuedAt?: Prisma.SortOrderInput | Prisma.SortOrder
+  mailExpiresAt?: Prisma.SortOrderInput | Prisma.SortOrder
+  mailPayload?: Prisma.SortOrderInput | Prisma.SortOrder
+  mailIv?: Prisma.SortOrderInput | Prisma.SortOrder
+  mailTag?: Prisma.SortOrderInput | Prisma.SortOrder
+  mailProtocol?: Prisma.SortOrderInput | Prisma.SortOrder
+  mailKeyVersion?: Prisma.SortOrderInput | Prisma.SortOrder
+  mailAttemptCount?: Prisma.SortOrder
+  mailAttemptStarted?: Prisma.SortOrder
+  mailNextAttemptAt?: Prisma.SortOrderInput | Prisma.SortOrder
+  mailLeaseId?: Prisma.SortOrderInput | Prisma.SortOrder
+  mailLeaseExpiresAt?: Prisma.SortOrderInput | Prisma.SortOrder
   _count?: Prisma.NotificationDeliveryCountOrderByAggregateInput
+  _avg?: Prisma.NotificationDeliveryAvgOrderByAggregateInput
   _max?: Prisma.NotificationDeliveryMaxOrderByAggregateInput
   _min?: Prisma.NotificationDeliveryMinOrderByAggregateInput
+  _sum?: Prisma.NotificationDeliverySumOrderByAggregateInput
 }
 
 export type NotificationDeliveryScalarWhereWithAggregatesInput = {
@@ -349,6 +525,18 @@ export type NotificationDeliveryScalarWhereWithAggregatesInput = {
   retentionExpiresAt?: Prisma.DateTimeWithAggregatesFilter<"NotificationDelivery"> | Date | string
   createdAt?: Prisma.DateTimeWithAggregatesFilter<"NotificationDelivery"> | Date | string
   updatedAt?: Prisma.DateTimeWithAggregatesFilter<"NotificationDelivery"> | Date | string
+  mailQueuedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"NotificationDelivery"> | Date | string | null
+  mailExpiresAt?: Prisma.DateTimeNullableWithAggregatesFilter<"NotificationDelivery"> | Date | string | null
+  mailPayload?: Prisma.BytesNullableWithAggregatesFilter<"NotificationDelivery"> | runtime.Bytes | null
+  mailIv?: Prisma.BytesNullableWithAggregatesFilter<"NotificationDelivery"> | runtime.Bytes | null
+  mailTag?: Prisma.BytesNullableWithAggregatesFilter<"NotificationDelivery"> | runtime.Bytes | null
+  mailProtocol?: Prisma.IntNullableWithAggregatesFilter<"NotificationDelivery"> | number | null
+  mailKeyVersion?: Prisma.IntNullableWithAggregatesFilter<"NotificationDelivery"> | number | null
+  mailAttemptCount?: Prisma.IntWithAggregatesFilter<"NotificationDelivery"> | number
+  mailAttemptStarted?: Prisma.BoolWithAggregatesFilter<"NotificationDelivery"> | boolean
+  mailNextAttemptAt?: Prisma.DateTimeNullableWithAggregatesFilter<"NotificationDelivery"> | Date | string | null
+  mailLeaseId?: Prisma.UuidNullableWithAggregatesFilter<"NotificationDelivery"> | string | null
+  mailLeaseExpiresAt?: Prisma.DateTimeNullableWithAggregatesFilter<"NotificationDelivery"> | Date | string | null
 }
 
 export type NotificationDeliveryCreateInput = {
@@ -365,6 +553,18 @@ export type NotificationDeliveryCreateInput = {
   retentionExpiresAt: Date | string
   createdAt?: Date | string
   updatedAt?: Date | string
+  mailQueuedAt?: Date | string | null
+  mailExpiresAt?: Date | string | null
+  mailPayload?: runtime.Bytes | null
+  mailIv?: runtime.Bytes | null
+  mailTag?: runtime.Bytes | null
+  mailProtocol?: number | null
+  mailKeyVersion?: number | null
+  mailAttemptCount?: number
+  mailAttemptStarted?: boolean
+  mailNextAttemptAt?: Date | string | null
+  mailLeaseId?: string | null
+  mailLeaseExpiresAt?: Date | string | null
   user?: Prisma.UserCreateNestedOneWithoutNotificationDeliveriesInput
   session?: Prisma.SessionCreateNestedOneWithoutNotificationDeliveriesInput
 }
@@ -385,6 +585,18 @@ export type NotificationDeliveryUncheckedCreateInput = {
   retentionExpiresAt: Date | string
   createdAt?: Date | string
   updatedAt?: Date | string
+  mailQueuedAt?: Date | string | null
+  mailExpiresAt?: Date | string | null
+  mailPayload?: runtime.Bytes | null
+  mailIv?: runtime.Bytes | null
+  mailTag?: runtime.Bytes | null
+  mailProtocol?: number | null
+  mailKeyVersion?: number | null
+  mailAttemptCount?: number
+  mailAttemptStarted?: boolean
+  mailNextAttemptAt?: Date | string | null
+  mailLeaseId?: string | null
+  mailLeaseExpiresAt?: Date | string | null
 }
 
 export type NotificationDeliveryUpdateInput = {
@@ -401,6 +613,18 @@ export type NotificationDeliveryUpdateInput = {
   retentionExpiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  mailQueuedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  mailExpiresAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  mailPayload?: Prisma.NullableBytesFieldUpdateOperationsInput | runtime.Bytes | null
+  mailIv?: Prisma.NullableBytesFieldUpdateOperationsInput | runtime.Bytes | null
+  mailTag?: Prisma.NullableBytesFieldUpdateOperationsInput | runtime.Bytes | null
+  mailProtocol?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  mailKeyVersion?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  mailAttemptCount?: Prisma.IntFieldUpdateOperationsInput | number
+  mailAttemptStarted?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  mailNextAttemptAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  mailLeaseId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  mailLeaseExpiresAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   user?: Prisma.UserUpdateOneWithoutNotificationDeliveriesNestedInput
   session?: Prisma.SessionUpdateOneWithoutNotificationDeliveriesNestedInput
 }
@@ -421,6 +645,18 @@ export type NotificationDeliveryUncheckedUpdateInput = {
   retentionExpiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  mailQueuedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  mailExpiresAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  mailPayload?: Prisma.NullableBytesFieldUpdateOperationsInput | runtime.Bytes | null
+  mailIv?: Prisma.NullableBytesFieldUpdateOperationsInput | runtime.Bytes | null
+  mailTag?: Prisma.NullableBytesFieldUpdateOperationsInput | runtime.Bytes | null
+  mailProtocol?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  mailKeyVersion?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  mailAttemptCount?: Prisma.IntFieldUpdateOperationsInput | number
+  mailAttemptStarted?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  mailNextAttemptAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  mailLeaseId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  mailLeaseExpiresAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
 }
 
 export type NotificationDeliveryCreateManyInput = {
@@ -439,6 +675,18 @@ export type NotificationDeliveryCreateManyInput = {
   retentionExpiresAt: Date | string
   createdAt?: Date | string
   updatedAt?: Date | string
+  mailQueuedAt?: Date | string | null
+  mailExpiresAt?: Date | string | null
+  mailPayload?: runtime.Bytes | null
+  mailIv?: runtime.Bytes | null
+  mailTag?: runtime.Bytes | null
+  mailProtocol?: number | null
+  mailKeyVersion?: number | null
+  mailAttemptCount?: number
+  mailAttemptStarted?: boolean
+  mailNextAttemptAt?: Date | string | null
+  mailLeaseId?: string | null
+  mailLeaseExpiresAt?: Date | string | null
 }
 
 export type NotificationDeliveryUpdateManyMutationInput = {
@@ -455,6 +703,18 @@ export type NotificationDeliveryUpdateManyMutationInput = {
   retentionExpiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  mailQueuedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  mailExpiresAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  mailPayload?: Prisma.NullableBytesFieldUpdateOperationsInput | runtime.Bytes | null
+  mailIv?: Prisma.NullableBytesFieldUpdateOperationsInput | runtime.Bytes | null
+  mailTag?: Prisma.NullableBytesFieldUpdateOperationsInput | runtime.Bytes | null
+  mailProtocol?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  mailKeyVersion?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  mailAttemptCount?: Prisma.IntFieldUpdateOperationsInput | number
+  mailAttemptStarted?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  mailNextAttemptAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  mailLeaseId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  mailLeaseExpiresAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
 }
 
 export type NotificationDeliveryUncheckedUpdateManyInput = {
@@ -473,6 +733,18 @@ export type NotificationDeliveryUncheckedUpdateManyInput = {
   retentionExpiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  mailQueuedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  mailExpiresAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  mailPayload?: Prisma.NullableBytesFieldUpdateOperationsInput | runtime.Bytes | null
+  mailIv?: Prisma.NullableBytesFieldUpdateOperationsInput | runtime.Bytes | null
+  mailTag?: Prisma.NullableBytesFieldUpdateOperationsInput | runtime.Bytes | null
+  mailProtocol?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  mailKeyVersion?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  mailAttemptCount?: Prisma.IntFieldUpdateOperationsInput | number
+  mailAttemptStarted?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  mailNextAttemptAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  mailLeaseId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  mailLeaseExpiresAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
 }
 
 export type NotificationDeliveryListRelationFilter = {
@@ -501,6 +773,24 @@ export type NotificationDeliveryCountOrderByAggregateInput = {
   retentionExpiresAt?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
+  mailQueuedAt?: Prisma.SortOrder
+  mailExpiresAt?: Prisma.SortOrder
+  mailPayload?: Prisma.SortOrder
+  mailIv?: Prisma.SortOrder
+  mailTag?: Prisma.SortOrder
+  mailProtocol?: Prisma.SortOrder
+  mailKeyVersion?: Prisma.SortOrder
+  mailAttemptCount?: Prisma.SortOrder
+  mailAttemptStarted?: Prisma.SortOrder
+  mailNextAttemptAt?: Prisma.SortOrder
+  mailLeaseId?: Prisma.SortOrder
+  mailLeaseExpiresAt?: Prisma.SortOrder
+}
+
+export type NotificationDeliveryAvgOrderByAggregateInput = {
+  mailProtocol?: Prisma.SortOrder
+  mailKeyVersion?: Prisma.SortOrder
+  mailAttemptCount?: Prisma.SortOrder
 }
 
 export type NotificationDeliveryMaxOrderByAggregateInput = {
@@ -519,6 +809,18 @@ export type NotificationDeliveryMaxOrderByAggregateInput = {
   retentionExpiresAt?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
+  mailQueuedAt?: Prisma.SortOrder
+  mailExpiresAt?: Prisma.SortOrder
+  mailPayload?: Prisma.SortOrder
+  mailIv?: Prisma.SortOrder
+  mailTag?: Prisma.SortOrder
+  mailProtocol?: Prisma.SortOrder
+  mailKeyVersion?: Prisma.SortOrder
+  mailAttemptCount?: Prisma.SortOrder
+  mailAttemptStarted?: Prisma.SortOrder
+  mailNextAttemptAt?: Prisma.SortOrder
+  mailLeaseId?: Prisma.SortOrder
+  mailLeaseExpiresAt?: Prisma.SortOrder
 }
 
 export type NotificationDeliveryMinOrderByAggregateInput = {
@@ -537,6 +839,24 @@ export type NotificationDeliveryMinOrderByAggregateInput = {
   retentionExpiresAt?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
+  mailQueuedAt?: Prisma.SortOrder
+  mailExpiresAt?: Prisma.SortOrder
+  mailPayload?: Prisma.SortOrder
+  mailIv?: Prisma.SortOrder
+  mailTag?: Prisma.SortOrder
+  mailProtocol?: Prisma.SortOrder
+  mailKeyVersion?: Prisma.SortOrder
+  mailAttemptCount?: Prisma.SortOrder
+  mailAttemptStarted?: Prisma.SortOrder
+  mailNextAttemptAt?: Prisma.SortOrder
+  mailLeaseId?: Prisma.SortOrder
+  mailLeaseExpiresAt?: Prisma.SortOrder
+}
+
+export type NotificationDeliverySumOrderByAggregateInput = {
+  mailProtocol?: Prisma.SortOrder
+  mailKeyVersion?: Prisma.SortOrder
+  mailAttemptCount?: Prisma.SortOrder
 }
 
 export type NotificationDeliveryCreateNestedManyWithoutUserInput = {
@@ -635,6 +955,14 @@ export type EnumNotificationDeliveryStatusFieldUpdateOperationsInput = {
   set?: $Enums.NotificationDeliveryStatus
 }
 
+export type NullableIntFieldUpdateOperationsInput = {
+  set?: number | null
+  increment?: number
+  decrement?: number
+  multiply?: number
+  divide?: number
+}
+
 export type NotificationDeliveryCreateWithoutUserInput = {
   id?: string
   idempotencyKey?: string | null
@@ -649,6 +977,18 @@ export type NotificationDeliveryCreateWithoutUserInput = {
   retentionExpiresAt: Date | string
   createdAt?: Date | string
   updatedAt?: Date | string
+  mailQueuedAt?: Date | string | null
+  mailExpiresAt?: Date | string | null
+  mailPayload?: runtime.Bytes | null
+  mailIv?: runtime.Bytes | null
+  mailTag?: runtime.Bytes | null
+  mailProtocol?: number | null
+  mailKeyVersion?: number | null
+  mailAttemptCount?: number
+  mailAttemptStarted?: boolean
+  mailNextAttemptAt?: Date | string | null
+  mailLeaseId?: string | null
+  mailLeaseExpiresAt?: Date | string | null
   session?: Prisma.SessionCreateNestedOneWithoutNotificationDeliveriesInput
 }
 
@@ -667,6 +1007,18 @@ export type NotificationDeliveryUncheckedCreateWithoutUserInput = {
   retentionExpiresAt: Date | string
   createdAt?: Date | string
   updatedAt?: Date | string
+  mailQueuedAt?: Date | string | null
+  mailExpiresAt?: Date | string | null
+  mailPayload?: runtime.Bytes | null
+  mailIv?: runtime.Bytes | null
+  mailTag?: runtime.Bytes | null
+  mailProtocol?: number | null
+  mailKeyVersion?: number | null
+  mailAttemptCount?: number
+  mailAttemptStarted?: boolean
+  mailNextAttemptAt?: Date | string | null
+  mailLeaseId?: string | null
+  mailLeaseExpiresAt?: Date | string | null
 }
 
 export type NotificationDeliveryCreateOrConnectWithoutUserInput = {
@@ -714,6 +1066,18 @@ export type NotificationDeliveryScalarWhereInput = {
   retentionExpiresAt?: Prisma.DateTimeFilter<"NotificationDelivery"> | Date | string
   createdAt?: Prisma.DateTimeFilter<"NotificationDelivery"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"NotificationDelivery"> | Date | string
+  mailQueuedAt?: Prisma.DateTimeNullableFilter<"NotificationDelivery"> | Date | string | null
+  mailExpiresAt?: Prisma.DateTimeNullableFilter<"NotificationDelivery"> | Date | string | null
+  mailPayload?: Prisma.BytesNullableFilter<"NotificationDelivery"> | runtime.Bytes | null
+  mailIv?: Prisma.BytesNullableFilter<"NotificationDelivery"> | runtime.Bytes | null
+  mailTag?: Prisma.BytesNullableFilter<"NotificationDelivery"> | runtime.Bytes | null
+  mailProtocol?: Prisma.IntNullableFilter<"NotificationDelivery"> | number | null
+  mailKeyVersion?: Prisma.IntNullableFilter<"NotificationDelivery"> | number | null
+  mailAttemptCount?: Prisma.IntFilter<"NotificationDelivery"> | number
+  mailAttemptStarted?: Prisma.BoolFilter<"NotificationDelivery"> | boolean
+  mailNextAttemptAt?: Prisma.DateTimeNullableFilter<"NotificationDelivery"> | Date | string | null
+  mailLeaseId?: Prisma.UuidNullableFilter<"NotificationDelivery"> | string | null
+  mailLeaseExpiresAt?: Prisma.DateTimeNullableFilter<"NotificationDelivery"> | Date | string | null
 }
 
 export type NotificationDeliveryCreateWithoutSessionInput = {
@@ -730,6 +1094,18 @@ export type NotificationDeliveryCreateWithoutSessionInput = {
   retentionExpiresAt: Date | string
   createdAt?: Date | string
   updatedAt?: Date | string
+  mailQueuedAt?: Date | string | null
+  mailExpiresAt?: Date | string | null
+  mailPayload?: runtime.Bytes | null
+  mailIv?: runtime.Bytes | null
+  mailTag?: runtime.Bytes | null
+  mailProtocol?: number | null
+  mailKeyVersion?: number | null
+  mailAttemptCount?: number
+  mailAttemptStarted?: boolean
+  mailNextAttemptAt?: Date | string | null
+  mailLeaseId?: string | null
+  mailLeaseExpiresAt?: Date | string | null
   user?: Prisma.UserCreateNestedOneWithoutNotificationDeliveriesInput
 }
 
@@ -748,6 +1124,18 @@ export type NotificationDeliveryUncheckedCreateWithoutSessionInput = {
   retentionExpiresAt: Date | string
   createdAt?: Date | string
   updatedAt?: Date | string
+  mailQueuedAt?: Date | string | null
+  mailExpiresAt?: Date | string | null
+  mailPayload?: runtime.Bytes | null
+  mailIv?: runtime.Bytes | null
+  mailTag?: runtime.Bytes | null
+  mailProtocol?: number | null
+  mailKeyVersion?: number | null
+  mailAttemptCount?: number
+  mailAttemptStarted?: boolean
+  mailNextAttemptAt?: Date | string | null
+  mailLeaseId?: string | null
+  mailLeaseExpiresAt?: Date | string | null
 }
 
 export type NotificationDeliveryCreateOrConnectWithoutSessionInput = {
@@ -791,6 +1179,18 @@ export type NotificationDeliveryCreateManyUserInput = {
   retentionExpiresAt: Date | string
   createdAt?: Date | string
   updatedAt?: Date | string
+  mailQueuedAt?: Date | string | null
+  mailExpiresAt?: Date | string | null
+  mailPayload?: runtime.Bytes | null
+  mailIv?: runtime.Bytes | null
+  mailTag?: runtime.Bytes | null
+  mailProtocol?: number | null
+  mailKeyVersion?: number | null
+  mailAttemptCount?: number
+  mailAttemptStarted?: boolean
+  mailNextAttemptAt?: Date | string | null
+  mailLeaseId?: string | null
+  mailLeaseExpiresAt?: Date | string | null
 }
 
 export type NotificationDeliveryUpdateWithoutUserInput = {
@@ -807,6 +1207,18 @@ export type NotificationDeliveryUpdateWithoutUserInput = {
   retentionExpiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  mailQueuedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  mailExpiresAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  mailPayload?: Prisma.NullableBytesFieldUpdateOperationsInput | runtime.Bytes | null
+  mailIv?: Prisma.NullableBytesFieldUpdateOperationsInput | runtime.Bytes | null
+  mailTag?: Prisma.NullableBytesFieldUpdateOperationsInput | runtime.Bytes | null
+  mailProtocol?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  mailKeyVersion?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  mailAttemptCount?: Prisma.IntFieldUpdateOperationsInput | number
+  mailAttemptStarted?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  mailNextAttemptAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  mailLeaseId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  mailLeaseExpiresAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   session?: Prisma.SessionUpdateOneWithoutNotificationDeliveriesNestedInput
 }
 
@@ -825,6 +1237,18 @@ export type NotificationDeliveryUncheckedUpdateWithoutUserInput = {
   retentionExpiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  mailQueuedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  mailExpiresAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  mailPayload?: Prisma.NullableBytesFieldUpdateOperationsInput | runtime.Bytes | null
+  mailIv?: Prisma.NullableBytesFieldUpdateOperationsInput | runtime.Bytes | null
+  mailTag?: Prisma.NullableBytesFieldUpdateOperationsInput | runtime.Bytes | null
+  mailProtocol?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  mailKeyVersion?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  mailAttemptCount?: Prisma.IntFieldUpdateOperationsInput | number
+  mailAttemptStarted?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  mailNextAttemptAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  mailLeaseId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  mailLeaseExpiresAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
 }
 
 export type NotificationDeliveryUncheckedUpdateManyWithoutUserInput = {
@@ -842,6 +1266,18 @@ export type NotificationDeliveryUncheckedUpdateManyWithoutUserInput = {
   retentionExpiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  mailQueuedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  mailExpiresAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  mailPayload?: Prisma.NullableBytesFieldUpdateOperationsInput | runtime.Bytes | null
+  mailIv?: Prisma.NullableBytesFieldUpdateOperationsInput | runtime.Bytes | null
+  mailTag?: Prisma.NullableBytesFieldUpdateOperationsInput | runtime.Bytes | null
+  mailProtocol?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  mailKeyVersion?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  mailAttemptCount?: Prisma.IntFieldUpdateOperationsInput | number
+  mailAttemptStarted?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  mailNextAttemptAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  mailLeaseId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  mailLeaseExpiresAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
 }
 
 export type NotificationDeliveryCreateManySessionInput = {
@@ -859,6 +1295,18 @@ export type NotificationDeliveryCreateManySessionInput = {
   retentionExpiresAt: Date | string
   createdAt?: Date | string
   updatedAt?: Date | string
+  mailQueuedAt?: Date | string | null
+  mailExpiresAt?: Date | string | null
+  mailPayload?: runtime.Bytes | null
+  mailIv?: runtime.Bytes | null
+  mailTag?: runtime.Bytes | null
+  mailProtocol?: number | null
+  mailKeyVersion?: number | null
+  mailAttemptCount?: number
+  mailAttemptStarted?: boolean
+  mailNextAttemptAt?: Date | string | null
+  mailLeaseId?: string | null
+  mailLeaseExpiresAt?: Date | string | null
 }
 
 export type NotificationDeliveryUpdateWithoutSessionInput = {
@@ -875,6 +1323,18 @@ export type NotificationDeliveryUpdateWithoutSessionInput = {
   retentionExpiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  mailQueuedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  mailExpiresAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  mailPayload?: Prisma.NullableBytesFieldUpdateOperationsInput | runtime.Bytes | null
+  mailIv?: Prisma.NullableBytesFieldUpdateOperationsInput | runtime.Bytes | null
+  mailTag?: Prisma.NullableBytesFieldUpdateOperationsInput | runtime.Bytes | null
+  mailProtocol?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  mailKeyVersion?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  mailAttemptCount?: Prisma.IntFieldUpdateOperationsInput | number
+  mailAttemptStarted?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  mailNextAttemptAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  mailLeaseId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  mailLeaseExpiresAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   user?: Prisma.UserUpdateOneWithoutNotificationDeliveriesNestedInput
 }
 
@@ -893,6 +1353,18 @@ export type NotificationDeliveryUncheckedUpdateWithoutSessionInput = {
   retentionExpiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  mailQueuedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  mailExpiresAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  mailPayload?: Prisma.NullableBytesFieldUpdateOperationsInput | runtime.Bytes | null
+  mailIv?: Prisma.NullableBytesFieldUpdateOperationsInput | runtime.Bytes | null
+  mailTag?: Prisma.NullableBytesFieldUpdateOperationsInput | runtime.Bytes | null
+  mailProtocol?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  mailKeyVersion?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  mailAttemptCount?: Prisma.IntFieldUpdateOperationsInput | number
+  mailAttemptStarted?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  mailNextAttemptAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  mailLeaseId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  mailLeaseExpiresAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
 }
 
 export type NotificationDeliveryUncheckedUpdateManyWithoutSessionInput = {
@@ -910,6 +1382,18 @@ export type NotificationDeliveryUncheckedUpdateManyWithoutSessionInput = {
   retentionExpiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  mailQueuedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  mailExpiresAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  mailPayload?: Prisma.NullableBytesFieldUpdateOperationsInput | runtime.Bytes | null
+  mailIv?: Prisma.NullableBytesFieldUpdateOperationsInput | runtime.Bytes | null
+  mailTag?: Prisma.NullableBytesFieldUpdateOperationsInput | runtime.Bytes | null
+  mailProtocol?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  mailKeyVersion?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  mailAttemptCount?: Prisma.IntFieldUpdateOperationsInput | number
+  mailAttemptStarted?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  mailNextAttemptAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  mailLeaseId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  mailLeaseExpiresAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
 }
 
 
@@ -930,6 +1414,18 @@ export type NotificationDeliverySelect<ExtArgs extends runtime.Types.Extensions.
   retentionExpiresAt?: boolean
   createdAt?: boolean
   updatedAt?: boolean
+  mailQueuedAt?: boolean
+  mailExpiresAt?: boolean
+  mailPayload?: boolean
+  mailIv?: boolean
+  mailTag?: boolean
+  mailProtocol?: boolean
+  mailKeyVersion?: boolean
+  mailAttemptCount?: boolean
+  mailAttemptStarted?: boolean
+  mailNextAttemptAt?: boolean
+  mailLeaseId?: boolean
+  mailLeaseExpiresAt?: boolean
   user?: boolean | Prisma.NotificationDelivery$userArgs<ExtArgs>
   session?: boolean | Prisma.NotificationDelivery$sessionArgs<ExtArgs>
 }, ExtArgs["result"]["notificationDelivery"]>
@@ -950,6 +1446,18 @@ export type NotificationDeliverySelectCreateManyAndReturn<ExtArgs extends runtim
   retentionExpiresAt?: boolean
   createdAt?: boolean
   updatedAt?: boolean
+  mailQueuedAt?: boolean
+  mailExpiresAt?: boolean
+  mailPayload?: boolean
+  mailIv?: boolean
+  mailTag?: boolean
+  mailProtocol?: boolean
+  mailKeyVersion?: boolean
+  mailAttemptCount?: boolean
+  mailAttemptStarted?: boolean
+  mailNextAttemptAt?: boolean
+  mailLeaseId?: boolean
+  mailLeaseExpiresAt?: boolean
   user?: boolean | Prisma.NotificationDelivery$userArgs<ExtArgs>
   session?: boolean | Prisma.NotificationDelivery$sessionArgs<ExtArgs>
 }, ExtArgs["result"]["notificationDelivery"]>
@@ -970,6 +1478,18 @@ export type NotificationDeliverySelectUpdateManyAndReturn<ExtArgs extends runtim
   retentionExpiresAt?: boolean
   createdAt?: boolean
   updatedAt?: boolean
+  mailQueuedAt?: boolean
+  mailExpiresAt?: boolean
+  mailPayload?: boolean
+  mailIv?: boolean
+  mailTag?: boolean
+  mailProtocol?: boolean
+  mailKeyVersion?: boolean
+  mailAttemptCount?: boolean
+  mailAttemptStarted?: boolean
+  mailNextAttemptAt?: boolean
+  mailLeaseId?: boolean
+  mailLeaseExpiresAt?: boolean
   user?: boolean | Prisma.NotificationDelivery$userArgs<ExtArgs>
   session?: boolean | Prisma.NotificationDelivery$sessionArgs<ExtArgs>
 }, ExtArgs["result"]["notificationDelivery"]>
@@ -990,9 +1510,21 @@ export type NotificationDeliverySelectScalar = {
   retentionExpiresAt?: boolean
   createdAt?: boolean
   updatedAt?: boolean
+  mailQueuedAt?: boolean
+  mailExpiresAt?: boolean
+  mailPayload?: boolean
+  mailIv?: boolean
+  mailTag?: boolean
+  mailProtocol?: boolean
+  mailKeyVersion?: boolean
+  mailAttemptCount?: boolean
+  mailAttemptStarted?: boolean
+  mailNextAttemptAt?: boolean
+  mailLeaseId?: boolean
+  mailLeaseExpiresAt?: boolean
 }
 
-export type NotificationDeliveryOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "idempotencyKey" | "type" | "channel" | "status" | "userId" | "sessionId" | "recipient" | "providerMessageId" | "failureCode" | "attemptedAt" | "sentAt" | "retentionExpiresAt" | "createdAt" | "updatedAt", ExtArgs["result"]["notificationDelivery"]>
+export type NotificationDeliveryOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "idempotencyKey" | "type" | "channel" | "status" | "userId" | "sessionId" | "recipient" | "providerMessageId" | "failureCode" | "attemptedAt" | "sentAt" | "retentionExpiresAt" | "createdAt" | "updatedAt" | "mailQueuedAt" | "mailExpiresAt" | "mailPayload" | "mailIv" | "mailTag" | "mailProtocol" | "mailKeyVersion" | "mailAttemptCount" | "mailAttemptStarted" | "mailNextAttemptAt" | "mailLeaseId" | "mailLeaseExpiresAt", ExtArgs["result"]["notificationDelivery"]>
 export type NotificationDeliveryInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   user?: boolean | Prisma.NotificationDelivery$userArgs<ExtArgs>
   session?: boolean | Prisma.NotificationDelivery$sessionArgs<ExtArgs>
@@ -1028,6 +1560,18 @@ export type $NotificationDeliveryPayload<ExtArgs extends runtime.Types.Extension
     retentionExpiresAt: Date
     createdAt: Date
     updatedAt: Date
+    mailQueuedAt: Date | null
+    mailExpiresAt: Date | null
+    mailPayload: runtime.Bytes | null
+    mailIv: runtime.Bytes | null
+    mailTag: runtime.Bytes | null
+    mailProtocol: number | null
+    mailKeyVersion: number | null
+    mailAttemptCount: number
+    mailAttemptStarted: boolean
+    mailNextAttemptAt: Date | null
+    mailLeaseId: string | null
+    mailLeaseExpiresAt: Date | null
   }, ExtArgs["result"]["notificationDelivery"]>
   composites: {}
 }
@@ -1468,6 +2012,18 @@ export interface NotificationDeliveryFieldRefs {
   readonly retentionExpiresAt: Prisma.FieldRef<"NotificationDelivery", 'DateTime'>
   readonly createdAt: Prisma.FieldRef<"NotificationDelivery", 'DateTime'>
   readonly updatedAt: Prisma.FieldRef<"NotificationDelivery", 'DateTime'>
+  readonly mailQueuedAt: Prisma.FieldRef<"NotificationDelivery", 'DateTime'>
+  readonly mailExpiresAt: Prisma.FieldRef<"NotificationDelivery", 'DateTime'>
+  readonly mailPayload: Prisma.FieldRef<"NotificationDelivery", 'Bytes'>
+  readonly mailIv: Prisma.FieldRef<"NotificationDelivery", 'Bytes'>
+  readonly mailTag: Prisma.FieldRef<"NotificationDelivery", 'Bytes'>
+  readonly mailProtocol: Prisma.FieldRef<"NotificationDelivery", 'Int'>
+  readonly mailKeyVersion: Prisma.FieldRef<"NotificationDelivery", 'Int'>
+  readonly mailAttemptCount: Prisma.FieldRef<"NotificationDelivery", 'Int'>
+  readonly mailAttemptStarted: Prisma.FieldRef<"NotificationDelivery", 'Boolean'>
+  readonly mailNextAttemptAt: Prisma.FieldRef<"NotificationDelivery", 'DateTime'>
+  readonly mailLeaseId: Prisma.FieldRef<"NotificationDelivery", 'String'>
+  readonly mailLeaseExpiresAt: Prisma.FieldRef<"NotificationDelivery", 'DateTime'>
 }
     
 

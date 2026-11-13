@@ -33,7 +33,6 @@ const validEnvironment = {
   PASSWORD_RESET_RATE_LIMIT_SECRET: 'recovery-rate-secret',
   ACCOUNT_DELETION_GRACE_PERIOD_SECONDS: '2592000',
   ACCOUNT_DELETION_FINALIZATION_BATCH_SIZE: '100',
-  ACCOUNT_DELETION_COMPLETION_RETRY_SECONDS: '300',
   ACCOUNT_DELETION_CANCEL_WINDOW_SECONDS: '900',
   ACCOUNT_DELETION_CANCEL_LIMIT_PER_EMAIL: '5',
   ACCOUNT_DELETION_CANCEL_LIMIT_PER_IP: '20',
@@ -95,6 +94,13 @@ const validEnvironment = {
   MAIL_RESEND_SUBMISSIONS_PER_SECOND: '8',
   MAIL_RESEND_TEAM_REQUESTS_PER_SECOND: '10',
   MAIL_RESEND_RATE_LIMIT_FALLBACK_SECONDS: '1',
+  MAIL_DELIVERY_ENCRYPTION_KEYS: `1:${Buffer.alloc(32, 9).toString('base64')}`,
+  MAIL_DELIVERY_ENCRYPTION_ACTIVE_KEY_VERSION: '1',
+  MAIL_DELIVERY_MAX_AGE_SECONDS: '82800',
+  MAIL_DELIVERY_LEASE_SECONDS: '45',
+  MAIL_DELIVERY_HTTP_TIMEOUT_SECONDS: '10',
+  MAIL_DELIVERY_WORKER_INTERVAL_SECONDS: '1',
+  MAIL_DELIVERY_WORKER_BATCH_SIZE: '20',
   RESEND_API_KEY: 'resend-api-key',
   MAIL_FROM: 'noreply@unicon.local',
   CLIENT_URL: 'http://localhost:3001',
@@ -807,7 +813,6 @@ describe('validateEnvironment', () => {
   it.each([
     'ACCOUNT_DELETION_GRACE_PERIOD_SECONDS',
     'ACCOUNT_DELETION_FINALIZATION_BATCH_SIZE',
-    'ACCOUNT_DELETION_COMPLETION_RETRY_SECONDS',
     'ACCOUNT_DELETION_CANCEL_WINDOW_SECONDS',
     'ACCOUNT_DELETION_CANCEL_LIMIT_PER_EMAIL',
     'ACCOUNT_DELETION_CANCEL_LIMIT_PER_IP',
@@ -838,5 +843,58 @@ describe('validateEnvironment', () => {
     ).toThrow(
       'Environment variable GEOIP_RELOAD_INTERVAL_SECONDS must be a positive integer.',
     );
+  });
+  it.each([
+    'MAIL_DELIVERY_MAX_AGE_SECONDS',
+    'MAIL_DELIVERY_LEASE_SECONDS',
+    'MAIL_DELIVERY_HTTP_TIMEOUT_SECONDS',
+    'MAIL_DELIVERY_WORKER_INTERVAL_SECONDS',
+    'MAIL_DELIVERY_WORKER_BATCH_SIZE',
+    'MAIL_DELIVERY_ENCRYPTION_ACTIVE_KEY_VERSION',
+  ])('validates positive safe mail configuration %s', (key) => {
+    for (const value of [undefined, '0', '-1', '1.5', '9007199254740992'])
+      expect(() =>
+        validateEnvironment({ ...validEnvironment, [key]: value }),
+      ).toThrow();
+  });
+  it('keeps the mail retry age strictly inside provider idempotency and retention windows', () => {
+    expect(() =>
+      validateEnvironment({
+        ...validEnvironment,
+        MAIL_DELIVERY_MAX_AGE_SECONDS: '86400',
+      }),
+    ).toThrow('idempotency window');
+    expect(() =>
+      validateEnvironment({
+        ...validEnvironment,
+        NOTIFICATION_DELIVERY_RETENTION_SECONDS: '60',
+      }),
+    ).toThrow('retention');
+    expect(() =>
+      validateEnvironment({
+        ...validEnvironment,
+        MAIL_DELIVERY_LEASE_SECONDS: '10',
+      }),
+    ).toThrow('HTTP timeout');
+  });
+  it('rejects missing, unavailable and reused mail encryption keys without exposing them', () => {
+    expect(() =>
+      validateEnvironment({
+        ...validEnvironment,
+        MAIL_DELIVERY_ENCRYPTION_KEYS: '',
+      }),
+    ).toThrow();
+    expect(() =>
+      validateEnvironment({
+        ...validEnvironment,
+        MAIL_DELIVERY_ENCRYPTION_ACTIVE_KEY_VERSION: '2',
+      }),
+    ).toThrow();
+    expect(() =>
+      validateEnvironment({
+        ...validEnvironment,
+        MAIL_DELIVERY_ENCRYPTION_KEYS: `1:${encryptionKey}`,
+      }),
+    ).toThrow('independent');
   });
 });

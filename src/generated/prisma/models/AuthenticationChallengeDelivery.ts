@@ -46,6 +46,7 @@ export type AuthenticationChallengeDeliveryMinAggregateOutputType = {
   idempotencyKey: string | null
   templateProtocolVersion: number | null
   attemptCount: number | null
+  processingAttemptStarted: boolean | null
   nextAttemptAt: Date | null
   processingLeaseId: string | null
   processingLeaseExpiresAt: Date | null
@@ -68,6 +69,7 @@ export type AuthenticationChallengeDeliveryMaxAggregateOutputType = {
   idempotencyKey: string | null
   templateProtocolVersion: number | null
   attemptCount: number | null
+  processingAttemptStarted: boolean | null
   nextAttemptAt: Date | null
   processingLeaseId: string | null
   processingLeaseExpiresAt: Date | null
@@ -90,6 +92,7 @@ export type AuthenticationChallengeDeliveryCountAggregateOutputType = {
   idempotencyKey: number
   templateProtocolVersion: number
   attemptCount: number
+  processingAttemptStarted: number
   nextAttemptAt: number
   processingLeaseId: number
   processingLeaseExpiresAt: number
@@ -124,6 +127,7 @@ export type AuthenticationChallengeDeliveryMinAggregateInputType = {
   idempotencyKey?: true
   templateProtocolVersion?: true
   attemptCount?: true
+  processingAttemptStarted?: true
   nextAttemptAt?: true
   processingLeaseId?: true
   processingLeaseExpiresAt?: true
@@ -146,6 +150,7 @@ export type AuthenticationChallengeDeliveryMaxAggregateInputType = {
   idempotencyKey?: true
   templateProtocolVersion?: true
   attemptCount?: true
+  processingAttemptStarted?: true
   nextAttemptAt?: true
   processingLeaseId?: true
   processingLeaseExpiresAt?: true
@@ -168,6 +173,7 @@ export type AuthenticationChallengeDeliveryCountAggregateInputType = {
   idempotencyKey?: true
   templateProtocolVersion?: true
   attemptCount?: true
+  processingAttemptStarted?: true
   nextAttemptAt?: true
   processingLeaseId?: true
   processingLeaseExpiresAt?: true
@@ -277,6 +283,7 @@ export type AuthenticationChallengeDeliveryGroupByOutputType = {
   idempotencyKey: string
   templateProtocolVersion: number
   attemptCount: number
+  processingAttemptStarted: boolean
   nextAttemptAt: Date | null
   processingLeaseId: string | null
   processingLeaseExpiresAt: Date | null
@@ -322,6 +329,7 @@ export type AuthenticationChallengeDeliveryWhereInput = {
   idempotencyKey?: Prisma.StringFilter<"AuthenticationChallengeDelivery"> | string
   templateProtocolVersion?: Prisma.IntFilter<"AuthenticationChallengeDelivery"> | number
   attemptCount?: Prisma.IntFilter<"AuthenticationChallengeDelivery"> | number
+  processingAttemptStarted?: Prisma.BoolFilter<"AuthenticationChallengeDelivery"> | boolean
   nextAttemptAt?: Prisma.DateTimeNullableFilter<"AuthenticationChallengeDelivery"> | Date | string | null
   processingLeaseId?: Prisma.UuidNullableFilter<"AuthenticationChallengeDelivery"> | string | null
   processingLeaseExpiresAt?: Prisma.DateTimeNullableFilter<"AuthenticationChallengeDelivery"> | Date | string | null
@@ -345,6 +353,7 @@ export type AuthenticationChallengeDeliveryOrderByWithRelationInput = {
   idempotencyKey?: Prisma.SortOrder
   templateProtocolVersion?: Prisma.SortOrder
   attemptCount?: Prisma.SortOrder
+  processingAttemptStarted?: Prisma.SortOrder
   nextAttemptAt?: Prisma.SortOrderInput | Prisma.SortOrder
   processingLeaseId?: Prisma.SortOrderInput | Prisma.SortOrder
   processingLeaseExpiresAt?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -371,6 +380,7 @@ export type AuthenticationChallengeDeliveryWhereUniqueInput = Prisma.AtLeast<{
   recipientSnapshot?: Prisma.StringFilter<"AuthenticationChallengeDelivery"> | string
   templateProtocolVersion?: Prisma.IntFilter<"AuthenticationChallengeDelivery"> | number
   attemptCount?: Prisma.IntFilter<"AuthenticationChallengeDelivery"> | number
+  processingAttemptStarted?: Prisma.BoolFilter<"AuthenticationChallengeDelivery"> | boolean
   nextAttemptAt?: Prisma.DateTimeNullableFilter<"AuthenticationChallengeDelivery"> | Date | string | null
   processingLeaseId?: Prisma.UuidNullableFilter<"AuthenticationChallengeDelivery"> | string | null
   processingLeaseExpiresAt?: Prisma.DateTimeNullableFilter<"AuthenticationChallengeDelivery"> | Date | string | null
@@ -394,6 +404,7 @@ export type AuthenticationChallengeDeliveryOrderByWithAggregationInput = {
   idempotencyKey?: Prisma.SortOrder
   templateProtocolVersion?: Prisma.SortOrder
   attemptCount?: Prisma.SortOrder
+  processingAttemptStarted?: Prisma.SortOrder
   nextAttemptAt?: Prisma.SortOrderInput | Prisma.SortOrder
   processingLeaseId?: Prisma.SortOrderInput | Prisma.SortOrder
   processingLeaseExpiresAt?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -424,6 +435,7 @@ export type AuthenticationChallengeDeliveryScalarWhereWithAggregatesInput = {
   idempotencyKey?: Prisma.StringWithAggregatesFilter<"AuthenticationChallengeDelivery"> | string
   templateProtocolVersion?: Prisma.IntWithAggregatesFilter<"AuthenticationChallengeDelivery"> | number
   attemptCount?: Prisma.IntWithAggregatesFilter<"AuthenticationChallengeDelivery"> | number
+  processingAttemptStarted?: Prisma.BoolWithAggregatesFilter<"AuthenticationChallengeDelivery"> | boolean
   nextAttemptAt?: Prisma.DateTimeNullableWithAggregatesFilter<"AuthenticationChallengeDelivery"> | Date | string | null
   processingLeaseId?: Prisma.UuidNullableWithAggregatesFilter<"AuthenticationChallengeDelivery"> | string | null
   processingLeaseExpiresAt?: Prisma.DateTimeNullableWithAggregatesFilter<"AuthenticationChallengeDelivery"> | Date | string | null
@@ -445,6 +457,7 @@ export type AuthenticationChallengeDeliveryCreateInput = {
   idempotencyKey: string
   templateProtocolVersion: number
   attemptCount?: number
+  processingAttemptStarted?: boolean
   nextAttemptAt?: Date | string | null
   processingLeaseId?: string | null
   processingLeaseExpiresAt?: Date | string | null
@@ -468,6 +481,7 @@ export type AuthenticationChallengeDeliveryUncheckedCreateInput = {
   idempotencyKey: string
   templateProtocolVersion: number
   attemptCount?: number
+  processingAttemptStarted?: boolean
   nextAttemptAt?: Date | string | null
   processingLeaseId?: string | null
   processingLeaseExpiresAt?: Date | string | null
@@ -489,6 +503,7 @@ export type AuthenticationChallengeDeliveryUpdateInput = {
   idempotencyKey?: Prisma.StringFieldUpdateOperationsInput | string
   templateProtocolVersion?: Prisma.IntFieldUpdateOperationsInput | number
   attemptCount?: Prisma.IntFieldUpdateOperationsInput | number
+  processingAttemptStarted?: Prisma.BoolFieldUpdateOperationsInput | boolean
   nextAttemptAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   processingLeaseId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   processingLeaseExpiresAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -512,6 +527,7 @@ export type AuthenticationChallengeDeliveryUncheckedUpdateInput = {
   idempotencyKey?: Prisma.StringFieldUpdateOperationsInput | string
   templateProtocolVersion?: Prisma.IntFieldUpdateOperationsInput | number
   attemptCount?: Prisma.IntFieldUpdateOperationsInput | number
+  processingAttemptStarted?: Prisma.BoolFieldUpdateOperationsInput | boolean
   nextAttemptAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   processingLeaseId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   processingLeaseExpiresAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -534,6 +550,7 @@ export type AuthenticationChallengeDeliveryCreateManyInput = {
   idempotencyKey: string
   templateProtocolVersion: number
   attemptCount?: number
+  processingAttemptStarted?: boolean
   nextAttemptAt?: Date | string | null
   processingLeaseId?: string | null
   processingLeaseExpiresAt?: Date | string | null
@@ -555,6 +572,7 @@ export type AuthenticationChallengeDeliveryUpdateManyMutationInput = {
   idempotencyKey?: Prisma.StringFieldUpdateOperationsInput | string
   templateProtocolVersion?: Prisma.IntFieldUpdateOperationsInput | number
   attemptCount?: Prisma.IntFieldUpdateOperationsInput | number
+  processingAttemptStarted?: Prisma.BoolFieldUpdateOperationsInput | boolean
   nextAttemptAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   processingLeaseId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   processingLeaseExpiresAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -577,6 +595,7 @@ export type AuthenticationChallengeDeliveryUncheckedUpdateManyInput = {
   idempotencyKey?: Prisma.StringFieldUpdateOperationsInput | string
   templateProtocolVersion?: Prisma.IntFieldUpdateOperationsInput | number
   attemptCount?: Prisma.IntFieldUpdateOperationsInput | number
+  processingAttemptStarted?: Prisma.BoolFieldUpdateOperationsInput | boolean
   nextAttemptAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   processingLeaseId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   processingLeaseExpiresAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -609,6 +628,7 @@ export type AuthenticationChallengeDeliveryCountOrderByAggregateInput = {
   idempotencyKey?: Prisma.SortOrder
   templateProtocolVersion?: Prisma.SortOrder
   attemptCount?: Prisma.SortOrder
+  processingAttemptStarted?: Prisma.SortOrder
   nextAttemptAt?: Prisma.SortOrder
   processingLeaseId?: Prisma.SortOrder
   processingLeaseExpiresAt?: Prisma.SortOrder
@@ -636,6 +656,7 @@ export type AuthenticationChallengeDeliveryMaxOrderByAggregateInput = {
   idempotencyKey?: Prisma.SortOrder
   templateProtocolVersion?: Prisma.SortOrder
   attemptCount?: Prisma.SortOrder
+  processingAttemptStarted?: Prisma.SortOrder
   nextAttemptAt?: Prisma.SortOrder
   processingLeaseId?: Prisma.SortOrder
   processingLeaseExpiresAt?: Prisma.SortOrder
@@ -658,6 +679,7 @@ export type AuthenticationChallengeDeliveryMinOrderByAggregateInput = {
   idempotencyKey?: Prisma.SortOrder
   templateProtocolVersion?: Prisma.SortOrder
   attemptCount?: Prisma.SortOrder
+  processingAttemptStarted?: Prisma.SortOrder
   nextAttemptAt?: Prisma.SortOrder
   processingLeaseId?: Prisma.SortOrder
   processingLeaseExpiresAt?: Prisma.SortOrder
@@ -738,6 +760,7 @@ export type AuthenticationChallengeDeliveryCreateWithoutChallengeInput = {
   idempotencyKey: string
   templateProtocolVersion: number
   attemptCount?: number
+  processingAttemptStarted?: boolean
   nextAttemptAt?: Date | string | null
   processingLeaseId?: string | null
   processingLeaseExpiresAt?: Date | string | null
@@ -759,6 +782,7 @@ export type AuthenticationChallengeDeliveryUncheckedCreateWithoutChallengeInput 
   idempotencyKey: string
   templateProtocolVersion: number
   attemptCount?: number
+  processingAttemptStarted?: boolean
   nextAttemptAt?: Date | string | null
   processingLeaseId?: string | null
   processingLeaseExpiresAt?: Date | string | null
@@ -810,6 +834,7 @@ export type AuthenticationChallengeDeliveryScalarWhereInput = {
   idempotencyKey?: Prisma.StringFilter<"AuthenticationChallengeDelivery"> | string
   templateProtocolVersion?: Prisma.IntFilter<"AuthenticationChallengeDelivery"> | number
   attemptCount?: Prisma.IntFilter<"AuthenticationChallengeDelivery"> | number
+  processingAttemptStarted?: Prisma.BoolFilter<"AuthenticationChallengeDelivery"> | boolean
   nextAttemptAt?: Prisma.DateTimeNullableFilter<"AuthenticationChallengeDelivery"> | Date | string | null
   processingLeaseId?: Prisma.UuidNullableFilter<"AuthenticationChallengeDelivery"> | string | null
   processingLeaseExpiresAt?: Prisma.DateTimeNullableFilter<"AuthenticationChallengeDelivery"> | Date | string | null
@@ -831,6 +856,7 @@ export type AuthenticationChallengeDeliveryCreateManyChallengeInput = {
   idempotencyKey: string
   templateProtocolVersion: number
   attemptCount?: number
+  processingAttemptStarted?: boolean
   nextAttemptAt?: Date | string | null
   processingLeaseId?: string | null
   processingLeaseExpiresAt?: Date | string | null
@@ -852,6 +878,7 @@ export type AuthenticationChallengeDeliveryUpdateWithoutChallengeInput = {
   idempotencyKey?: Prisma.StringFieldUpdateOperationsInput | string
   templateProtocolVersion?: Prisma.IntFieldUpdateOperationsInput | number
   attemptCount?: Prisma.IntFieldUpdateOperationsInput | number
+  processingAttemptStarted?: Prisma.BoolFieldUpdateOperationsInput | boolean
   nextAttemptAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   processingLeaseId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   processingLeaseExpiresAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -873,6 +900,7 @@ export type AuthenticationChallengeDeliveryUncheckedUpdateWithoutChallengeInput 
   idempotencyKey?: Prisma.StringFieldUpdateOperationsInput | string
   templateProtocolVersion?: Prisma.IntFieldUpdateOperationsInput | number
   attemptCount?: Prisma.IntFieldUpdateOperationsInput | number
+  processingAttemptStarted?: Prisma.BoolFieldUpdateOperationsInput | boolean
   nextAttemptAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   processingLeaseId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   processingLeaseExpiresAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -894,6 +922,7 @@ export type AuthenticationChallengeDeliveryUncheckedUpdateManyWithoutChallengeIn
   idempotencyKey?: Prisma.StringFieldUpdateOperationsInput | string
   templateProtocolVersion?: Prisma.IntFieldUpdateOperationsInput | number
   attemptCount?: Prisma.IntFieldUpdateOperationsInput | number
+  processingAttemptStarted?: Prisma.BoolFieldUpdateOperationsInput | boolean
   nextAttemptAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   processingLeaseId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   processingLeaseExpiresAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -918,6 +947,7 @@ export type AuthenticationChallengeDeliverySelect<ExtArgs extends runtime.Types.
   idempotencyKey?: boolean
   templateProtocolVersion?: boolean
   attemptCount?: boolean
+  processingAttemptStarted?: boolean
   nextAttemptAt?: boolean
   processingLeaseId?: boolean
   processingLeaseExpiresAt?: boolean
@@ -941,6 +971,7 @@ export type AuthenticationChallengeDeliverySelectCreateManyAndReturn<ExtArgs ext
   idempotencyKey?: boolean
   templateProtocolVersion?: boolean
   attemptCount?: boolean
+  processingAttemptStarted?: boolean
   nextAttemptAt?: boolean
   processingLeaseId?: boolean
   processingLeaseExpiresAt?: boolean
@@ -964,6 +995,7 @@ export type AuthenticationChallengeDeliverySelectUpdateManyAndReturn<ExtArgs ext
   idempotencyKey?: boolean
   templateProtocolVersion?: boolean
   attemptCount?: boolean
+  processingAttemptStarted?: boolean
   nextAttemptAt?: boolean
   processingLeaseId?: boolean
   processingLeaseExpiresAt?: boolean
@@ -987,6 +1019,7 @@ export type AuthenticationChallengeDeliverySelectScalar = {
   idempotencyKey?: boolean
   templateProtocolVersion?: boolean
   attemptCount?: boolean
+  processingAttemptStarted?: boolean
   nextAttemptAt?: boolean
   processingLeaseId?: boolean
   processingLeaseExpiresAt?: boolean
@@ -999,7 +1032,7 @@ export type AuthenticationChallengeDeliverySelectScalar = {
   updatedAt?: boolean
 }
 
-export type AuthenticationChallengeDeliveryOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "challengeId" | "method" | "origin" | "status" | "recipientSnapshot" | "idempotencyKey" | "templateProtocolVersion" | "attemptCount" | "nextAttemptAt" | "processingLeaseId" | "processingLeaseExpiresAt" | "providerMessageId" | "lastSafeFailureCode" | "attemptedAt" | "sentAt" | "retentionExpiresAt" | "createdAt" | "updatedAt", ExtArgs["result"]["authenticationChallengeDelivery"]>
+export type AuthenticationChallengeDeliveryOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "challengeId" | "method" | "origin" | "status" | "recipientSnapshot" | "idempotencyKey" | "templateProtocolVersion" | "attemptCount" | "processingAttemptStarted" | "nextAttemptAt" | "processingLeaseId" | "processingLeaseExpiresAt" | "providerMessageId" | "lastSafeFailureCode" | "attemptedAt" | "sentAt" | "retentionExpiresAt" | "createdAt" | "updatedAt", ExtArgs["result"]["authenticationChallengeDelivery"]>
 export type AuthenticationChallengeDeliveryInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   challenge?: boolean | Prisma.AuthenticationChallengeDefaultArgs<ExtArgs>
 }
@@ -1025,6 +1058,7 @@ export type $AuthenticationChallengeDeliveryPayload<ExtArgs extends runtime.Type
     idempotencyKey: string
     templateProtocolVersion: number
     attemptCount: number
+    processingAttemptStarted: boolean
     nextAttemptAt: Date | null
     processingLeaseId: string | null
     processingLeaseExpiresAt: Date | null
@@ -1468,6 +1502,7 @@ export interface AuthenticationChallengeDeliveryFieldRefs {
   readonly idempotencyKey: Prisma.FieldRef<"AuthenticationChallengeDelivery", 'String'>
   readonly templateProtocolVersion: Prisma.FieldRef<"AuthenticationChallengeDelivery", 'Int'>
   readonly attemptCount: Prisma.FieldRef<"AuthenticationChallengeDelivery", 'Int'>
+  readonly processingAttemptStarted: Prisma.FieldRef<"AuthenticationChallengeDelivery", 'Boolean'>
   readonly nextAttemptAt: Prisma.FieldRef<"AuthenticationChallengeDelivery", 'DateTime'>
   readonly processingLeaseId: Prisma.FieldRef<"AuthenticationChallengeDelivery", 'String'>
   readonly processingLeaseExpiresAt: Prisma.FieldRef<"AuthenticationChallengeDelivery", 'DateTime'>

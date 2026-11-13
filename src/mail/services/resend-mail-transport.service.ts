@@ -21,6 +21,9 @@ export type ResendMailTransportResult =
         providerRestriction: ReturnType<typeof providerRestriction>;
       }>)
   | Readonly<{
+      outcome: 'NOT_SUBMITTED';
+    }>
+  | Readonly<{
       outcome: 'OUTCOME_UNKNOWN';
       safeFailureCode: 'RESEND_TRANSPORT_OUTCOME_UNKNOWN';
     }>;
@@ -38,11 +41,17 @@ export class ResendMailTransportService {
   async send(
     submission: MailSubmission,
     signal: AbortSignal,
+    beforeSubmission?: () => Promise<boolean>,
   ): Promise<ResendMailTransportResult> {
     // An already cancelled caller must not consume a permission or send a request.
     signal.throwIfAborted();
     const permission = await this.gate.tryAcquire();
     if (permission.outcome !== 'GRANTED') return permission;
+    // Auth revalidates its lease/challenge and charges the processing attempt
+    // here, after any gate waits and before network I/O. No DB lock crosses I/O.
+    if (beforeSubmission && !(await beforeSubmission())) {
+      return { outcome: 'NOT_SUBMITTED' };
+    }
     let response: ResendMailHttpResponse;
     try {
       response = await this.http.send(submission, signal);

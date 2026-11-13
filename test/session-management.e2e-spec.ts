@@ -8,6 +8,7 @@ import { configureApp } from '../src/configure-app';
 import { PasswordService } from '../src/auth/password/services/password.service';
 import { SecureTokenService } from '../src/auth/services/secure-token.service';
 import { MailService } from '../src/mail/mail.service';
+import { MailDeliveryWorkerService } from '../src/mail/services/mail-delivery-worker.service';
 import { PrismaService } from '../src/prisma/prisma.service';
 import {
   expectNoInternalFields,
@@ -56,7 +57,10 @@ describe('Session management with PostgreSQL (e2e)', () => {
 
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
-    }).compile();
+    })
+      .overrideProvider(MailDeliveryWorkerService)
+      .useValue({})
+      .compile();
 
     app = moduleFixture.createNestApplication();
     configureApp(app);
@@ -69,13 +73,10 @@ describe('Session management with PostgreSQL (e2e)', () => {
   });
 
   beforeEach(async () => {
+    jest.restoreAllMocks();
     jest.clearAllMocks();
-    sendNewSessionEmailSpy = jest
-      .spyOn(mailService, 'sendNewSessionEmail')
-      .mockResolvedValue('test-provider-message-id');
-    jest
-      .spyOn(mailService, 'sendSuspiciousActivityEmail')
-      .mockResolvedValue('test-suspicious-provider-message-id');
+    sendNewSessionEmailSpy = jest.spyOn(mailService, 'sendNewSessionEmail');
+    jest.spyOn(mailService, 'sendSuspiciousActivityEmail');
     await prisma.notificationDelivery.deleteMany();
     await prisma.securityEvent.deleteMany();
     await prisma.session.deleteMany();
@@ -345,13 +346,13 @@ describe('Session management with PostgreSQL (e2e)', () => {
         },
       }),
     ).resolves.toEqual({
-      status: 'SENT',
-      providerMessageId: 'test-provider-message-id',
+      status: 'PENDING',
+      providerMessageId: null,
       failureCode: null,
     });
   });
 
-  it('keeps login successful when the notification email fails', async () => {
+  it('keeps login successful when notification enqueue fails', async () => {
     jest
       .spyOn(mailService, 'sendNewSessionEmail')
       .mockRejectedValueOnce(new Error('Provider unavailable.'));
@@ -359,15 +360,11 @@ describe('Session management with PostgreSQL (e2e)', () => {
     const tokens = await login('Delivery failure device', 'WEB');
     await getSessions(tokens.accessToken);
 
-    await expect(
-      prisma.notificationDelivery.findFirstOrThrow({
+    expect(
+      await prisma.notificationDelivery.count({
         where: { type: 'NEW_SESSION', channel: 'EMAIL' },
-        select: { status: true, failureCode: true },
       }),
-    ).resolves.toEqual({
-      status: 'FAILED',
-      failureCode: 'EMAIL_DELIVERY_FAILED',
-    });
+    ).toBe(0);
   });
 
   it('sends the same notification after verification creates the first session', async () => {
@@ -395,7 +392,7 @@ describe('Session management with PostgreSQL (e2e)', () => {
         where: { type: 'NEW_SESSION', channel: 'EMAIL' },
         select: { status: true, recipient: true },
       }),
-    ).resolves.toEqual({ status: 'SENT', recipient: email });
+    ).resolves.toEqual({ status: 'PENDING', recipient: email });
 
     await expect(
       prisma.session.findFirstOrThrow({
@@ -598,6 +595,10 @@ describe('Session management with PostgreSQL (e2e)', () => {
         deviceModel: 'iPhone 16 Pro',
         platform: 'IOS',
       }),
+      expect.objectContaining({
+        userId: expect.any(String) as string,
+        sessionId: expect.any(String) as string,
+      }),
     );
 
     const notification = sendNewSessionEmailSpy.mock.calls[0][0];
@@ -608,7 +609,7 @@ describe('Session management with PostgreSQL (e2e)', () => {
         where: { type: 'NEW_SESSION' },
         select: { status: true },
       }),
-    ).resolves.toEqual({ status: 'SENT' });
+    ).resolves.toEqual({ status: 'PENDING' });
   });
 
   it('detects excessive login failures on a later successful login', async () => {
@@ -669,7 +670,7 @@ describe('Session management with PostgreSQL (e2e)', () => {
         where: { type: 'SUSPICIOUS_ACTIVITY', channel: 'EMAIL' },
         select: { status: true },
       }),
-    ).resolves.toEqual({ status: 'SENT' });
+    ).resolves.toEqual({ status: 'PENDING' });
   });
 
   it('rejects the eleventh session without revoking existing sessions', async () => {

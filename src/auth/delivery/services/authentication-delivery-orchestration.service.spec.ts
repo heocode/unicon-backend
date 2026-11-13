@@ -57,6 +57,8 @@ describe('AuthenticationDeliveryOrchestrationService', () => {
   };
 
   const repository = {
+    startProcessingAttempt: jest.fn(),
+    deferUnstartedDelivery: jest.fn(),
     getOwnedChallengeState: jest.fn(),
     getOwnedOperationTimestamp: jest.fn(),
     markSent: jest.fn(),
@@ -88,6 +90,14 @@ describe('AuthenticationDeliveryOrchestrationService', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    repository.startProcessingAttempt.mockImplementation(
+      (claim: ClaimedAuthenticationDelivery) =>
+        Promise.resolve({
+          outcome: 'STARTED',
+          attemptCount: Math.max(1, claim.attemptCount),
+        }),
+    );
+    repository.deferUnstartedDelivery.mockResolvedValue('DEFERRED');
     repository.getOwnedChallengeState.mockResolvedValue({
       outcome: 'AVAILABLE',
       operationNow,
@@ -160,12 +170,15 @@ describe('AuthenticationDeliveryOrchestrationService', () => {
         encryptionKeyVersion: challenge.encryptionKeyVersion,
       },
     );
-    expect(provider.submit).toHaveBeenCalledWith({
-      content,
-      deliveryId: delivery.id,
-      idempotencyKey: delivery.idempotencyKey,
-      templateProtocolVersion: delivery.templateProtocolVersion,
-    });
+    expect(provider.submit).toHaveBeenCalledWith(
+      {
+        content,
+        deliveryId: delivery.id,
+        idempotencyKey: delivery.idempotencyKey,
+        templateProtocolVersion: delivery.templateProtocolVersion,
+      },
+      expect.any(Function),
+    );
     expect(repository.markSent).toHaveBeenCalledWith(
       delivery.id,
       delivery.leaseId,
@@ -403,6 +416,61 @@ describe('AuthenticationDeliveryOrchestrationService', () => {
     await expect(service.process(delivery)).resolves.toEqual({
       outcome: 'LEASE_LOST',
     });
+  });
+  it.each([
+    { outcome: 'DEFERRED', retryNotBeforeMicros: 1800000000123456n },
+    { outcome: 'PAUSED', reason: 'MONTHLY_QUOTA' },
+    { outcome: 'UNAVAILABLE' },
+  ])(
+    'preserves attempts and provider failure state for local waiting %p',
+    async (result) => {
+      provider.submit.mockResolvedValue(result);
+      const claim = { ...delivery, attemptCount: 0 };
+      expect((await service.process(claim)).outcome).toBe('DEFERRED');
+      expect(repository.startProcessingAttempt).not.toHaveBeenCalled();
+      expect(repository.scheduleRetryAfter).not.toHaveBeenCalled();
+      expect(repository.markFailed).not.toHaveBeenCalled();
+      expect(repository.deferUnstartedDelivery).toHaveBeenCalledWith(
+        expect.objectContaining({ attemptCount: 0 }),
+        result.outcome === 'DEFERRED' ? result.retryNotBeforeMicros : undefined,
+      );
+    },
+  );
+
+  it('does not overwrite cancellation discovered during gate waiting', async () => {
+    provider.submit.mockImplementationOnce(
+      async (_submission: unknown, before: () => Promise<boolean>) => {
+        repository.getOwnedChallengeState.mockResolvedValueOnce({
+          outcome: 'AVAILABLE',
+          operationNow,
+          challenge: { ...challenge, consumedAt: operationNow },
+        });
+        expect(await before()).toBe(false);
+        return { outcome: 'NOT_SUBMITTED' };
+      },
+    );
+    expect(await service.process(delivery)).toEqual({ outcome: 'CANCELLED' });
+    expect(repository.startProcessingAttempt).not.toHaveBeenCalled();
+    expect(repository.markSent).not.toHaveBeenCalled();
+  });
+
+  it('charges once before the provider attempt and preserves ACCEPTED if challenge changes afterwards', async () => {
+    provider.submit.mockImplementationOnce(
+      async (_submission: unknown, before: () => Promise<boolean>) => {
+        expect(await before()).toBe(true);
+        repository.getOwnedChallengeState.mockResolvedValue({
+          outcome: 'AVAILABLE',
+          operationNow,
+          challenge: { ...challenge, consumedAt: operationNow },
+        });
+        return { outcome: 'ACCEPTED' };
+      },
+    );
+    expect(await service.process({ ...delivery, attemptCount: 0 })).toEqual({
+      outcome: 'SENT',
+    });
+    expect(repository.startProcessingAttempt).toHaveBeenCalledTimes(1);
+    expect(repository.cancelOwnedDelivery).not.toHaveBeenCalled();
   });
 });
 import { Logger } from '@nestjs/common';

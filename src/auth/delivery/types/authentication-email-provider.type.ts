@@ -34,6 +34,10 @@ export enum AuthenticationEmailPermanentFailureReason {
 }
 
 export type AuthenticationEmailProviderResult =
+  | Readonly<{ outcome: 'DEFERRED'; retryNotBeforeMicros: bigint }>
+  | Readonly<{ outcome: 'PAUSED'; reason: 'MONTHLY_QUOTA' }>
+  | Readonly<{ outcome: 'UNAVAILABLE' }>
+  | Readonly<{ outcome: 'NOT_SUBMITTED' }>
   | Readonly<{
       outcome: 'ACCEPTED';
       providerMessageId?: string;

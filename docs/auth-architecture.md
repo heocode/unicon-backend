@@ -297,11 +297,17 @@ PROCESSING
 SENT, FAILED, and CANCELLED are terminal
 ```
 
-Claiming a Delivery atomically creates a unique UUID `processingLeaseId`, sets
-`processingLeaseExpiresAt`, and increments `attemptCount`. The counter is an
-operational fail-safe work budget for processing claims and reclaims, not a
-claim that the provider received each request. Every worker-owned sent, retry,
-failed, or cancelled transition from processing must match both
+Claiming a Delivery atomically creates a unique UUID `processingLeaseId` and
+sets `processingLeaseExpiresAt`. Stage 4 Iteration 6 block 4 separates this
+uncharged lease from a started processing attempt. After shared mail permission,
+the current owner revalidates challenge/lease and atomically increments
+`attemptCount`, sets `processingAttemptStarted`, and records `attemptedAt`.
+Internal processing failures also start/charge an attempt before classification.
+The counter remains a fail-safe processing budget, not an exact provider request
+count: a crash after charging but before HTTP still spends the attempt. Local
+capacity waiting and crashes before attempt start do not spend it. Every
+worker-owned sent, retry, failed, or cancelled transition from processing must
+match both
 `status = PROCESSING` and the supplied lease ID. Historical resend supersession
 could revoke lease ownership without pretending to own it; the current manual
 resend path preserves unfinished work and its lease. A stale worker cannot
@@ -335,8 +341,10 @@ longer be delivered; initial safe cancellation reasons include
 `SUPERSEDED_BY_RESEND`. A partial envelope remains an internal data-integrity
 failure and does not enter either ordinary terminal flow.
 
-`attemptedAt` records the latest processing claim; `attemptCount` remains the
-fail-safe claim/reclaim budget rather than an exact HTTP submission count. In
+`attemptedAt` records the latest started processing attempt. A new lease leaves
+it unchanged; local capacity deferral preserves both it and `attemptCount`.
+`processingAttemptStarted` distinguishes a charged attempt under the current
+lease from unstarted preparation and is cleared on release/terminal transitions. In
 V1 the ten-minute challenge lifetime is strictly shorter than Resend's
 24-hour idempotency window, so every otherwise eligible ambiguous retry is
 inside that window by construction. Startup configuration enforces this
@@ -376,8 +384,8 @@ MIN_DELIVERY_VALIDITY_REMAINING = 120 seconds
 RESEND_IDEMPOTENCY_WINDOW = 24 hours
 ```
 
-Because `attemptCount` is incremented by claim, retry selection uses this exact
-mapping rather than direct array indexing:
+Because `attemptCount` is incremented at processing start, retry selection uses
+this exact mapping rather than direct array indexing:
 
 ```text
 after processing attemptCount = 1 → retry delay 5 seconds
@@ -424,7 +432,8 @@ rejection, invalid provider request, provider configuration error, or API authen
 without retry and produces an internal operational alert where appropriate.
 
 An expired processing lease with `attemptCount < 5` may be reclaimed with a
-new lease and incremented count. At `attemptCount >= 5`, it is atomically made
+new unstarted lease. Starting its processing after permission increments the
+count; a prior charged attempt is never refunded. At `attemptCount >= 5`, it is atomically made
 terminal and its lease is cleared instead of granting a sixth claim. If proof
 is already unavailable it becomes `CANCELLED`; otherwise it becomes `FAILED`
 with the allowlisted `PROCESSING_ATTEMPTS_EXHAUSTED` reason.
@@ -443,7 +452,10 @@ time first: initial pending `createdAt`, scheduled retry `nextAttemptAt`, or
 expired processing `processingLeaseExpiresAt`; ties use `createdAt` and `id`.
 Each free processing lane performs `claim → orchestrate → claim`; workers never
 pre-claim a batch into a local leased queue. V1 uses a one-second interval,
-four lanes per replica, and at most twenty claims per cycle. Effective provider
+four lanes per replica, and at most twenty claims per cycle. Block 4 adds an
+advisory subsecond wake for timed shared-capacity deferral without overlapping
+cycles; the database gate remains authoritative. A deferral stops new claims
+across the current cycle after already-running lanes finish. Effective provider
 concurrency is therefore replica count multiplied by four; deployment must
 respect provider throughput because V1 has no distributed global semaphore.
 Processing is non-overlapping inside one process and allowed to finish during
@@ -2723,8 +2735,10 @@ human-use thresholds.
 
 Status: **ACCEPTED / FIXED** as configurable V1 starting values. The internal
 permission core is implemented in Iteration 6 block 3.1; shared provider pressure
-and the common transport are implemented in block 3.2. Sender integration remains
-pending.
+and the common transport are implemented in block 3.2. Auth worker integration
+is implemented in block 4; block 5 routes all remaining application senders
+through the shared transport with durable notification deferral. Final integration
+checks remain block 6 work.
 The operator confirmed the current Resend team API ceiling is 10 requests per
 second. This applies to the team across keys and replicas, not each worker.
 Resend documents the team scope and rate-limit/Retry-After headers in
@@ -2815,9 +2829,8 @@ DB decision times and allow genuine replenishment during execution; they do not
 assume a frozen clock or establish production throughput. Actual transport fault
 and commit-acknowledgement loss testing retains its later integration owner.
 
-The core is exported for subsequent mail integration but is not called by current
-MailService, auth adapter/transport or workers. Existing sends therefore do not
-yet have application-wide enforcement. Block 3.2 adds the pressure-aware common
+At the end of block 3.1 the core was exported but no existing sender invoked it.
+Application-wide enforcement remains pending until every sender is migrated. Block 3.2 adds the pressure-aware common
 transport described below; auth claim/defer belongs to block 4, other send paths/
 reliable notification deferral to block 5, and final integration to block 6.
 No existing retry/lifecycle ownership is changed in blocks 3.1–3.2.
@@ -2884,12 +2897,192 @@ write or crash between response receipt and persistence cannot be claimed as a
 recorded shared pause. Sender recovery/observability and real crash/commit-loss
 validation retain their later integration owners; no second auth queue is added.
 
-The existing auth raw HTTP class now reuses the neutral HTTP client, with its
-legacy behavior preserved. Auth adapter/worker and MailService do not yet call
-the gated common transport; blocks 4–5 must migrate every sender before claiming
-application-wide enforcement. Existing Stage 3 retry/lease/attempt semantics are
-unchanged. Tests use actual PostgreSQL services, independent clients, SQL fault
-injection and a local HTTP server rather than live Resend or mocked DB behavior.
+At the end of block 3.2 the existing auth raw HTTP class reused the neutral HTTP
+client, while auth and MailService integration remained pending. Block 4 migrates
+auth as described below; block 5 completes migration of the remaining senders. Block 3.2 tests use actual PostgreSQL services,
+independent clients, SQL fault injection and a local HTTP server.
+
+#### Auth worker integration — block 4
+
+ResendAuthenticationEmailAdapter now uses ResendMailTransportService. The old raw
+auth transport was removed from MailModule in block 4 and deleted in block 5.
+MailService notification/legacy sends use the block 5 owner described below. The auth provider port requires a
+beforeSubmission callback. The shared transport invokes it once only after a
+committed permission and before HTTP. It may refuse submission with
+NOT_SUBMITTED. Auth uses this callback to re-read challenge/envelope and perform
+startProcessingAttempt under a fresh owned lease. Challenge -> Delivery row-lock
+order and time sampled after waits preserve consumption/lease guards; the new
+start/defer decisions ceil PostgreSQL time to milliseconds rather than allowing
+submission early through timestamp truncation. No DB lock crosses HTTP I/O.
+Already terminal/unavailable proof cancels the owned Delivery; a stale owner
+cannot submit or mutate its successor. Once HTTP has returned ACCEPTED, later
+challenge consumption does not turn acceptance into a retry or cancellation.
+
+The additive processingAttemptStarted field is false for an unstarted lease and
+true after one charged processing start. Claim/reclaim never increments the
+counter. Reclaim preserves any previously charged count and attemptedAt; the new
+owner charges its own next start. This keeps five attempts, 5/15/30/60-second
+backoff with existing jitter, stable idempotency and deterministic payload, while
+excluding capacity-only claims from the budget. Preparation/decryption/template
+failures and classified pre-submission transient failures still charge their
+processing attempt. No decrement/refund, second queue, proof rotation or new
+Delivery admission charge is introduced. Unknown start commit does not permit
+HTTP or free release of a possibly charged lease; lease-expiry recovery preserves
+the persisted count.
+
+DEFERRED, PAUSED and technical pre-submission UNAVAILABLE release only an owned,
+unexpired, unstarted lease to PENDING. They preserve attemptedAt, attemptCount,
+lastSafeFailureCode, proof, payload version and idempotency. Timed capacity is
+persisted as ceil(retryNotBeforeMicros / 1000) milliseconds; gate rechecks the exact
+boundary. Scheduling is capped at the first millisecond after the challenge's
+minimum-validity cutoff so long pauses cannot strand unfinished work. Claim also
+selects unavailable/window-closed challenges even when their schedule is future,
+so cancellation progresses without provider permission. Monthly/technical
+unknown recovery uses the existing worker interval as a local recheck time, not
+as a provider reset promise. The actual shared monthly block still controls all
+submission permissions.
+
+Worker summaries distinguish deferredCount from retries/failures. Shared capacity
+deferral stops further claims in all lanes of that cycle; already leased lanes
+finish normally. A single unref'ed capacity timer preserves subsecond wakeup,
+never overlaps active cycles and is stopped with the ordinary interval during
+shutdown. The base interval still handles unknown recovery, queue maintenance
+and expired leases. A successful shared permission is still spent if final auth
+validation refuses HTTP; it is never refunded.
+
+An actual rate/daily/monthly provider rejection consumes the started attempt and
+uses the existing retry owner/backoff. Subsequent capacity waiting is free.
+Adapter quota codes stay distinct from generic rate limiting and conservatively
+retain AMBIGUOUS_RETRY; SAFE_RETRY remains reserved for explicit rate limiting.
+Committed shared
+Retry-After/quota state applies to all subsequent Deliveries and retries.
+Transport ambiguity remains ambiguous, with the same provider key/payload and
+five-attempt budget. Pressure persistence failure is safely logged as its own
+technical event; ACCEPTED is preserved, while rejected responses retain the
+provider retry hint and an ambiguous RESEND_PRESSURE_PERSISTENCE_FAILED code.
+The response/persistence crash gap described in block 3.2 is not claimed solved.
+
+Migration rollout requires stopping/draining old delivery workers before applying
+20261112040000_separate_auth_delivery_lease_attempt and starting the new version.
+It marks existing positive-count PROCESSING rows as already charged and does not
+rewrite counts, proof or scheduling. The new CHECK prevents a started flag on
+non-PROCESSING/zero-count rows. Do not run mixed worker versions: old transitions
+do not clear this flag. Real PostgreSQL/HTTP checks cover independent workers,
+no-charge waits, recovery before/after start, five ambiguous attempts, SQL rollback,
+post-gate lifecycle/lease races and accepted-send persistence failure. These
+checks establish integration behavior, not production throughput or live-provider
+fault/load results, which remain later verification work.
+
+#### Durable notification/legacy mail — block 5
+
+All nine former MailService SDK send paths now enqueue NotificationDelivery work;
+only ResendMailHttpClient performs provider HTTP, invoked by the common gated
+transport. The unused raw auth transport is removed. Existing sendXEmail method
+names are retained internally, but their string result is a durable job ID,
+never a provider acceptance ID. NotificationService and
+AccountDeletionNotificationService prepare owned snapshots and enqueue with
+stable domain-event keys; they no longer mark a newly queued job SENT. Existing
+HTTP fields/codes remain; the legacy verification success message explicitly says
+queued, and its existing verificationEmailSentAt column now records acceptance
+into the queue for the unchanged legacy resend cooldown. Password templates and
+legacy endpoint removal retain their later roadmap owners.
+
+NotificationDelivery remains the sole notification mail work/audit record.
+mailQueuedAt distinguishes new managed jobs from historical metadata. The row
+stores mailExpiresAt, a versioned authenticated envelope, next eligibility,
+processing lease, attempt counter and started flag. One transaction serializes
+an enqueue key, resolves existing work or creates a complete encrypted snapshot;
+a crash cannot commit a managed row without its snapshot. A repeat never changes
+the persisted content/deadline/key or resurrects terminal work. A lost enqueue
+commit acknowledgement may report unavailability, but repeating the same domain
+key resolves the committed row rather than creating another send. Auth Delivery
+uses its existing queue and is never copied here.
+
+AES-256-GCM uses independent MAIL_DELIVERY_ENCRYPTION_KEYS (32-byte canonical
+base64 entries) and MAIL_DELIVERY_ENCRYPTION_ACTIVE_KEY_VERSION, a random 12-byte
+IV and 16-byte authentication tag. Protocol 1 authenticates a domain-separated
+JSON tuple containing protocol/key versions, job ID, domain idempotency key,
+notification type, recipient and absolute expiry. Content and optional proof
+guard are encrypted together. Plaintext is transient; no raw verification/reset
+secret is stored in row fields, idempotency keys or logs. These high-entropy
+legacy-token hashes do not replace the versioned keyed OTP/link protocol, which
+is unchanged. Missing retained keys/unknown protocol cause technical deferral
+without dropping work; corrupt envelopes fail closed. Keep older key versions
+available while pending/restorable jobs require them. Terminal success/failure
+wipes ciphertext, IV, tag and envelope versions while retaining the existing
+privacy/retention-governed audit metadata.
+
+Legacy verification and password-reset jobs carry encrypted owner/token-hash
+bindings. Enqueue derives the deadline from the actual current source record;
+after gate waits and before HTTP, processing rechecks token expiry, replacement,
+consumption/invalidation, owner/email and applicable account state. Unavailable
+proof becomes MAIL_PROOF_UNAVAILABLE without sending. New legacy verification
+uses the explicit LEGACY_EMAIL_VERIFICATION notification type. Passwordless OTP
+and magic-link emails never enter these legacy guard/snapshot paths.
+
+MAIL_DELIVERY_MAX_AGE_SECONDS has the accepted starting value 82800 (23 hours)
+and must be below the 86400-second provider idempotency window and covered by
+notification retention. A token's actual expiry may shorten it. Persisted age
+starts at DB-authoritative enqueue time and is not extended on claim/retry.
+Provider submission always uses the job ID as its stable idempotency key and
+the exact stored content. Once the window closes, terminalize and wipe work
+rather than inventing a new key or sending early. Five started processing
+attempts use fixed 5/15/30/60-second post-completion backoff; valid Retry-After
+can only extend it. Unknown HTTP/transport outcomes remain conservative retries;
+only known request/auth/configuration rejections terminalize immediately.
+
+MailDeliveryWorkerService is a bounded non-overlapping single lane per replica,
+with SKIP LOCKED claims, UUID leases and conditional owner transitions. Leasing
+and gate waiting do not charge attempts or overwrite attemptedAt/failureCode.
+The common beforeSubmission hook checks the fresh lease, deadline and proof
+before atomically marking a started attempt. A crash after that commit spends
+the attempt; a crash before it does not. Reclaim preserves the charged counter
+and prior attemptedAt, never refunds it and never starts a sixth attempt. No DB
+lock spans HTTP. A stale lease cannot mutate a replacement. Shared capacity,
+monthly quota or pre-submission technical unavailability preserves PENDING work;
+unknown recovery uses a local poll, not a claimed provider reset. Timed deferral
+ceils absolute microseconds to milliseconds and caps wakeup at expiry. The
+existing interval and an unref'ed subsecond capacity timer stop on shutdown;
+shutdown drains active work. Initial settings are lease 45 seconds, HTTP timeout
+10 seconds, worker interval 1 second and at most 20 claims per cycle, with
+validated execution bounds.
+
+An observed ACCEPTED response is never reclassified as provider failure because
+pressure/status persistence failed. Pressure recording failures get a safe event;
+if the SENT write itself fails, the charged lease remains for idempotent recovery.
+This does not claim atomic provider/database commit, exact network-arrival
+spacing, or elimination of the block 3.2 response/persistence crash gap.
+
+Completion mail is fully snapshotted inside the account-finalization transaction
+before anonymization and retains its original recipient. Its previous separate
+retry/dispatch owner is removed: only the mail worker retries. The existing
+finalization summary retriedCompletionDeliveries remains zero for compatibility;
+it no longer counts worker attempts. Other post-commit notifications become
+reliable once enqueue commits; this block does not promise recovery from a crash
+before their enqueue or introduce a universal event outbox. Notification retention
+cleanup skips active mail leases. Existing rows without mailQueuedAt/envelopes
+are preserved unchanged and never guessed/replayed; a duplicate pending/failed
+historical key reports enqueue unavailability instead of false queued success.
+Such historical work needs explicit review before rollout.
+
+Migration 20261112050000_add_durable_notification_mail is additive and changes no
+existing notification state/content. CHECK constraints enforce whole envelopes,
+lease/attempt coherence, terminal wiping, five attempts and a sub-24-hour window.
+Stop/drain older application workers/finalizers before migration, configure the
+independent mail keyring on every replica, then restart the new version. Do not
+mix synchronous legacy notification owners with the queued implementation.
+
+Tests cover real PostgreSQL, two independent Nest/Prisma instances and local HTTP:
+complete/deduplicated enqueue, encrypted token storage and guards, quota waiting,
+lease recovery before/after attempt start, stable ambiguous retries, expiry,
+key unavailability/tampering, transaction rollback, post-gate proof changes,
+accepted-but-unrecorded recovery, completion after anonymization, auth competition
+and additive migration preservation. HTTP account/session/recovery tests now
+assert actual persisted PENDING enqueue with background sending disabled; the
+separate worker/HTTP suite exercises real sending and transitions without DB or
+provider-service mocks. Tests and fault fixtures do not establish live-provider
+idempotency, real process/commit-ack loss, production throughput or rollout
+readiness; block 6 and Iteration 7 retain their respective verification owners.
 
 Device metadata is informational and spoofable. It contributes to throttling
 and risk context but is never identity proof.

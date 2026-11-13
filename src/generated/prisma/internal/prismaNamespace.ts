@@ -1855,6 +1855,7 @@ export const AuthenticationChallengeDeliveryScalarFieldEnum = {
   idempotencyKey: 'idempotencyKey',
   templateProtocolVersion: 'templateProtocolVersion',
   attemptCount: 'attemptCount',
+  processingAttemptStarted: 'processingAttemptStarted',
   nextAttemptAt: 'nextAttemptAt',
   processingLeaseId: 'processingLeaseId',
   processingLeaseExpiresAt: 'processingLeaseExpiresAt',
@@ -1969,7 +1970,19 @@ export const NotificationDeliveryScalarFieldEnum = {
   sentAt: 'sentAt',
   retentionExpiresAt: 'retentionExpiresAt',
   createdAt: 'createdAt',
-  updatedAt: 'updatedAt'
+  updatedAt: 'updatedAt',
+  mailQueuedAt: 'mailQueuedAt',
+  mailExpiresAt: 'mailExpiresAt',
+  mailPayload: 'mailPayload',
+  mailIv: 'mailIv',
+  mailTag: 'mailTag',
+  mailProtocol: 'mailProtocol',
+  mailKeyVersion: 'mailKeyVersion',
+  mailAttemptCount: 'mailAttemptCount',
+  mailAttemptStarted: 'mailAttemptStarted',
+  mailNextAttemptAt: 'mailNextAttemptAt',
+  mailLeaseId: 'mailLeaseId',
+  mailLeaseExpiresAt: 'mailLeaseExpiresAt'
 } as const
 
 export type NotificationDeliveryScalarFieldEnum = (typeof NotificationDeliveryScalarFieldEnum)[keyof typeof NotificationDeliveryScalarFieldEnum]

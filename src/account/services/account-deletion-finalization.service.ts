@@ -1,6 +1,6 @@
 import { randomBytes } from 'crypto';
 
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
 import { Prisma } from '../../generated/prisma/client';
@@ -24,7 +24,6 @@ export type AccountDeletionFinalizationSummary = {
 
 @Injectable()
 export class AccountDeletionFinalizationService {
-  private readonly logger = new Logger(AccountDeletionFinalizationService.name);
   private readonly batchSize: number;
 
   constructor(
@@ -41,8 +40,8 @@ export class AccountDeletionFinalizationService {
   }
 
   async run(): Promise<AccountDeletionFinalizationSummary> {
-    const retriedCompletionDeliveries =
-      await this.notificationService.retryDeletionCompleted(this.batchSize);
+    // Notification mail retries belong exclusively to MailDeliveryWorkerService.
+    const retriedCompletionDeliveries = 0;
     let finalizedAccounts = 0;
 
     while (true) {
@@ -61,17 +60,6 @@ export class AccountDeletionFinalizationService {
       const result = await this.finalizeNext(now);
       if (!result) break;
       finalized++;
-
-      try {
-        await this.notificationService.sendPreparedDeletionCompleted(
-          result.notificationDeliveryId,
-        );
-      } catch (error) {
-        this.logger.error(
-          'Failed to dispatch a prepared account-deleted notification.',
-          error instanceof Error ? error.stack : undefined,
-        );
-      }
     }
 
     return finalized;

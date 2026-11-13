@@ -23,112 +23,39 @@ export class NotificationService {
     userId: string,
     sessionId: string,
   ): Promise<void> {
-    const session = await this.findSession(userId, sessionId).catch((error) => {
-      this.logFailure('Failed to prepare a new-session notification.', error);
-      return null;
+    await this.queueSafely(async () => {
+      const session = await this.findSession(userId, sessionId);
+      if (!session) return;
+      await this.mailService.sendNewSessionEmail(
+        {
+          recipient: session.user.email,
+          idempotencyKey: `NEW_SESSION:${sessionId}`,
+          occurredAt: session.createdAt,
+          deviceModel: session.deviceModel,
+          platform: session.platform,
+          osVersion: session.osVersion,
+          appVersion: session.appVersion,
+          locationCountryCode: session.locationCountryCode,
+          locationCity: session.locationCity,
+          riskLevel: session.subjectSecurityEvents[0]?.riskLevel ?? null,
+          riskSignals: session.subjectSecurityEvents[0]?.riskSignals ?? [],
+        },
+        { userId, sessionId },
+      );
     });
-
-    if (!session) {
-      return;
-    }
-
-    let delivery: { id: string } | null;
-
-    try {
-      delivery = await this.deliveryService.createIdempotent({
-        idempotencyKey: `NEW_SESSION:${sessionId}`,
-        type: 'NEW_SESSION',
-        userId,
-        sessionId,
-        recipient: session.user.email,
-      });
-    } catch (error) {
-      this.logFailure('Failed to create a notification delivery.', error);
-      return;
-    }
-    if (!delivery) return;
-
-    const attemptedAt = new Date();
-
-    try {
-      const providerMessageId = await this.mailService.sendNewSessionEmail({
-        recipient: session.user.email,
-        idempotencyKey: delivery.id,
-        occurredAt: session.createdAt,
-        deviceModel: session.deviceModel,
-        platform: session.platform,
-        osVersion: session.osVersion,
-        appVersion: session.appVersion,
-        locationCountryCode: session.locationCountryCode,
-        locationCity: session.locationCity,
-        riskLevel: session.subjectSecurityEvents[0]?.riskLevel ?? null,
-        riskSignals: session.subjectSecurityEvents[0]?.riskSignals ?? [],
-      });
-
-      try {
-        await this.deliveryService.markSent({
-          deliveryId: delivery.id,
-          providerMessageId,
-          attemptedAt,
-        });
-      } catch (error) {
-        this.logFailure('Failed to save a successful email delivery.', error);
-      }
-    } catch (error) {
-      try {
-        await this.deliveryService.markFailed({
-          deliveryId: delivery.id,
-          attemptedAt,
-          failureCode: 'EMAIL_DELIVERY_FAILED',
-        });
-      } catch (statusError) {
-        this.logFailure('Failed to save a failed email delivery.', statusError);
-      }
-
-      this.logFailure('Failed to send a new-session email.', error);
-    }
   }
-
   async sendSuspiciousActivityNotification(
     userId: string,
     sessionId: string,
     risk: RiskAssessment,
   ): Promise<void> {
-    const session = await this.findSession(userId, sessionId).catch((error) => {
-      this.logFailure('Failed to prepare a suspicious-activity alert.', error);
-      return null;
-    });
-
-    if (!session) {
-      return;
-    }
-
-    let delivery: { id: string } | null;
-
-    try {
-      delivery = await this.deliveryService.createIdempotent({
-        idempotencyKey: `SUSPICIOUS_ACTIVITY:${sessionId}`,
-        type: 'SUSPICIOUS_ACTIVITY',
-        userId,
-        sessionId,
-        recipient: session.user.email,
-      });
-    } catch (error) {
-      this.logFailure(
-        'Failed to create a suspicious-activity delivery.',
-        error,
-      );
-      return;
-    }
-    if (!delivery) return;
-
-    const attemptedAt = new Date();
-
-    try {
-      const providerMessageId =
-        await this.mailService.sendSuspiciousActivityEmail({
+    await this.queueSafely(async () => {
+      const session = await this.findSession(userId, sessionId);
+      if (!session) return;
+      await this.mailService.sendSuspiciousActivityEmail(
+        {
           recipient: session.user.email,
-          idempotencyKey: delivery.id,
+          idempotencyKey: `SUSPICIOUS_ACTIVITY:${sessionId}`,
           occurredAt: new Date(),
           deviceModel: session.deviceModel,
           platform: session.platform,
@@ -138,58 +65,25 @@ export class NotificationService {
           locationCity: session.locationCity,
           riskLevel: risk.level,
           riskSignals: risk.signals,
-        });
-
-      await this.updateSuccessfulDelivery(
-        delivery.id,
-        providerMessageId,
-        attemptedAt,
+        },
+        { userId, sessionId },
       );
-    } catch (error) {
-      await this.updateFailedDelivery(delivery.id, attemptedAt);
-      this.logFailure('Failed to send a suspicious-activity email.', error);
-    }
+    });
   }
-
   async sendPasswordChangedNotification(
     userId: string,
     securityEventId: string,
   ): Promise<void> {
-    const event = await this.findPasswordChangedEvent(
-      userId,
-      securityEventId,
-    ).catch((error) => {
-      this.logFailure('Failed to prepare a password-change alert.', error);
-      return null;
-    });
-
-    if (!event?.user) {
-      return;
-    }
-
-    let delivery: { id: string } | null;
-
-    try {
-      delivery = await this.deliveryService.createIdempotent({
-        idempotencyKey: `PASSWORD_CHANGED:${securityEventId}`,
-        type: 'PASSWORD_CHANGED',
+    await this.queueSafely(async () => {
+      const event = await this.findPasswordChangedEvent(
         userId,
-        sessionId: event.actorSessionId,
-        recipient: event.user.email,
-      });
-    } catch (error) {
-      this.logFailure('Failed to create a password-change delivery.', error);
-      return;
-    }
-    if (!delivery) return;
-
-    const attemptedAt = new Date();
-
-    try {
-      const providerMessageId = await this.mailService.sendPasswordChangedEmail(
+        securityEventId,
+      );
+      if (!event?.user) return;
+      await this.mailService.sendPasswordChangedEmail(
         {
           recipient: event.user.email,
-          idempotencyKey: delivery.id,
+          idempotencyKey: `PASSWORD_CHANGED:${securityEventId}`,
           occurredAt: event.occurredAt,
           deviceModel: event.deviceModel,
           platform: event.platform,
@@ -199,19 +93,10 @@ export class NotificationService {
           locationCity: event.locationCity,
           revokedSessionsCount: event.affectedSessionCount ?? 0,
         },
+        { userId, sessionId: event.actorSessionId },
       );
-
-      await this.updateSuccessfulDelivery(
-        delivery.id,
-        providerMessageId,
-        attemptedAt,
-      );
-    } catch (error) {
-      await this.updateFailedDelivery(delivery.id, attemptedAt);
-      this.logFailure('Failed to send a password-change email.', error);
-    }
+    });
   }
-
   async deleteExpired(now: Date = new Date()): Promise<number> {
     return this.deliveryService.deleteExpired(now);
   }
@@ -222,58 +107,51 @@ export class NotificationService {
     rawToken: string,
     expiresInSeconds: number,
   ): Promise<void> {
-    const token = await this.prisma.passwordResetToken.findFirst({
-      where: { id: tokenId, userId },
-      select: { user: { select: { email: true } } },
-    });
-    if (!token) return;
-
-    await this.deliverPasswordReset(
-      `PASSWORD_RESET_REQUEST:${tokenId}`,
-      'PASSWORD_RESET_REQUEST',
-      userId,
-      token.user.email,
-      (deliveryId) =>
-        this.mailService.sendPasswordResetRequestEmail({
+    await this.queueSafely(async () => {
+      const token = await this.prisma.passwordResetToken.findFirst({
+        where: { id: tokenId, userId },
+        select: { user: { select: { email: true } } },
+      });
+      if (!token) return;
+      await this.mailService.sendPasswordResetRequestEmail(
+        {
           recipient: token.user.email,
-          idempotencyKey: deliveryId,
+          idempotencyKey: `PASSWORD_RESET_REQUEST:${tokenId}`,
           token: rawToken,
           expiresInSeconds,
-        }),
-    );
+          tokenId,
+          userId,
+        },
+        { userId },
+      );
+    });
   }
-
   async sendPasswordResetCompletedNotification(
     userId: string,
     eventId: string,
   ): Promise<void> {
-    const event = await this.prisma.securityEvent.findFirst({
-      where: { id: eventId, userId, type: 'PASSWORD_RESET_COMPLETED' },
-      select: {
-        occurredAt: true,
-        ipAddress: true,
-        userAgent: true,
-        deviceModel: true,
-        platform: true,
-        osVersion: true,
-        appVersion: true,
-        locationCountryCode: true,
-        locationCity: true,
-        affectedSessionCount: true,
-        user: { select: { email: true } },
-      },
-    });
-    if (!event?.user) return;
-
-    await this.deliverPasswordReset(
-      `PASSWORD_RESET_COMPLETED:${eventId}`,
-      'PASSWORD_RESET_COMPLETED',
-      userId,
-      event.user.email,
-      (deliveryId) =>
-        this.mailService.sendPasswordResetCompletedEmail({
-          recipient: event.user!.email,
-          idempotencyKey: deliveryId,
+    await this.queueSafely(async () => {
+      const event = await this.prisma.securityEvent.findFirst({
+        where: { id: eventId, userId, type: 'PASSWORD_RESET_COMPLETED' },
+        select: {
+          occurredAt: true,
+          ipAddress: true,
+          userAgent: true,
+          deviceModel: true,
+          platform: true,
+          osVersion: true,
+          appVersion: true,
+          locationCountryCode: true,
+          locationCity: true,
+          affectedSessionCount: true,
+          user: { select: { email: true } },
+        },
+      });
+      if (!event?.user) return;
+      await this.mailService.sendPasswordResetCompletedEmail(
+        {
+          recipient: event.user.email,
+          idempotencyKey: `PASSWORD_RESET_COMPLETED:${eventId}`,
           occurredAt: event.occurredAt,
           ipAddress: event.ipAddress,
           userAgent: event.userAgent,
@@ -284,45 +162,11 @@ export class NotificationService {
           locationCountryCode: event.locationCountryCode,
           locationCity: event.locationCity,
           revokedSessionsCount: event.affectedSessionCount ?? 0,
-        }),
-    );
-  }
-
-  private async deliverPasswordReset(
-    idempotencyKey: string,
-    type: 'PASSWORD_RESET_REQUEST' | 'PASSWORD_RESET_COMPLETED',
-    userId: string,
-    recipient: string,
-    send: (deliveryId: string) => Promise<string>,
-  ): Promise<void> {
-    let delivery: { id: string } | null;
-    try {
-      delivery = await this.deliveryService.createIdempotent({
-        idempotencyKey,
-        type,
-        userId,
-        recipient,
-      });
-    } catch (error) {
-      this.logFailure('Failed to create a password-reset delivery.', error);
-      return;
-    }
-    if (!delivery) return;
-
-    const attemptedAt = new Date();
-    try {
-      const providerMessageId = await send(delivery.id);
-      await this.updateSuccessfulDelivery(
-        delivery.id,
-        providerMessageId,
-        attemptedAt,
+        },
+        { userId },
       );
-    } catch (error) {
-      await this.updateFailedDelivery(delivery.id, attemptedAt);
-      this.logFailure('Failed to send a password-reset email.', error);
-    }
+    });
   }
-
   private findSession(userId: string, sessionId: string) {
     return this.prisma.session.findFirst({
       where: { id: sessionId, userId },
@@ -370,41 +214,11 @@ export class NotificationService {
     });
   }
 
-  private async updateSuccessfulDelivery(
-    deliveryId: string,
-    providerMessageId: string,
-    attemptedAt: Date,
-  ): Promise<void> {
+  private async queueSafely(work: () => Promise<void>): Promise<void> {
     try {
-      await this.deliveryService.markSent({
-        deliveryId,
-        providerMessageId,
-        attemptedAt,
-      });
-    } catch (error) {
-      this.logFailure('Failed to save a successful email delivery.', error);
+      await work();
+    } catch {
+      this.logger.error({ event: 'NOTIFICATION_MAIL_ENQUEUE_FAILED' });
     }
-  }
-
-  private async updateFailedDelivery(
-    deliveryId: string,
-    attemptedAt: Date,
-  ): Promise<void> {
-    try {
-      await this.deliveryService.markFailed({
-        deliveryId,
-        attemptedAt,
-        failureCode: 'EMAIL_DELIVERY_FAILED',
-      });
-    } catch (error) {
-      this.logFailure('Failed to save a failed email delivery.', error);
-    }
-  }
-
-  private logFailure(message: string, error: unknown): void {
-    this.logger.error(
-      message,
-      error instanceof Error ? error.stack : undefined,
-    );
   }
 }

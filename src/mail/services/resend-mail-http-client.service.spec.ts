@@ -1,9 +1,9 @@
 import { ConfigService } from '@nestjs/config';
 
 import type { AuthenticationEmailSubmission } from '../../auth/delivery/types/authentication-email-provider.type';
-import { ResendAuthenticationEmailTransportService } from './resend-authentication-email-transport.service';
+import { ResendMailHttpClient } from './resend-mail-http-client.service';
 
-describe('ResendAuthenticationEmailTransportService', () => {
+describe('ResendMailHttpClient', () => {
   const submission: AuthenticationEmailSubmission = {
     content: {
       recipient: 'student@example.edu',
@@ -27,12 +27,12 @@ describe('ResendAuthenticationEmailTransportService', () => {
   const fetchMock = jest.fn();
   const originalFetch = global.fetch;
 
-  let service: ResendAuthenticationEmailTransportService;
+  let service: ResendMailHttpClient;
 
   beforeEach(() => {
     fetchMock.mockReset();
     global.fetch = fetchMock;
-    service = new ResendAuthenticationEmailTransportService({
+    service = new ResendMailHttpClient({
       getOrThrow: jest.fn(() => 'test-api-key'),
     } as unknown as ConfigService);
   });

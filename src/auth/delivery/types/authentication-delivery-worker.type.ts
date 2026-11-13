@@ -4,6 +4,7 @@ export type AuthenticationDeliveryWorkerSummary = Readonly<{
   reclaimedClaimCount: number;
   sentCount: number;
   retryScheduledCount: number;
+  deferredCount: number;
   failedCount: number;
   cancelledCount: number;
   leaseLostCount: number;

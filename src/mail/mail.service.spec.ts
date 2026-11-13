@@ -1,241 +1,93 @@
 import { ConfigService } from '@nestjs/config';
 
 import { MailDeliveryError } from '../common/errors/mail-delivery.error';
+import type {
+  MailTransaction,
+  QueueMailInput,
+} from './types/mail-delivery.type';
+import { MailDeliveryRepository } from './repositories/mail-delivery.repository';
 import { MailService } from './mail.service';
 
-describe('MailService new-session email', () => {
-  const configService = {
-    getOrThrow: jest.fn((key: string) => {
-      const values: Record<string, string> = {
-        RESEND_API_KEY: 'test-api-key',
-        MAIL_FROM: 'Unicon <test@unicon.local>',
-        CLIENT_URL: 'http://localhost:3001',
-      };
-
-      return values[key];
-    }),
-  };
-  const send = jest.fn();
-
+describe('MailService durable rendering', () => {
+  const enqueue = jest.fn<
+    Promise<string>,
+    [QueueMailInput, MailTransaction?]
+  >();
   let service: MailService;
-
+  const notification = {
+    recipient: 'student@example.edu',
+    idempotencyKey: 'NEW_SESSION:session-id',
+    occurredAt: new Date('2026-08-09T12:00:00Z'),
+    deviceModel: 'iPhone',
+    platform: 'IOS' as const,
+    osVersion: '18',
+    appVersion: '1',
+    locationCountryCode: 'CA',
+    locationCity: 'Toronto',
+    riskLevel: 'HIGH' as const,
+    riskSignals: ['NEW_COUNTRY' as const],
+  };
   beforeEach(() => {
-    jest.clearAllMocks();
-    service = new MailService(configService as unknown as ConfigService);
-    Object.defineProperty(service, 'resend', {
-      value: { emails: { send } },
-    });
-  });
-
-  it('sends a plain-text session notification with an idempotency key', async () => {
-    send.mockResolvedValue({ data: { id: 'provider-id' }, error: null });
-
-    await expect(
-      service.sendNewSessionEmail({
-        recipient: 'student@example.edu',
-        idempotencyKey: 'delivery-id',
-        occurredAt: new Date('2026-08-09T12:00:00.000Z'),
-        deviceModel: 'iPhone 16 Pro',
-        platform: 'IOS',
-        osVersion: '18.6',
-        appVersion: '1.4.2',
-        locationCountryCode: 'CA',
-        locationCity: 'Toronto',
-        riskLevel: 'MEDIUM',
-        riskSignals: ['NEW_DEVICE', 'NEW_COUNTRY'],
+    enqueue.mockReset().mockResolvedValue('job-id');
+    service = new MailService(
+      new ConfigService({
+        MAIL_FROM: 'Unicon <test@example.edu>',
+        CLIENT_URL: 'https://example.edu',
       }),
-    ).resolves.toBe('provider-id');
-
-    expect(send).toHaveBeenCalledWith(
-      {
-        from: 'Unicon <test@unicon.local>',
-        to: ['student@example.edu'],
-        subject: 'New sign-in to your Unicon account',
-        text: [
-          'A new session was created for your Unicon account.',
-          '',
-          'Time: 2026-08-09T12:00:00.000Z',
-          'Platform: IOS',
-          'Device: iPhone 16 Pro',
-          'OS version: 18.6',
-          'App version: 1.4.2',
-          'Approximate location: Toronto, CA',
-          'Risk level: MEDIUM',
-          'Security signal: New device',
-          'Security signal: New country',
-          '',
-          'If this was not you, review and revoke the session in your account settings.',
-        ].join('\n'),
-      },
-      { idempotencyKey: 'delivery-id' },
+      { enqueue } as unknown as MailDeliveryRepository,
     );
   });
-
-  it('normalizes provider failures', async () => {
-    send.mockResolvedValue({
-      data: null,
-      error: { message: 'Provider unavailable.' },
-    });
-
-    await expect(
-      service.sendNewSessionEmail({
-        recipient: 'student@example.edu',
-        idempotencyKey: 'delivery-id',
-        occurredAt: new Date('2026-08-09T12:00:00.000Z'),
-        deviceModel: null,
-        platform: 'WEB',
-        osVersion: null,
-        appVersion: null,
-        locationCountryCode: null,
-        locationCity: null,
-        riskLevel: null,
-        riskSignals: [],
+  it('renders stable content and returns the durable job ID without claiming provider acceptance', async () => {
+    expect(
+      await service.sendNewSessionEmail(notification, {
+        userId: 'user-id',
+        sessionId: 'session-id',
       }),
+    ).toBe('job-id');
+    const first: unknown = enqueue.mock.calls[0][0];
+    await service.sendNewSessionEmail(notification, {
+      userId: 'user-id',
+      sessionId: 'session-id',
+    });
+    expect(enqueue.mock.calls[1][0]).toEqual(first);
+    expect(first).toMatchObject({
+      type: 'NEW_SESSION',
+      idempotencyKey: notification.idempotencyKey,
+      userId: 'user-id',
+      sessionId: 'session-id',
+      content: {
+        recipient: notification.recipient,
+        from: 'Unicon <test@example.edu>',
+        text: expect.stringContaining(
+          'Approximate location: Toronto, CA',
+        ) as string,
+      },
+    });
+  });
+  it('binds legacy verification to a hashed proof guard, never to a raw-token idempotency key', async () => {
+    await service.sendVerificationEmail(
+      notification.recipient,
+      'temporary-proof',
+      'user-id',
+    );
+    expect(enqueue.mock.calls[0][0]).toMatchObject({
+      type: 'LEGACY_EMAIL_VERIFICATION',
+      guard: { kind: 'VERIFICATION', userId: 'user-id' },
+    });
+    const queued = enqueue.mock.calls[0][0] as {
+      idempotencyKey: string;
+      guard: { tokenHash: string };
+    };
+    expect(queued.idempotencyKey).not.toContain('temporary-proof');
+    expect(queued.guard.tokenHash).toHaveLength(64);
+  });
+  it('sanitizes enqueue failures without retaining a provider/database cause', async () => {
+    enqueue.mockRejectedValue(new Error('private connection string'));
+    await expect(
+      service.sendNewSessionEmail(notification),
     ).rejects.toBeInstanceOf(MailDeliveryError);
-  });
-
-  it('sends a plain-text password-change notification', async () => {
-    send.mockResolvedValue({ data: { id: 'provider-id' }, error: null });
-
     await expect(
-      service.sendPasswordChangedEmail({
-        recipient: 'student@example.edu',
-        idempotencyKey: 'delivery-id',
-        occurredAt: new Date('2026-08-16T12:00:00.000Z'),
-        deviceModel: 'iPhone 16 Pro',
-        platform: 'IOS',
-        osVersion: '18.6',
-        appVersion: '1.4.2',
-        locationCountryCode: 'CA',
-        locationCity: 'Toronto',
-        revokedSessionsCount: 2,
-      }),
-    ).resolves.toBe('provider-id');
-
-    expect(send).toHaveBeenCalledWith(
-      {
-        from: 'Unicon <test@unicon.local>',
-        to: ['student@example.edu'],
-        subject: 'Your Unicon password was changed',
-        text: [
-          'The password for your Unicon account was changed.',
-          '',
-          'Time: 2026-08-16T12:00:00.000Z',
-          'Platform: IOS',
-          'Device: iPhone 16 Pro',
-          'OS version: 18.6',
-          'App version: 1.4.2',
-          'Approximate location: Toronto, CA',
-          'Other sessions signed out: 2',
-          '',
-          'If this was not you, contact Unicon support immediately.',
-        ].join('\n'),
-      },
-      { idempotencyKey: 'delivery-id' },
-    );
-  });
-
-  it('sends a deletion-request notification with its deadline', async () => {
-    send.mockResolvedValue({ data: { id: 'provider-id' }, error: null });
-
-    await expect(
-      service.sendAccountDeletionRequestedEmail({
-        recipient: 'student@example.edu',
-        idempotencyKey: 'delivery-id',
-        occurredAt: new Date('2026-08-17T12:00:00.000Z'),
-        deletionScheduledAt: new Date('2026-09-16T12:00:00.000Z'),
-        revokedSessionsCount: 3,
-        deviceModel: 'iPhone 16 Pro',
-        platform: 'IOS',
-        locationCountryCode: 'CA',
-        locationCity: 'Toronto',
-      }),
-    ).resolves.toBe('provider-id');
-
-    expect(send).toHaveBeenCalledWith(
-      {
-        from: 'Unicon <test@unicon.local>',
-        to: ['student@example.edu'],
-        subject: 'Your Unicon account is scheduled for deletion',
-        text: [
-          'Deletion was requested for your Unicon account.',
-          '',
-          'Requested at: 2026-08-17T12:00:00.000Z',
-          'Scheduled deletion date: 2026-09-16T12:00:00.000Z',
-          'Platform: IOS',
-          'Device: iPhone 16 Pro',
-          'Approximate location: Toronto, CA',
-          'Sessions signed out: 3',
-          '',
-          'All existing sessions were signed out immediately.',
-          'You can cancel deletion in the Unicon app before the scheduled deletion date by confirming your email and current password.',
-          'If this was not you, cancel deletion and change your password immediately.',
-        ].join('\n'),
-      },
-      { idempotencyKey: 'delivery-id' },
-    );
-  });
-
-  it('sends a deletion-cancellation notification', async () => {
-    send.mockResolvedValue({ data: { id: 'provider-id' }, error: null });
-
-    await expect(
-      service.sendAccountDeletionCancelledEmail({
-        recipient: 'student@example.edu',
-        idempotencyKey: 'delivery-id',
-        occurredAt: new Date('2026-08-17T12:00:00.000Z'),
-        deviceModel: null,
-        platform: 'WEB',
-        locationCountryCode: null,
-        locationCity: null,
-      }),
-    ).resolves.toBe('provider-id');
-
-    expect(send).toHaveBeenCalledWith(
-      {
-        from: 'Unicon <test@unicon.local>',
-        to: ['student@example.edu'],
-        subject: 'Your Unicon account deletion was cancelled',
-        text: [
-          'Deletion of your Unicon account was cancelled.',
-          '',
-          'Cancelled at: 2026-08-17T12:00:00.000Z',
-          'Platform: WEB',
-          '',
-          'A new session was created. Previously revoked sessions and tokens remain invalid.',
-          'If this was not you, change your password immediately.',
-        ].join('\n'),
-      },
-      { idempotencyKey: 'delivery-id' },
-    );
-  });
-
-  it('sends a completed-deletion notification to the retained recipient', async () => {
-    send.mockResolvedValue({ data: { id: 'provider-id' }, error: null });
-
-    await expect(
-      service.sendAccountDeletedEmail({
-        recipient: 'student@example.edu',
-        idempotencyKey: 'delivery-id',
-        occurredAt: new Date('2026-09-16T12:00:00.000Z'),
-      }),
-    ).resolves.toBe('provider-id');
-
-    expect(send).toHaveBeenCalledWith(
-      {
-        from: 'Unicon <test@unicon.local>',
-        to: ['student@example.edu'],
-        subject: 'Your Unicon account was deleted',
-        text: [
-          'Your Unicon account was permanently deleted and its identifying information was anonymized.',
-          '',
-          'Completed at: 2026-09-16T12:00:00.000Z',
-          '',
-          'The deleted account cannot be restored.',
-          'You may register the same email address again, but it will create a new account and require email verification.',
-        ].join('\n'),
-      },
-      { idempotencyKey: 'delivery-id' },
-    );
+      service.sendNewSessionEmail(notification),
+    ).rejects.not.toHaveProperty('cause');
   });
 });

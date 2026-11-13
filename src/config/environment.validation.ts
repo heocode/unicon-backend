@@ -14,6 +14,7 @@ const REQUIRED_ENVIRONMENT_VARIABLES = [
   'AUTH_CHALLENGE_HMAC_KEYS',
   'AUTH_CHALLENGE_ENCRYPTION_KEYS',
   'RATE_LIMIT_HMAC_KEYS',
+  'MAIL_DELIVERY_ENCRYPTION_KEYS',
   'AUTH_MAGIC_LINK_PUBLIC_URL',
   'AUTH_EMAIL_FROM',
 ] as const;
@@ -126,11 +127,6 @@ export function validateEnvironment(
     parsePositiveInteger(
       environment.ACCOUNT_DELETION_FINALIZATION_BATCH_SIZE,
       'ACCOUNT_DELETION_FINALIZATION_BATCH_SIZE',
-    );
-  validatedEnvironment.ACCOUNT_DELETION_COMPLETION_RETRY_SECONDS =
-    parsePositiveInteger(
-      environment.ACCOUNT_DELETION_COMPLETION_RETRY_SECONDS,
-      'ACCOUNT_DELETION_COMPLETION_RETRY_SECONDS',
     );
   validatedEnvironment.ACCOUNT_DELETION_CANCEL_WINDOW_SECONDS =
     parsePositiveInteger(
@@ -390,6 +386,79 @@ export function validateEnvironment(
     validatedEnvironment,
   );
 
+  const mailKeys = parseVersionedKeyring(
+    environment.MAIL_DELIVERY_ENCRYPTION_KEYS,
+    'MAIL_DELIVERY_ENCRYPTION_KEYS',
+    (key) => key.length === 32,
+  );
+  const mailActive = parsePositiveSafeInteger(
+    environment.MAIL_DELIVERY_ENCRYPTION_ACTIVE_KEY_VERSION,
+    'MAIL_DELIVERY_ENCRYPTION_ACTIVE_KEY_VERSION',
+  );
+  if ([...mailKeys.keys()].some((version) => version > 2147483647))
+    throw new Error(
+      'Mail encryption key versions must fit a positive database integer.',
+    );
+  assertActiveKeyExists(
+    mailKeys,
+    mailActive,
+    'MAIL_DELIVERY_ENCRYPTION_ACTIVE_KEY_VERSION',
+  );
+  const otherMailSecrets = [
+    ...hmacKeyring.values(),
+    ...encryptionKeyring.values(),
+    ...rateLimitKeyring.values(),
+    ...[
+      'JWT_ACCESS_SECRET',
+      'JWT_REFRESH_SECRET',
+      'PASSWORD_RESET_RATE_LIMIT_SECRET',
+      'ACCOUNT_DELETION_CANCEL_RATE_LIMIT_SECRET',
+    ].map((name) => Buffer.from(String(validatedEnvironment[name]))),
+  ];
+  if (
+    [...mailKeys.values()].some((key) =>
+      otherMailSecrets.some((other) => key.equals(other)),
+    )
+  )
+    throw new Error('Mail delivery encryption keys must be independent.');
+  validatedEnvironment.MAIL_DELIVERY_ENCRYPTION_KEYS = mailKeys;
+  validatedEnvironment.MAIL_DELIVERY_ENCRYPTION_ACTIVE_KEY_VERSION = mailActive;
+  for (const name of [
+    'MAIL_DELIVERY_MAX_AGE_SECONDS',
+    'MAIL_DELIVERY_LEASE_SECONDS',
+    'MAIL_DELIVERY_HTTP_TIMEOUT_SECONDS',
+    'MAIL_DELIVERY_WORKER_INTERVAL_SECONDS',
+    'MAIL_DELIVERY_WORKER_BATCH_SIZE',
+  ])
+    validatedEnvironment[name] = parsePositiveSafeInteger(
+      environment[name],
+      name,
+    );
+  if (Number(validatedEnvironment.MAIL_DELIVERY_MAX_AGE_SECONDS) >= 86400)
+    throw new Error(
+      'MAIL_DELIVERY_MAX_AGE_SECONDS must be less than the provider idempotency window.',
+    );
+  if (
+    Number(validatedEnvironment.MAIL_DELIVERY_LEASE_SECONDS) <=
+    Number(validatedEnvironment.MAIL_DELIVERY_HTTP_TIMEOUT_SECONDS)
+  )
+    throw new Error(
+      'MAIL_DELIVERY_LEASE_SECONDS must exceed the HTTP timeout.',
+    );
+  if (
+    Number(validatedEnvironment.MAIL_DELIVERY_WORKER_BATCH_SIZE) > 100 ||
+    Number(validatedEnvironment.MAIL_DELIVERY_WORKER_INTERVAL_SECONDS) > 60 ||
+    Number(validatedEnvironment.MAIL_DELIVERY_HTTP_TIMEOUT_SECONDS) > 60 ||
+    Number(validatedEnvironment.MAIL_DELIVERY_LEASE_SECONDS) > 300
+  )
+    throw new Error('Mail delivery execution bounds are invalid.');
+  if (
+    Number(validatedEnvironment.NOTIFICATION_DELIVERY_RETENTION_SECONDS) <
+    Number(validatedEnvironment.MAIL_DELIVERY_MAX_AGE_SECONDS)
+  )
+    throw new Error(
+      'Notification retention must cover the mail delivery window.',
+    );
   validatedEnvironment.AUTH_CHALLENGE_HMAC_KEYS = hmacKeyring;
   validatedEnvironment.AUTH_CHALLENGE_ENCRYPTION_KEYS = encryptionKeyring;
   validatedEnvironment.RATE_LIMIT_HMAC_KEYS = rateLimitKeyring;

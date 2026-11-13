@@ -6,5 +6,6 @@ import type {
 export abstract class AuthenticationEmailProviderPort {
   abstract submit(
     submission: AuthenticationEmailSubmission,
+    beforeSubmission: () => Promise<boolean>,
   ): Promise<AuthenticationEmailProviderResult>;
 }

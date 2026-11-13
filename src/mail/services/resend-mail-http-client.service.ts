@@ -43,8 +43,8 @@ export class ResendMailHttpClient {
         from: content.from,
         to: [content.recipient],
         subject: content.subject,
-        html: content.html,
-        text: content.text,
+        ...(content.html ? { html: content.html } : {}),
+        ...(content.text ? { text: content.text } : {}),
         attachments: content.inlineAttachments.map((attachment) => ({
           content: Buffer.from(attachment.content).toString('base64'),
           filename: attachment.filename,

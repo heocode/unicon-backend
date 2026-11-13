@@ -4,6 +4,8 @@ export type PasswordResetRequestEmail = {
   recipient: string;
   idempotencyKey: string;
   token: string;
+  tokenId: string;
+  userId: string;
   expiresInSeconds: number;
 };
 

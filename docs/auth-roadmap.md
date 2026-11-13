@@ -1228,11 +1228,55 @@ and support evidence. Telemetry outages do not change enforcement.
    client without rewriting existing domain rows. Nineteen real PostgreSQL/HTTP
    tests cover replicas, waiting/no-charge, quota recovery, lock-time freshness,
    non-shortening waits, HTTP ambiguity and SQL rollback/confirmed-abort retry.
-   Existing auth raw transport reuses the neutral HTTP client but legacy/auth
-   callers do not yet invoke the gated boundary. Their retry/lease ownership is
-   unchanged and application-wide enforcement remains pending.
-   Auth worker integration remains block 4; other senders/reliable deferral remain
-   block 5, and final integration checks remain block 6. Iteration 6 is IN PROGRESS.
+   At the end of block 3.2 auth raw transport reused the neutral HTTP client while
+   gated sender integration remained pending. Block 4 now routes auth through
+   ResendMailTransportService. It separates uncharged leases from started
+   processing attempts with processingAttemptStarted, charges once after shared
+   permission/fresh challenge+lease validation, and preserves charged crash
+   history. Internal processing failures still charge; capacity/unknown-recovery
+   waiting preserves count, attemptedAt, prior failure and stable proof/key.
+   Owned unstarted work defers without a second queue; monthly/technical recovery
+   polls at the local worker interval without inventing a provider reset time.
+   Timed deferral ceils microseconds to persistence milliseconds and is capped at
+   the validity cutoff; unavailable/window-closed challenges bypass future
+   schedules for cancellation. Shared denial stops further claims in the cycle;
+   an advisory subsecond timer preserves gate wake precision without overlapping
+   cycles and is cleared on shutdown. Actual provider rejections and ambiguous
+   retries retain the five-attempt budget/backoff and deterministic payload.
+   Pressure persistence failure is separately logged and never turns ACCEPTED
+   into a retry. An additive migration preserves existing counts and marks
+   existing positive-count PROCESSING rows charged; stop/drain old workers before
+   migration/restart, since mixed versions do not share the new flag protocol.
+   Sixteen real PostgreSQL/HTTP tests cover independent workers, waits/recovery,
+   SQL rollback, post-gate lifecycle/lease changes and five ambiguous attempts.
+   Block 5 migrates all nine remaining MailService send paths to durable
+   NotificationDelivery enqueue and the common transport. Managed rows keep an
+   immutable, separately keyed AES-256-GCM snapshot, absolute max age (starting
+   23 hours, shortened by actual proof expiry), five started attempts, scheduling
+   and conditional UUID leases. No plaintext verification/reset proof is stored;
+   legacy token guards recheck source validity/account state after gate waits.
+   Whole-snapshot enqueue, stable domain/provider keys, old-key retention,
+   terminal envelope wiping and bounded reclaim preserve work across deferral
+   and restart. Capacity/technical waiting stays free; real retries use fixed
+   5/15/30/60 backoff and honor later provider restrictions. Known acceptance is
+   preserved across pressure persistence failure; failed SENT persistence leaves
+   charged lease recovery under the same provider key/content. The account-deleted
+   snapshot commits with anonymization and the mail worker replaces its separate
+   retry owner. HTTP tests assert PENDING enqueue, never false SENT on queueing.
+   Historical rows are preserved without guessed snapshots/replays; duplicate
+   unsnapshotted pending/failed keys report enqueue unavailability. Independent
+   mail key configuration and a coordinated worker/finalizer restart are required.
+   The additive migration preserves old data and enforces envelope/lease/window
+   constraints. Real PostgreSQL/local HTTP checks cover workers, proof guards,
+   retries/recovery, rollback, quota waits, acceptance persistence and migration.
+   The last remaining Iteration 6 block is block 6 integration verification;
+   Iteration 6 is IN PROGRESS. Bulk/fault measurements remain Iteration 7.
+   Final block 5 validation: build/lint/Prisma validation pass; 1085 unit tests
+   and 451 e2e tests pass, including 24 new real PostgreSQL/local-HTTP checks.
+   All 39 migrations are applied only to a dedicated test database. Fixture
+   deadlines use DB time in the affected verification/mail suites. A separate
+   full TypeScript comparison reports no introduced diagnostics (67 pre-existing
+   diagnostics remain); this is not a claim of a clean repository-wide tsc.
    Separate aggregate admission of new Deliveries
    from actual provider submission capacity, including retries. Enforce the
    accepted auth backlog model atomically with admission, counting all PENDING/PROCESSING

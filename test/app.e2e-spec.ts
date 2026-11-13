@@ -1,3 +1,4 @@
+import { MailDeliveryWorkerService } from '../src/mail/services/mail-delivery-worker.service';
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';
@@ -39,6 +40,8 @@ describe('Application validation (e2e)', () => {
     })
       .overrideProvider(AuthService)
       .useValue(authService)
+      .overrideProvider(MailDeliveryWorkerService)
+      .useValue({})
       .compile();
 
     app = moduleFixture.createNestApplication();

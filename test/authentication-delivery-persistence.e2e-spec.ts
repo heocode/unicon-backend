@@ -242,7 +242,7 @@ describe('Authentication delivery persistence (e2e)', () => {
       data: { nextAttemptAt: new Date(Date.now() - 1_000) },
     });
     const second = await repository.claimNextDelivery();
-    expect(second?.attemptCount).toBe(2);
+    expect(second?.attemptCount).toBe(1);
     await expect(orchestration.process(second!)).resolves.toEqual({
       outcome: 'SENT',
     });
@@ -267,7 +267,7 @@ describe('Authentication delivery persistence (e2e)', () => {
     expect(recovered?.claimKind).toBe(
       AuthenticationDeliveryClaimKind.EXPIRED_LEASE_RECLAIM,
     );
-    expect(recovered?.attemptCount).toBe(2);
+    expect(recovered?.attemptCount).toBe(0);
     await expect(orchestration.process(recovered!)).resolves.toEqual({
       outcome: 'SENT',
     });
@@ -382,7 +382,7 @@ describe('Authentication delivery persistence (e2e)', () => {
 
     expect(matchingClaims).toHaveLength(1);
     expect(matchingClaims[0]).toMatchObject({
-      attemptCount: 1,
+      attemptCount: 0,
       claimKind: AuthenticationDeliveryClaimKind.NORMAL,
     });
   });
@@ -434,7 +434,7 @@ describe('Authentication delivery persistence (e2e)', () => {
 
     expect(claim).toMatchObject({
       id: delivery.id,
-      attemptCount: 2,
+      attemptCount: 1,
       claimKind: AuthenticationDeliveryClaimKind.EXPIRED_LEASE_RECLAIM,
     });
     expect(claim?.leaseId).not.toBe(staleLeaseId);
@@ -603,7 +603,7 @@ describe('Authentication delivery persistence (e2e)', () => {
     const secondClaim = await repository.claimNextDelivery();
     expect(secondClaim).toMatchObject({
       id: firstClaim!.id,
-      attemptCount: 2,
+      attemptCount: 0,
       claimKind: AuthenticationDeliveryClaimKind.NORMAL,
     });
     await expect(

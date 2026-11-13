@@ -1,12 +1,15 @@
 // NestJS
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
 // Internal ports
 import { AuthenticationEmailProviderPort } from '../../auth/delivery/ports/authentication-email-provider.port';
 
 // Internal services
-import { ResendAuthenticationEmailTransportService } from '../services/resend-authentication-email-transport.service';
+import {
+  ResendMailTransportService,
+  type ResendMailTransportResult,
+} from '../services/resend-mail-transport.service';
 
 // Internal types
 import {
@@ -15,7 +18,6 @@ import {
   AuthenticationEmailRetryKind,
   type AuthenticationEmailSubmission,
 } from '../../auth/delivery/types/authentication-email-provider.type';
-import type { ResendAuthenticationEmailTransportResponse } from '../services/resend-authentication-email-transport.service';
 
 // Internal utilities
 import { parseRetryAfterSeconds } from '../utils/parse-retry-after.util';
@@ -31,8 +33,6 @@ const RESEND_AUTHENTICATION_ERROR_NAMES = new Set([
 const RESEND_CONFIGURATION_ERROR_NAMES = new Set([
   'invalid_from_address',
   'invalid_region',
-  'monthly_quota_exceeded',
-  'daily_quota_exceeded',
 ]);
 
 const RESEND_INVALID_REQUEST_ERROR_NAMES = new Set([
@@ -48,11 +48,12 @@ const RESEND_INVALID_REQUEST_ERROR_NAMES = new Set([
 
 @Injectable()
 export class ResendAuthenticationEmailAdapter extends AuthenticationEmailProviderPort {
+  private readonly logger = new Logger(ResendAuthenticationEmailAdapter.name);
   private readonly httpTimeoutMilliseconds: number;
   private readonly authenticationEmailFrom: string;
 
   constructor(
-    private readonly transport: ResendAuthenticationEmailTransportService,
+    private readonly transport: ResendMailTransportService,
     configService: ConfigService,
   ) {
     super();
@@ -65,6 +66,7 @@ export class ResendAuthenticationEmailAdapter extends AuthenticationEmailProvide
 
   async submit(
     submission: AuthenticationEmailSubmission,
+    beforeSubmission: () => Promise<boolean>,
   ): Promise<AuthenticationEmailProviderResult> {
     if (submission.content.from !== this.authenticationEmailFrom) {
       return this.permanentFailure(
@@ -80,11 +82,25 @@ export class ResendAuthenticationEmailAdapter extends AuthenticationEmailProvide
       this.httpTimeoutMilliseconds,
     );
 
-    let response: ResendAuthenticationEmailTransportResponse;
+    let response: ResendMailTransportResult;
+    let authorized = false;
 
     try {
-      response = await this.transport.send(submission, abortController.signal);
+      response = await this.transport.send(
+        submission,
+        abortController.signal,
+        async () => {
+          authorized = await beforeSubmission();
+          return authorized;
+        },
+      );
     } catch {
+      if (!authorized) {
+        this.logger.error({
+          event: 'AUTHENTICATION_MAIL_SUBMISSION_UNAVAILABLE',
+        });
+        return { outcome: 'UNAVAILABLE' };
+      }
       return {
         outcome: 'RETRYABLE',
         retryKind: AuthenticationEmailRetryKind.AMBIGUOUS_RETRY,
@@ -94,6 +110,27 @@ export class ResendAuthenticationEmailAdapter extends AuthenticationEmailProvide
       };
     } finally {
       clearTimeout(timeout);
+    }
+
+    if (response.outcome === 'DEFERRED')
+      return {
+        outcome: 'DEFERRED',
+        retryNotBeforeMicros: response.retryNotBeforeMicros,
+      };
+    if (response.outcome === 'PAUSED')
+      return { outcome: 'PAUSED', reason: response.reason };
+    if (response.outcome === 'NOT_SUBMITTED') return response;
+    if (response.outcome === 'OUTCOME_UNKNOWN')
+      return this.ambiguousRetry(
+        abortController.signal.aborted
+          ? 'RESEND_HTTP_TIMEOUT'
+          : response.safeFailureCode,
+      );
+    if (response.pressurePersistence === 'FAILED') {
+      this.logger.error({
+        event: 'AUTHENTICATION_MAIL_PRESSURE_PERSISTENCE_FAILED',
+        providerOutcome: response.outcome,
+      });
     }
 
     if (response.outcome === 'ACCEPTED') {
@@ -109,16 +146,34 @@ export class ResendAuthenticationEmailAdapter extends AuthenticationEmailProvide
   }
 
   private classifyRejection(
-    response: Extract<
-      ResendAuthenticationEmailTransportResponse,
-      { outcome: 'REJECTED' }
-    >,
+    response: Extract<ResendMailTransportResult, { outcome: 'REJECTED' }>,
     operationNow: Date,
   ): AuthenticationEmailProviderResult {
     const retryAfterSeconds = parseRetryAfterSeconds(
       response.headers,
       operationNow,
     );
+
+    if (response.pressurePersistence === 'FAILED') {
+      return this.ambiguousRetry(
+        'RESEND_PRESSURE_PERSISTENCE_FAILED',
+        retryAfterSeconds,
+      );
+    }
+    if (
+      response.providerRestriction === 'DAILY_QUOTA' ||
+      response.providerRestriction === 'MONTHLY_QUOTA'
+    ) {
+      // Preserve the accepted SAFE_RETRY contract: only explicit rate limiting
+      // establishes it. Quotas remain conservatively ambiguous under the same
+      // stable provider key and attempt budget.
+      return this.ambiguousRetry(
+        response.providerRestriction === 'DAILY_QUOTA'
+          ? 'RESEND_DAILY_QUOTA_EXCEEDED'
+          : 'RESEND_MONTHLY_QUOTA_EXCEEDED',
+        retryAfterSeconds,
+      );
+    }
 
     if (
       response.statusCode === 429 ||

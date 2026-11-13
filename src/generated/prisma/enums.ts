@@ -139,6 +139,7 @@ export type SecurityRiskSignal = (typeof SecurityRiskSignal)[keyof typeof Securi
 
 
 export const NotificationType = {
+  LEGACY_EMAIL_VERIFICATION: 'LEGACY_EMAIL_VERIFICATION',
   NEW_SESSION: 'NEW_SESSION',
   SUSPICIOUS_ACTIVITY: 'SUSPICIOUS_ACTIVITY',
   PASSWORD_CHANGED: 'PASSWORD_CHANGED',

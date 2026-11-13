@@ -46,10 +46,10 @@ describe('Delivery admission, retention and account finalization (PostgreSQL)', 
     operationIds = new Set<string>(),
     ownedKeys = new Set<string>();
   const replicaName = `admission_lifecycle_${randomUUID().replaceAll('-', '').slice(0, 12)}`;
-  const mail = {
-    sendAccountDeletedEmail: jest
-      .fn()
-      .mockResolvedValue('test-deletion-message'),
+  let mail: {
+    sendAccountDeletedEmail: jest.SpiedFunction<
+      MailService['sendAccountDeletedEmail']
+    >;
   };
   const provider = {
     submit: jest
@@ -75,12 +75,16 @@ describe('Delivery admission, retention and account finalization (PostgreSQL)', 
 
   beforeAll(async () => {
     module = await Test.createTestingModule({ imports: [AppModule] })
-      .overrideProvider(MailService)
-      .useValue(mail)
       .overrideProvider(AuthenticationEmailProviderPort)
       .useValue(provider)
       .compile();
     prisma = module.get(PrismaService);
+    mail = {
+      sendAccountDeletedEmail: jest.spyOn(
+        module.get(MailService),
+        'sendAccountDeletedEmail',
+      ),
+    };
     const url = new URL(
       module.get(ConfigService).getOrThrow<string>('DATABASE_URL'),
     );
@@ -872,7 +876,12 @@ describe('Delivery admission, retention and account finalization (PostgreSQL)', 
           where: { userId: user.id, type: 'ACCOUNT_DELETED' },
         }),
       ).toBe(0);
-      expect(mail.sendAccountDeletedEmail).not.toHaveBeenCalled();
+      expect(mail.sendAccountDeletedEmail).toHaveBeenCalledTimes(1);
+      expect(
+        await prisma.notificationDelivery.count({
+          where: { userId: user.id, type: 'ACCOUNT_DELETED' },
+        }),
+      ).toBe(0);
     } finally {
       await prisma.$executeRawUnsafe(
         `DROP TRIGGER IF EXISTS "${trigger}" ON "User"`,

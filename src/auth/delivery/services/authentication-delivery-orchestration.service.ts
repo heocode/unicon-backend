@@ -35,6 +35,9 @@ import {
 import type { TransientChallengeDeliveryProof } from '../../challenge/types/challenge-proof.type';
 
 const INTERNAL_TRANSIENT_FAILURE_CODE = 'INTERNAL_DELIVERY_TRANSIENT';
+type ProcessingDelivery = ClaimedAuthenticationDelivery & {
+  startedInProcess: boolean;
+};
 
 @Injectable()
 export class AuthenticationDeliveryOrchestrationService {
@@ -53,8 +56,9 @@ export class AuthenticationDeliveryOrchestrationService {
   ) {}
 
   async process(
-    delivery: ClaimedAuthenticationDelivery,
+    claim: ClaimedAuthenticationDelivery,
   ): Promise<AuthenticationDeliveryOrchestrationResult> {
+    const delivery: ProcessingDelivery = { ...claim, startedInProcess: false };
     let freshState: OwnedAuthenticationDeliveryChallengeResult;
 
     try {
@@ -142,13 +146,40 @@ export class AuthenticationDeliveryOrchestrationService {
     }
 
     let providerResult: AuthenticationEmailProviderResult;
+    let stoppedBeforeSubmission: AuthenticationDeliveryOrchestrationResult | null =
+      null;
     try {
-      providerResult = await this.provider.submit({
-        content,
-        deliveryId: delivery.id,
-        idempotencyKey: delivery.idempotencyKey,
-        templateProtocolVersion: delivery.templateProtocolVersion,
-      });
+      providerResult = await this.provider.submit(
+        {
+          content,
+          deliveryId: delivery.id,
+          idempotencyKey: delivery.idempotencyKey,
+          templateProtocolVersion: delivery.templateProtocolVersion,
+        },
+        async () => {
+          const state = await this.repository.getOwnedChallengeState(
+            delivery.id,
+            delivery.leaseId,
+            delivery.challengeId,
+          );
+          if (state.outcome === 'LEASE_LOST') {
+            stoppedBeforeSubmission = { outcome: 'LEASE_LOST' };
+            return false;
+          }
+          const reason = this.getUnavailableReason(
+            state.challenge,
+            state.operationNow,
+          );
+          if (reason) {
+            stoppedBeforeSubmission = await this.cancel(delivery, reason);
+            return false;
+          }
+          this.assertCompleteEnvelope(state.challenge);
+          stoppedBeforeSubmission =
+            await this.ensureProcessingAttempt(delivery);
+          return stoppedBeforeSubmission === null;
+        },
+      );
     } catch {
       providerResult = {
         outcome: 'RETRYABLE',
@@ -157,13 +188,38 @@ export class AuthenticationDeliveryOrchestrationService {
       };
     }
 
+    if (stoppedBeforeSubmission) return stoppedBeforeSubmission;
+
     return this.handleProviderResult(delivery, providerResult);
   }
 
   private async handleProviderResult(
-    delivery: ClaimedAuthenticationDelivery,
+    delivery: ProcessingDelivery,
     result: AuthenticationEmailProviderResult,
   ): Promise<AuthenticationDeliveryOrchestrationResult> {
+    if (
+      result.outcome === 'DEFERRED' ||
+      result.outcome === 'PAUSED' ||
+      result.outcome === 'UNAVAILABLE'
+    ) {
+      const retryNotBeforeMicros =
+        result.outcome === 'DEFERRED' ? result.retryNotBeforeMicros : undefined;
+      const outcome = await this.repository.deferUnstartedDelivery(
+        delivery,
+        retryNotBeforeMicros,
+      );
+      return outcome === 'DEFERRED'
+        ? {
+            outcome,
+            ...(retryNotBeforeMicros === undefined
+              ? {}
+              : { retryNotBeforeMicros }),
+          }
+        : { outcome };
+    }
+    if (result.outcome === 'NOT_SUBMITTED') return { outcome: 'LEASE_LOST' };
+    const stopped = await this.ensureProcessingAttempt(delivery);
+    if (stopped) return stopped;
     if (result.outcome === 'ACCEPTED') {
       return this.mapTransition(
         await this.repository.markSent(
@@ -194,8 +250,10 @@ export class AuthenticationDeliveryOrchestrationService {
   }
 
   private async handleTransientBeforeSubmission(
-    delivery: ClaimedAuthenticationDelivery,
+    delivery: ProcessingDelivery,
   ): Promise<AuthenticationDeliveryOrchestrationResult> {
+    const stopped = await this.ensureProcessingAttempt(delivery);
+    if (stopped) return stopped;
     let policyDelay: number | null;
     try {
       policyDelay = this.getJitteredPolicyDelay(delivery.attemptCount);
@@ -225,7 +283,7 @@ export class AuthenticationDeliveryOrchestrationService {
   }
 
   private async scheduleRetry(
-    delivery: ClaimedAuthenticationDelivery,
+    delivery: ProcessingDelivery,
     safeFailureCode: string,
     retryAfterSeconds?: number,
   ): Promise<AuthenticationDeliveryOrchestrationResult> {
@@ -366,7 +424,7 @@ export class AuthenticationDeliveryOrchestrationService {
   }
 
   private async cancel(
-    delivery: ClaimedAuthenticationDelivery,
+    delivery: ProcessingDelivery,
     reason: AuthenticationDeliveryCancellationReason,
   ): Promise<AuthenticationDeliveryOrchestrationResult> {
     return this.mapTransition(
@@ -380,8 +438,10 @@ export class AuthenticationDeliveryOrchestrationService {
   }
 
   private async markInternalFailure(
-    delivery: ClaimedAuthenticationDelivery,
+    delivery: ProcessingDelivery,
   ): Promise<AuthenticationDeliveryOrchestrationResult> {
+    const stopped = await this.ensureProcessingAttempt(delivery);
+    if (stopped) return stopped;
     this.logger.error({
       event: 'AUTHENTICATION_DELIVERY_INVARIANT_FAILURE',
       deliveryId: delivery.id,
@@ -403,5 +463,16 @@ export class AuthenticationDeliveryOrchestrationService {
     return transition === AuthenticationDeliveryTransitionOutcome.APPLIED
       ? { outcome }
       : { outcome: 'LEASE_LOST' };
+  }
+
+  private async ensureProcessingAttempt(
+    delivery: ProcessingDelivery,
+  ): Promise<AuthenticationDeliveryOrchestrationResult | null> {
+    if (delivery.startedInProcess) return null;
+    const result = await this.repository.startProcessingAttempt(delivery);
+    if (result.outcome !== 'STARTED') return result;
+    delivery.attemptCount = result.attemptCount;
+    delivery.startedInProcess = true;
+    return null;
   }
 }

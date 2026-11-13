@@ -7,6 +7,7 @@ import { AppModule } from '../src/app.module';
 import { PasswordService } from '../src/auth/password/services/password.service';
 import { configureApp } from '../src/configure-app';
 import { MailService } from '../src/mail/mail.service';
+import { MailDeliveryWorkerService } from '../src/mail/services/mail-delivery-worker.service';
 import { PrismaService } from '../src/prisma/prisma.service';
 
 type Tokens = { accessToken: string; refreshToken: string };
@@ -24,32 +25,30 @@ describe('Password recovery with PostgreSQL (e2e)', () => {
     assertTestDatabase();
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
-    }).compile();
+    })
+      .overrideProvider(MailDeliveryWorkerService)
+      .useValue({})
+      .compile();
     app = moduleFixture.createNestApplication();
     configureApp(app);
     await app.init();
     prisma = app.get(PrismaService);
     passwordService = app.get(PasswordService);
     const mailService = app.get(MailService);
-    jest.spyOn(mailService, 'sendNewSessionEmail').mockResolvedValue('session');
-    jest
-      .spyOn(mailService, 'sendSuspiciousActivityEmail')
-      .mockResolvedValue('risk');
+    const enqueueReset = mailService.sendPasswordResetRequestEmail.bind(
+      mailService,
+    ) as MailService['sendPasswordResetRequestEmail'];
+    jest.spyOn(mailService, 'sendNewSessionEmail');
+    jest.spyOn(mailService, 'sendSuspiciousActivityEmail');
     jest
       .spyOn(mailService, 'sendPasswordResetRequestEmail')
-      .mockImplementation(({ token }) => {
-        resetToken = token;
-        return Promise.resolve('reset-request');
+      .mockImplementation((notification, context) => {
+        resetToken = notification.token;
+        return enqueueReset(notification, context);
       });
-    jest
-      .spyOn(mailService, 'sendPasswordResetCompletedEmail')
-      .mockResolvedValue('reset-completed');
-    jest
-      .spyOn(mailService, 'sendAccountDeletionRequestedEmail')
-      .mockResolvedValue('deletion-requested');
-    jest
-      .spyOn(mailService, 'sendAccountDeletionCancelledEmail')
-      .mockResolvedValue('deletion-cancelled');
+    jest.spyOn(mailService, 'sendPasswordResetCompletedEmail');
+    jest.spyOn(mailService, 'sendAccountDeletionRequestedEmail');
+    jest.spyOn(mailService, 'sendAccountDeletionCancelledEmail');
   });
 
   beforeEach(async () => {

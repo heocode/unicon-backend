@@ -5,7 +5,7 @@ import {
   AuthenticationEmailRetryKind,
   type AuthenticationEmailSubmission,
 } from '../../auth/delivery/types/authentication-email-provider.type';
-import { ResendAuthenticationEmailTransportService } from '../services/resend-authentication-email-transport.service';
+import { ResendMailTransportService } from '../services/resend-mail-transport.service';
 import { ResendAuthenticationEmailAdapter } from './resend-authentication-email.adapter';
 
 describe('ResendAuthenticationEmailAdapter', () => {
@@ -32,6 +32,7 @@ describe('ResendAuthenticationEmailAdapter', () => {
     }),
   };
   const transport = { send: jest.fn() };
+  const authorize = jest.fn<Promise<boolean>, []>().mockResolvedValue(true);
 
   let adapter: ResendAuthenticationEmailAdapter;
 
@@ -40,7 +41,7 @@ describe('ResendAuthenticationEmailAdapter', () => {
     jest.setSystemTime(new Date('2026-09-10T12:00:00.000Z'));
     jest.clearAllMocks();
     adapter = new ResendAuthenticationEmailAdapter(
-      transport as unknown as ResendAuthenticationEmailTransportService,
+      transport as unknown as ResendMailTransportService,
       configService as unknown as ConfigService,
     );
   });
@@ -64,7 +65,9 @@ describe('ResendAuthenticationEmailAdapter', () => {
         headers: {},
       });
 
-      await expect(adapter.submit(submission)).resolves.toEqual(expected);
+      await expect(adapter.submit(submission, authorize)).resolves.toEqual(
+        expected,
+      );
     },
   );
 
@@ -76,7 +79,7 @@ describe('ResendAuthenticationEmailAdapter', () => {
       headers: { 'retry-after': '45' },
     });
 
-    await expect(adapter.submit(submission)).resolves.toEqual({
+    await expect(adapter.submit(submission, authorize)).resolves.toEqual({
       outcome: 'RETRYABLE',
       retryKind: AuthenticationEmailRetryKind.SAFE_RETRY,
       safeFailureCode: 'RESEND_RATE_LIMITED',
@@ -103,7 +106,7 @@ describe('ResendAuthenticationEmailAdapter', () => {
         headers: {},
       });
 
-      await expect(adapter.submit(submission)).resolves.toEqual({
+      await expect(adapter.submit(submission, authorize)).resolves.toEqual({
         outcome: 'RETRYABLE',
         retryKind: AuthenticationEmailRetryKind.AMBIGUOUS_RETRY,
         safeFailureCode,
@@ -119,7 +122,7 @@ describe('ResendAuthenticationEmailAdapter', () => {
       headers: { 'retry-after': '60' },
     });
 
-    await expect(adapter.submit(submission)).resolves.toEqual({
+    await expect(adapter.submit(submission, authorize)).resolves.toEqual({
       outcome: 'RETRYABLE',
       retryKind: AuthenticationEmailRetryKind.AMBIGUOUS_RETRY,
       safeFailureCode: 'RESEND_SERVER_OUTCOME_UNKNOWN',
@@ -156,7 +159,7 @@ describe('ResendAuthenticationEmailAdapter', () => {
         headers: {},
       });
 
-      await expect(adapter.submit(submission)).resolves.toEqual({
+      await expect(adapter.submit(submission, authorize)).resolves.toEqual({
         outcome: 'PERMANENT_FAILURE',
         reason,
         safeFailureCode,
@@ -164,24 +167,28 @@ describe('ResendAuthenticationEmailAdapter', () => {
     },
   );
 
-  it('classifies a transport rejection as ambiguous without exposing details', async () => {
+  it('classifies a failure before authorization as technical unavailability', async () => {
     transport.send.mockRejectedValue(new Error('raw provider secret'));
 
-    await expect(adapter.submit(submission)).resolves.toEqual({
-      outcome: 'RETRYABLE',
-      retryKind: AuthenticationEmailRetryKind.AMBIGUOUS_RETRY,
-      safeFailureCode: 'RESEND_TRANSPORT_OUTCOME_UNKNOWN',
+    await expect(adapter.submit(submission, authorize)).resolves.toEqual({
+      outcome: 'UNAVAILABLE',
     });
   });
 
   it('aborts waiting after exactly ten seconds and returns an ambiguous outcome', async () => {
     transport.send.mockImplementation(
-      (_submission: AuthenticationEmailSubmission, signal: AbortSignal) =>
-        new Promise((_resolve, reject) => {
+      async (
+        _submission: AuthenticationEmailSubmission,
+        signal: AbortSignal,
+        before: () => Promise<boolean>,
+      ) => {
+        await before();
+        return new Promise((_resolve, reject) => {
           signal.addEventListener('abort', () => reject(new Error('aborted')));
-        }),
+        });
+      },
     );
-    const result = adapter.submit(submission);
+    const result = adapter.submit(submission, authorize);
 
     await jest.advanceTimersByTimeAsync(9_999);
     expect(transport.send).toHaveBeenCalledTimes(1);
@@ -200,18 +207,20 @@ describe('ResendAuthenticationEmailAdapter', () => {
       headers: {},
     });
 
-    await adapter.submit(submission);
-    await adapter.submit(submission);
+    await adapter.submit(submission, authorize);
+    await adapter.submit(submission, authorize);
 
     expect(transport.send).toHaveBeenNthCalledWith(
       1,
       submission,
       expect.any(AbortSignal),
+      expect.any(Function),
     );
     expect(transport.send).toHaveBeenNthCalledWith(
       2,
       submission,
       expect.any(AbortSignal),
+      expect.any(Function),
     );
     expect(submission.idempotencyKey).toBe('delivery-idempotency-key');
     expect(submission.content.html).toBe('<p>immutable html</p>');
@@ -219,15 +228,67 @@ describe('ResendAuthenticationEmailAdapter', () => {
 
   it('rejects a sender mismatch without calling the provider', async () => {
     await expect(
-      adapter.submit({
-        ...submission,
-        content: { ...submission.content, from: 'attacker@example.com' },
-      }),
+      adapter.submit(
+        {
+          ...submission,
+          content: { ...submission.content, from: 'attacker@example.com' },
+        },
+        authorize,
+      ),
     ).resolves.toEqual({
       outcome: 'PERMANENT_FAILURE',
       reason: AuthenticationEmailPermanentFailureReason.CONFIGURATION,
       safeFailureCode: 'AUTHENTICATION_EMAIL_SENDER_MISMATCH',
     });
     expect(transport.send).not.toHaveBeenCalled();
+  });
+  it.each(['DAILY_QUOTA', 'MONTHLY_QUOTA'] as const)(
+    'keeps %s distinct from rate limiting',
+    async (restriction) => {
+      transport.send.mockResolvedValue({
+        outcome: 'REJECTED',
+        statusCode: 429,
+        providerRestriction: restriction,
+        pressurePersistence: 'RECORDED',
+        headers: {},
+      });
+      expect(await adapter.submit(submission, authorize)).toEqual({
+        outcome: 'RETRYABLE',
+        retryKind: AuthenticationEmailRetryKind.AMBIGUOUS_RETRY,
+        safeFailureCode:
+          restriction === 'DAILY_QUOTA'
+            ? 'RESEND_DAILY_QUOTA_EXCEEDED'
+            : 'RESEND_MONTHLY_QUOTA_EXCEEDED',
+      });
+    },
+  );
+
+  it('does not turn ACCEPTED into a retry after pressure persistence fails', async () => {
+    transport.send.mockResolvedValue({
+      outcome: 'ACCEPTED',
+      providerMessageId: 'accepted-id',
+      pressurePersistence: 'FAILED',
+      headers: {},
+    });
+    expect(await adapter.submit(submission, authorize)).toEqual({
+      outcome: 'ACCEPTED',
+      providerMessageId: 'accepted-id',
+    });
+  });
+
+  it('surfaces pressure persistence failure on rejection as a technical ambiguous retry', async () => {
+    transport.send.mockResolvedValue({
+      outcome: 'REJECTED',
+      statusCode: 429,
+      providerRestriction: 'RATE_LIMIT',
+      pressurePersistence: 'FAILED',
+      headers: { 'retry-after': '30' },
+    });
+    expect(await adapter.submit(submission, authorize)).toEqual({
+      outcome: 'RETRYABLE',
+      retryKind: AuthenticationEmailRetryKind.AMBIGUOUS_RETRY,
+      safeFailureCode: 'RESEND_PRESSURE_PERSISTENCE_FAILED',
+      retryAfterSeconds: 30,
+    });
   });
 });

@@ -848,14 +848,6 @@ export type NullableEnumSessionPlatformFieldUpdateOperationsInput = {
   set?: $Enums.SessionPlatform | null
 }
 
-export type NullableIntFieldUpdateOperationsInput = {
-  set?: number | null
-  increment?: number
-  decrement?: number
-  multiply?: number
-  divide?: number
-}
-
 export type SecurityEventCreateWithoutUserInput = {
   id?: string
   type: $Enums.SecurityEventType

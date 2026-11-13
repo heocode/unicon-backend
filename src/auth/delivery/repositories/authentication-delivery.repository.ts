@@ -30,6 +30,7 @@ import {
   type CreateResendAuthenticationDeliveryResult,
   type OwnedAuthenticationDeliveryChallengeResult,
   type AuthenticationResendContext,
+  type AuthenticationDeliveryAttemptStart,
 } from '../types/authentication-delivery.type';
 
 type OperationTimestampRow = {
@@ -185,6 +186,9 @@ export class AuthenticationDeliveryRepository {
                 AND (
                   "delivery"."nextAttemptAt" IS NULL
                   OR "delivery"."nextAttemptAt" <= ${operationNow}
+                  OR "challenge"."consumedAt" IS NOT NULL
+                  OR "challenge"."lockedAt" IS NOT NULL
+                  OR "challenge"."expiresAt" < ${operationNow}::timestamp + make_interval(secs => ${this.policy.minValidityRemainingSeconds})
                 )
               )
               OR
@@ -204,11 +208,10 @@ export class AuthenticationDeliveryRepository {
         UPDATE "AuthenticationChallengeDelivery" AS "delivery"
         SET
           "status" = 'PROCESSING',
-          "attemptCount" = "delivery"."attemptCount" + 1,
+          "processingAttemptStarted" = false,
           "nextAttemptAt" = NULL,
           "processingLeaseId" = ${leaseId}::uuid,
           "processingLeaseExpiresAt" = ${leaseExpiresAt},
-          "attemptedAt" = ${operationNow},
           "updatedAt" = ${operationNow}
         FROM "candidate"
         WHERE "delivery"."id" = "candidate"."id"
@@ -307,6 +310,173 @@ export class AuthenticationDeliveryRepository {
     };
   }
 
+  /** Leasing is free. Charge once when processing actually starts, after gate
+   * acquisition. Existing charged attempts survive crashes and are never refunded. */
+  startProcessingAttempt(
+    delivery: ClaimedAuthenticationDelivery,
+  ): Promise<AuthenticationDeliveryAttemptStart> {
+    return this.prisma.$transaction(async (tx) => {
+      const state = await this.lockPreparationState(tx, delivery);
+      if (!state) return { outcome: 'LEASE_LOST' };
+      const reason = this.preparationCancellation(state.challenge, state.now);
+      if (reason) {
+        await this.cancelPreparation(tx, delivery, state.now, reason);
+        return { outcome: 'CANCELLED' };
+      }
+      if (state.row.processingAttemptStarted) {
+        return { outcome: 'STARTED', attemptCount: state.row.attemptCount };
+      }
+      const result = await tx.authenticationChallengeDelivery.updateMany({
+        where: {
+          id: delivery.id,
+          status: AuthenticationDeliveryStatus.PROCESSING,
+          processingLeaseId: delivery.leaseId,
+          processingLeaseExpiresAt: { gt: state.now },
+          processingAttemptStarted: false,
+          attemptCount: { lt: this.policy.maxProcessingAttempts },
+        },
+        data: {
+          processingAttemptStarted: true,
+          attemptCount: { increment: 1 },
+          attemptedAt: state.now,
+          updatedAt: state.now,
+        },
+      });
+      return result.count === 1
+        ? { outcome: 'STARTED', attemptCount: state.row.attemptCount + 1 }
+        : { outcome: 'LEASE_LOST' };
+    });
+  }
+
+  /** Capacity waiting changes only scheduling/lease state, never attempt budget,
+   * attemptedAt, provider failure, idempotency, proof or admission accounting. */
+  deferUnstartedDelivery(
+    delivery: ClaimedAuthenticationDelivery,
+    retryNotBeforeMicros?: bigint,
+  ): Promise<'DEFERRED' | 'CANCELLED' | 'LEASE_LOST'> {
+    return this.prisma.$transaction(async (tx) => {
+      const state = await this.lockPreparationState(tx, delivery);
+      if (!state) return 'LEASE_LOST';
+      const reason = this.preparationCancellation(state.challenge, state.now);
+      if (reason) {
+        await this.cancelPreparation(tx, delivery, state.now, reason);
+        return 'CANCELLED';
+      }
+      // A failure after an uncertain attempt-start commit must remain recoverable
+      // under that charged lease, not become a free capacity deferral.
+      if (state.row.processingAttemptStarted) return 'LEASE_LOST';
+      const closeAt =
+        state.challenge.expiresAt.getTime() -
+        this.policy.minValidityRemainingSeconds * 1000 +
+        1;
+      // This is a local poll time for unknown recovery, never a provider reset promise.
+      const requested =
+        retryNotBeforeMicros === undefined
+          ? BigInt(
+              state.now.getTime() + this.policy.workerIntervalSeconds * 1000,
+            )
+          : (retryNotBeforeMicros + 999n) / 1000n;
+      const nextAttemptAt = new Date(
+        Number(requested < BigInt(closeAt) ? requested : BigInt(closeAt)),
+      );
+      const updated = await tx.authenticationChallengeDelivery.updateMany({
+        where: {
+          id: delivery.id,
+          status: AuthenticationDeliveryStatus.PROCESSING,
+          processingLeaseId: delivery.leaseId,
+          processingLeaseExpiresAt: { gt: state.now },
+          processingAttemptStarted: false,
+        },
+        data: {
+          status: AuthenticationDeliveryStatus.PENDING,
+          nextAttemptAt,
+          processingLeaseId: null,
+          processingLeaseExpiresAt: null,
+          updatedAt: state.now,
+        },
+      });
+      return updated.count === 1 ? 'DEFERRED' : 'LEASE_LOST';
+    });
+  }
+
+  private async lockPreparationState(
+    tx: Prisma.TransactionClient,
+    delivery: ClaimedAuthenticationDelivery,
+  ) {
+    // Same challenge -> Delivery order as admission/verification; sample after waits.
+    const [challenge] = await tx.$queryRaw<
+      { expiresAt: Date; consumedAt: Date | null; lockedAt: Date | null }[]
+    >`
+      SELECT "expiresAt", "consumedAt", "lockedAt" FROM "AuthenticationChallenge"
+      WHERE "id"=${delivery.challengeId} FOR UPDATE
+    `;
+    const [row] = await tx.$queryRaw<
+      {
+        attemptCount: number;
+        processingAttemptStarted: boolean;
+        processingLeaseExpiresAt: Date;
+      }[]
+    >`
+      SELECT "attemptCount", "processingAttemptStarted", "processingLeaseExpiresAt"
+      FROM "AuthenticationChallengeDelivery" WHERE "id"=${delivery.id}
+      AND "challengeId"=${delivery.challengeId} AND "status"='PROCESSING'
+      AND "processingLeaseId"=${delivery.leaseId}::uuid FOR UPDATE
+    `;
+    const [time] = await tx.$queryRaw<{ milliseconds: string }[]>`
+      SELECT ceil(EXTRACT(EPOCH FROM clock_timestamp()) * 1000)::text AS "milliseconds"
+    `;
+    const now = new Date(Number(time.milliseconds));
+    if (!challenge || !row || row.processingLeaseExpiresAt <= now) return null;
+    return { challenge, row, now };
+  }
+
+  private preparationCancellation(
+    challenge: {
+      expiresAt: Date;
+      consumedAt: Date | null;
+      lockedAt: Date | null;
+    },
+    now: Date,
+  ): AuthenticationDeliveryCancellationReason | null {
+    if (
+      challenge.consumedAt ||
+      challenge.lockedAt ||
+      challenge.expiresAt <= now
+    )
+      return AuthenticationDeliveryCancellationReason.CHALLENGE_UNAVAILABLE;
+    if (
+      challenge.expiresAt.getTime() - now.getTime() <
+      this.policy.minValidityRemainingSeconds * 1000
+    )
+      return AuthenticationDeliveryCancellationReason.DELIVERY_WINDOW_CLOSED;
+    return null;
+  }
+
+  private async cancelPreparation(
+    tx: Prisma.TransactionClient,
+    delivery: ClaimedAuthenticationDelivery,
+    now: Date,
+    reason: AuthenticationDeliveryCancellationReason,
+  ): Promise<void> {
+    await tx.authenticationChallengeDelivery.updateMany({
+      where: {
+        id: delivery.id,
+        status: AuthenticationDeliveryStatus.PROCESSING,
+        processingLeaseId: delivery.leaseId,
+        processingLeaseExpiresAt: { gt: now },
+      },
+      data: {
+        status: AuthenticationDeliveryStatus.CANCELLED,
+        processingAttemptStarted: false,
+        processingLeaseId: null,
+        processingLeaseExpiresAt: null,
+        nextAttemptAt: null,
+        lastSafeFailureCode: reason,
+        updatedAt: now,
+      },
+    });
+  }
+
   async getOwnedOperationTimestamp(
     deliveryId: string,
     leaseId: string,
@@ -367,6 +537,7 @@ export class AuthenticationDeliveryRepository {
             ELSE ${AUTHENTICATION_DELIVERY_PROCESSING_ATTEMPTS_EXHAUSTED}
           END,
           "nextAttemptAt" = NULL,
+          "processingAttemptStarted" = false,
           "processingLeaseId" = NULL,
           "processingLeaseExpiresAt" = NULL,
           "updatedAt" = ${operationNow}
@@ -600,7 +771,10 @@ export class AuthenticationDeliveryRepository {
             processingLeaseId: leaseId,
             processingLeaseExpiresAt: { gt: operationNow },
           },
-          data: createData(operationNow),
+          data: {
+            ...createData(operationNow),
+            processingAttemptStarted: false,
+          },
         });
 
       return result.count === 1
