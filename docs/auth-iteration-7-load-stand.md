@@ -353,6 +353,95 @@ TypeScript scan still has the same 67 pre-existing test diagnostics and none in
 the changed files; the replica's scoped compilation passes. The primary database
 and live Resend were not used.
 
+## Block 2.2, second step: shared IP budget
+
+```bash
+npm run test:load:shared-ip
+```
+
+This explicit test-only mode sets IP burst 3 and replenishment 1 per 3600 seconds.
+The normal example policy remains burst 120/rate 240 per 3600 seconds. The global
+stand policy, identity budgets and cooldowns are unchanged. Parent and both real
+child processes validate the same configuration; their reports include the IP
+settings. No production runtime, `.env.example`, `.env` or schema is modified.
+
+Each run selects two fresh documentation IPv6 addresses from a random prefix and
+checks that their bucket aliases are absent before starting. This allows the
+experimental policy to create its own state without resetting/retuning retained
+IP buckets from earlier modes/runs. All prior rows and debt remain stored. This
+does not test rolling configuration changes on active buckets (block 2.3).
+
+Two processes prepare distinct fresh identities and execute three small races:
+
+| Wave | Shared-IP inputs | Shared-IP CREATED / RATE_LIMITED | Other-IP CREATED |
+| --- | --- | --- | --- |
+| 1 | 6 | 3 / 3 | 1 |
+| 2 | 4 | 0 / 4 | 1 |
+| 3 | 4 | 0 / 4 | 1 |
+
+The control requests reuse the second IP but use fresh identities. They spend its
+own three available burst units; they do not bypass IP limits. The global budget
+has capacity in this scenario. All 17 operations go through real admission and
+receipt transactions; the exhausted state is produced by successful admissions,
+not by inserting limiter rows. Workers remain off until all three waves finish.
+
+For each wave the observer checks:
+
+- Exactly the expected number of committed outcomes across both processes; only
+  `AUTH_DELIVERY_IP` appears in RATE_LIMITED receipts/responses.
+- No challenge, Delivery or subject remains for denied identities. No denied
+  request creates a personal bucket/cooldown or adds an identity/global charge:
+  the independent exact receipt-based oracle accounts for CREATED outcomes only.
+- The retry boundary equals the first eligible IP admission computed from the
+  persisted rational TAT minus burst tolerance. It remains identical in later
+  denials, as do the shared bucket's debt, policy and updated timestamp.
+- Each control request from the other IP creates its own challenge/Delivery.
+  Every created Delivery is still PENDING with zero processing attempts and no
+  HTTP submission before workers start.
+
+The first-eligible boundary is not the full-recovery boundary, a fixed-hour reset,
+or a promise of future global capacity. The test does not wait an hour or advance
+the database clock. Slow replenishment keeps this bounded race within the same
+eligibility window; exact receipt timestamps must still precede that window.
+
+The real schedulers then drain all six accepted Deliveries. Each must reach SENT
+with one attempt and one matching HTTP submission; the shared provider gate grants
+six permissions. Processing leaves admission/cooldown state, including the exhausted
+IP, unchanged. The observer reuses a small drain helper with the first 2.2 step;
+neither business enforcement nor clocks are replaced.
+
+Two complete local runs passed on 2026-11-13, based on HEAD `9922f4a` plus this
+worktree. Each had 17 committed operations: six CREATED and eleven RATE_LIMITED,
+with six successful one-attempt deliveries. Every denial was IP-only; all three
+other-IP controls succeeded. Prior data was retained between runs. Ignored reports:
+`load-results/shared-ip-1794605845493.json` and
+`load-results/shared-ip-1794605929036.json`.
+
+Reports expose role counts, policy attribution, process PIDs/configuration,
+latency sample counts and invariant results; no actual IPs, identities, internal
+IDs, bucket keys or proof are written. These deliberately small fixture values
+are not proposed production/campus limits. The test does not establish latency
+fairness, sustainable capacity or the public HTTP request limiter's behavior.
+Mixed auth/notification queues remain step 3 of block 2.2.
+
+Handoff checks: build and lint without fixes passed; the scoped replica compilation
+passed for both new runs and existing-mode regressions. Both identity-isolation
+and full 2.1 concurrency passed with ordinary IP settings (burst 120, rate 240/3600),
+confirming fixture isolation. Original smoke plus its three helper tests passed
+(four checks), as did 1085 unit tests/88 suites, Prisma validate, migrate status
+(39 current migrations on `unicon_load_test`), launcher syntax and diff checks.
+Full TypeScript scanning retains the same 67 pre-existing test diagnostics and
+none in changed files.
+
+The first full e2e run on the separate `unicon_iteration6_closure_test` had 455/456
+passing: the existing session-management case `enforces cooldown, rename, selected
+revoke, and revoke-others through HTTP` failed with `socket hang up`. That case
+passed in isolation, and the subsequent full unchanged run passed all 456 tests
+in 24 suites. No session runtime, assertion, timeout or guard was changed. The
+socket failure's cause is not established; a successful repeat does not establish
+that this stability observation is resolved. All runs avoided repository `.env`,
+the primary database and live Resend.
+
 Methodology references: [k6 open arrival models](https://grafana.com/docs/k6/latest/using-k6/scenarios/concepts/open-vs-closed/),
 [repeatable performance testing](https://grafana.com/docs/k6/latest/testing-guides/automated-performance-testing/),
 [Google SRE capacity testing](https://sre.google/sre-book/service-best-practices/).

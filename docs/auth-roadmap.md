@@ -1332,8 +1332,10 @@ worker competition and shared gate grants; no production runtime/schema changes
 or capacity conclusion. Block 2.2 is IN PROGRESS: its first step is COMPLETE and
 verifies repeated
 INITIAL reuse and early RESEND cooldown denials alongside independent identities,
-using two real processes and unchanged policy settings. Shared-IP competition
-and mixed auth/notification queues remain later steps of 2.2; 2.3 remains pending.
+using two real processes and unchanged policy settings. Its second step is COMPLETE:
+an isolated small IP-policy fixture verifies cross-process burst enforcement,
+denial immutability/rollback and independence of another IP without resetting
+retained state. Mixed auth/notification queues remain step 3 of 2.2; 2.3 remains pending.
 Public request-to-session HTTP coverage remains Stage 5–6 work.
 
 ## Stage 5: Request and resend endpoints

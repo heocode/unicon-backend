@@ -24,6 +24,7 @@
     "test:load:smoke": "node scripts/run-auth-load-smoke.mjs",
     "test:load:concurrency": "node scripts/run-auth-load-smoke.mjs concurrency",
     "test:load:identity-isolation": "node scripts/run-auth-load-smoke.mjs identity-isolation",
+    "test:load:shared-ip": "node scripts/run-auth-load-smoke.mjs shared-ip",
     "test:e2e": "npm run test:e2e:prepare && node --experimental-vm-modules ./node_modules/jest/bin/jest.js --config ./test/jest-e2e.json"
   },
   "dependencies": {

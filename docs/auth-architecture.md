@@ -2742,6 +2742,11 @@ The first step of block 2.2 verifies personal cooldown denial attribution and
 independent-identity admission under repeated INITIAL/RESEND traffic. It preserves
 active debt and absolute cooldown boundaries; it does not exercise personal GCRA
 exhaustion, shared-IP saturation or establish latency isolation under heavy load.
+The second step uses a separate experimental shared-IP configuration on fresh
+IP buckets: concurrent admissions share one burst, IP-only denials leave no domain
+rows or partial charges, and repeat denials preserve the next-admission boundary.
+Other IPs remain subject to their own and global budgets; no campus capacity,
+production sizing or active-state configuration rollout is inferred.
 See [the load stand guide](auth-iteration-7-load-stand.md) for
 the exact boundary, retained-state behavior, command and remaining blocks.
 

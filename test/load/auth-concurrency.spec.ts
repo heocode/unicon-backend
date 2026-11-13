@@ -70,10 +70,18 @@ function charged(
 }
 
 const isolation = process.env.LOAD_STAND_SCENARIO === 'identity-isolation';
-const testName = isolation
-  ? 'preserves personal cooldown and independent admission during repeated initial/resend traffic'
-  : 'shares admission, stable challenge/resend and scheduled delivery across two processes';
-describe(`Stage 4 Iteration 7 ${isolation ? 'block 2.2: identity isolation' : 'block 2.1: two OS processes'}`, () => {
+const sharedIp = process.env.LOAD_STAND_SCENARIO === 'shared-ip';
+const scenarioLabel = sharedIp
+  ? 'block 2.2: shared IP'
+  : isolation
+    ? 'block 2.2: identity isolation'
+    : 'block 2.1: two OS processes';
+const testName = sharedIp
+  ? 'shares one IP budget across processes without blocking another IP or charging denials'
+  : isolation
+    ? 'preserves personal cooldown and independent admission during repeated initial/resend traffic'
+    : 'shares admission, stable challenge/resend and scheduled delivery across two processes';
+describe(`Stage 4 Iteration 7 ${scenarioLabel}`, () => {
   jest.setTimeout(180000);
 
   it(testName, async () => {
@@ -156,6 +164,13 @@ describe(`Stage 4 Iteration 7 ${isolation ? 'block 2.2: identity isolation' : 'b
       expect(isDeepStrictEqual(ready[0].settings, ready[1].settings)).toBe(
         true,
       );
+      expect(
+        ready.every((replica) =>
+          Object.entries(replica.settings).every(
+            ([key, value]) => config.getOrThrow<number>(key) === value,
+          ),
+        ),
+      ).toBe(true);
       launched.push(...ready.map((item) => item.pid));
       return ready;
     }
@@ -562,6 +577,36 @@ describe(`Stage 4 Iteration 7 ${isolation ? 'block 2.2: identity isolation' : 'b
         checks,
       };
     }
+    async function drainDeliveries(deliveryIds: string[]) {
+      const previousCalls = calls.length;
+      const workers = await Promise.all(
+        pair.map((item) =>
+          item.call<ReplicaWorkerStarted>({ kind: 'START_WORKER' }),
+        ),
+      );
+      const deadline = performance.now() + 20000;
+      let pending: number;
+      do {
+        pending = await prisma.authenticationChallengeDelivery.count({
+          where: {
+            id: { in: deliveryIds },
+            status: { in: ['PENDING', 'PROCESSING'] },
+          },
+        });
+        if (pending) await delay(100);
+      } while (pending && performance.now() < deadline);
+      const stopped = await stopPair();
+      const final = await prisma.authenticationChallengeDelivery.findMany({
+        where: { id: { in: deliveryIds } },
+      });
+      return {
+        final,
+        stopped,
+        submissions: calls.slice(previousCalls),
+        afterWorkers: await rates(),
+        workerClaims: workers.map((item) => item.summary.claimedCount),
+      };
+    }
     async function isolateIdentity(
       endpoint: string,
       initial: (identity: string, ip: string) => Input,
@@ -805,28 +850,8 @@ describe(`Stage 4 Iteration 7 ${isolation ? 'block 2.2: identity isolation' : 'b
       }
       const beforeWorkers = await rates(),
         cooldownBeforeWorkers = await cooldowns();
-      await Promise.all(
-        pair.map((item) =>
-          item.call<ReplicaWorkerStarted>({ kind: 'START_WORKER' }),
-        ),
-      );
-      const deadline = performance.now() + 20000;
-      let pending: number;
-      do {
-        pending = await prisma.authenticationChallengeDelivery.count({
-          where: {
-            id: { in: normalDeliveryIds },
-            status: { in: ['PENDING', 'PROCESSING'] },
-          },
-        });
-        if (pending) await delay(100);
-      } while (pending && performance.now() < deadline);
-      const stopped = await stopPair();
-      const final = await prisma.authenticationChallengeDelivery.findMany({
-        where: { id: { in: normalDeliveryIds } },
-      });
-      const submissions = calls.slice(previousCalls),
-        afterWorkers = await rates();
+      const { stopped, final, submissions, afterWorkers } =
+        await drainDeliveries(normalDeliveryIds);
       const checks = {
         independentDeliveriesSentOnce:
           final.length === 3 &&
@@ -863,6 +888,259 @@ describe(`Stage 4 Iteration 7 ${isolation ? 'block 2.2: identity isolation' : 'b
       });
       expect(Object.values(checks).every(Boolean)).toBe(true);
     }
+    async function shareIp(
+      endpoint: string,
+      initial: (identity: string, ip: string) => Input,
+    ) {
+      expect([
+        config.getOrThrow<number>('AUTH_DELIVERY_IP_BURST'),
+        config.getOrThrow<number>('AUTH_DELIVERY_IP_RATE'),
+        config.getOrThrow<number>('AUTH_DELIVERY_IP_PERIOD_SECONDS'),
+      ]).toEqual([3, 1, 3600]);
+      const prefix = `2001:db8:${runId.replaceAll('-', '').slice(0, 20).match(/.{4}/g)!.join(':')}`;
+      const crowdedIp = `${prefix}:1`,
+        otherIp = `${prefix}:2`;
+      const crowdedKeys = keys(policies.deliveryIp, crowdedIp);
+      const otherKeys = keys(policies.deliveryIp, otherIp);
+      expect(
+        (await rates()).some((row) =>
+          [...crowdedKeys, ...otherKeys].includes(row.key),
+        ),
+      ).toBe(false);
+      const ready = await newPair(endpoint);
+      const createdIds: string[] = [];
+      let originalSharedState: GcraRateLimit[] | undefined;
+      let originalBoundary: bigint | undefined;
+      for (let wave = 0; wave < 3; wave++) {
+        const sharedCount = wave === 0 ? 6 : 4;
+        const shared = Array.from({ length: sharedCount }, (_, index) =>
+          initial(
+            `${runId}-shared-${wave}-${index}@load.example.edu`,
+            crowdedIp,
+          ),
+        );
+        const independent = initial(
+          `${runId}-other-${wave}@load.example.edu`,
+          otherIp,
+        );
+        const inputs = [...shared, independent];
+        const beforeRates = await rates(),
+          beforeCooldown = await cooldowns();
+        const { receipts, all, byId, execution } = await executeBatch(inputs);
+        const afterRates = await rates(),
+          afterCooldown = await cooldowns();
+        const created = receipts.filter((row) => row.outcome === 'CREATED');
+        const denied = receipts.filter((row) => row.outcome === 'DENIED');
+        const sharedCreated = created.filter(
+          (row) => byId.get(row.id)?.ip === crowdedIp,
+        );
+        const sharedState = afterRates.filter((row) =>
+          crowdedKeys.includes(row.key),
+        );
+        expect(sharedState.length).toBe(crowdedKeys.length);
+        const state = persisted(sharedState[0]);
+        const rate = 1n,
+          periodMicros = 3600000000n,
+          burst = 3n;
+        const eligibleNumerator =
+          state.n * rate - (burst - 1n) * periodMicros * state.d;
+        const eligibleDenominator = state.d * rate;
+        const boundary =
+          (eligibleNumerator + eligibleDenominator - 1n) / eligibleDenominator;
+        const deniedIdentities = denied.map(
+          (row) => byId.get(row.id)!.identity,
+        );
+        const [deniedChallenges, deniedDeliveries, deniedSubjects] =
+          await Promise.all([
+            prisma.authenticationChallenge.count({
+              where: { normalizedIdentity: { in: deniedIdentities } },
+            }),
+            prisma.authenticationChallengeDelivery.count({
+              where: { recipientSnapshot: { in: deniedIdentities } },
+            }),
+            prisma.authenticationChallengeSubject.count({
+              where: { normalizedIdentity: { in: deniedIdentities } },
+            }),
+          ]);
+        const challenges = await prisma.authenticationChallenge.findMany({
+          where: {
+            normalizedIdentity: { in: inputs.map((item) => item.identity) },
+          },
+          select: { id: true },
+        });
+        const deliveries =
+          await prisma.authenticationChallengeDelivery.findMany({
+            where: { challengeId: { in: challenges.map((row) => row.id) } },
+          });
+        createdIds.push(...deliveries.map((row) => row.id));
+        const expectedCreated = wave === 0 ? 4 : 1;
+        const checks = {
+          allOperationsCommitted:
+            all.length === inputs.length &&
+            receipts.length === inputs.length &&
+            new Set(receipts.map((row) => row.id)).size === inputs.length &&
+            all.every(
+              (item) =>
+                !item.error &&
+                item.response &&
+                !item.response.replayed &&
+                item.response.operationId === item.operationId,
+            ),
+          sharedBurstEnforcedAcrossProcesses:
+            sharedCreated.length === (wave === 0 ? 3 : 0) &&
+            created.length === expectedCreated &&
+            denied.length === (wave === 0 ? 3 : 4),
+          onlySharedIpDenies: denied.every(
+            (row) =>
+              byId.get(row.id)?.ip === crowdedIp &&
+              row.denial === 'RATE_LIMITED' &&
+              row.deniedPolicyIds.length === 1 &&
+              row.deniedPolicyIds[0] === policies.deliveryIp.id &&
+              row.challengeId === null &&
+              row.deliveryId === null &&
+              row.admissionNowMicros === null,
+          ),
+          exactRecoveryBoundary:
+            denied.every(
+              (row) =>
+                row.retryNotBeforeMicros?.toFixed(0) === boundary.toString() &&
+                row.evaluatedAtMicros < boundary,
+            ) &&
+            (originalBoundary === undefined || boundary === originalBoundary),
+          responsesMatchReceipts: receipts.every((row) => {
+            const response = all.find((item) => item.operationId === row.id)
+              ?.response?.result;
+            if (response?.outcome !== row.outcome) return false;
+            if (response.outcome === 'CREATED')
+              return (
+                response.challengeId === row.challengeId &&
+                response.deliveryId === row.deliveryId
+              );
+            return (
+              response.outcome === 'DENIED' &&
+              response.denial === row.denial &&
+              response.deniedPolicyIds.length === 1 &&
+              response.deniedPolicyIds[0] === policies.deliveryIp.id &&
+              response.retryNotBeforeMicros === boundary &&
+              response.remainingWaitSeconds !== null &&
+              response.remainingWaitSeconds > 0n &&
+              response.remainingWaitSeconds <= 3600n
+            );
+          }),
+          otherIpAdmitted:
+            created.filter(
+              (row) => byId.get(row.id)?.identity === independent.identity,
+            ).length === 1,
+          noDomainRowsForDenied:
+            deniedChallenges === 0 &&
+            deniedDeliveries === 0 &&
+            deniedSubjects === 0,
+          exactChargesForCreatedOnly: checkAccounting(
+            beforeRates,
+            afterRates,
+            receipts,
+            byId,
+          ),
+          exactCooldownsForCreatedOnly: checkCooldowns(
+            beforeCooldown,
+            afterCooldown,
+            receipts,
+            byId,
+          ),
+          denialsDoNotChangeSharedState:
+            originalSharedState === undefined ||
+            isDeepStrictEqual(originalSharedState, sharedState),
+          onlyCreatedDeliveriesQueued:
+            challenges.length === expectedCreated &&
+            deliveries.length === expectedCreated &&
+            deliveries.every(
+              (row) =>
+                row.status === 'PENDING' &&
+                row.attemptCount === 0 &&
+                row.origin === 'INITIAL' &&
+                created.some(
+                  (receipt) =>
+                    receipt.deliveryId === row.id &&
+                    receipt.challengeId === row.challengeId,
+                ),
+            ),
+          noHttpBeforeWorkers: calls.length === 0,
+        };
+        scenarios.push({
+          name: `shared-ip-wave-${wave + 1}`,
+          processes: ready,
+          operations: inputs.length,
+          crowdedIp: {
+            offered: sharedCount,
+            created: sharedCreated.length,
+            denied: denied.length,
+          },
+          otherIp: {
+            offered: 1,
+            created: created.filter((row) => byId.get(row.id)?.ip === otherIp)
+              .length,
+          },
+          outcomesByProcess: execution.map((entries) => {
+            const counts: Record<string, number> = {};
+            for (const item of entries) {
+              const result = item.response?.result;
+              const label =
+                item.error ??
+                (result?.outcome === 'DENIED'
+                  ? result.denial
+                  : (result?.outcome ?? 'MISSING'));
+              counts[label] = (counts[label] ?? 0) + 1;
+            }
+            return counts;
+          }),
+          deniedPolicyCounts: {
+            [policies.deliveryIp.id]: denied.filter((row) =>
+              row.deniedPolicyIds.includes(policies.deliveryIp.id),
+            ).length,
+          },
+          operationLatencyMs: distribution(all.map((item) => item.elapsedMs)),
+          checks,
+        });
+        expect(Object.values(checks).every(Boolean)).toBe(true);
+        originalSharedState ??= sharedState;
+        originalBoundary ??= boundary;
+      }
+      const beforeWorkers = await rates(),
+        cooldownBeforeWorkers = await cooldowns();
+      const { stopped, final, submissions, afterWorkers, workerClaims } =
+        await drainDeliveries(createdIds);
+      const checks = {
+        sixCreatedDeliveriesSentOnce:
+          final.length === 6 &&
+          final.every((row) => row.status === 'SENT' && row.attemptCount === 1),
+        exactlySixProviderCalls:
+          submissions.length === 6 &&
+          new Set(submissions.map((item) => item.key)).size === 6 &&
+          final.every((row) =>
+            submissions.some((call) => call.key === row.idempotencyKey),
+          ),
+        exactlySixSharedPermissions:
+          stopped.reduce((sum, item) => sum + item.grants.length, 0) === 6,
+        workersDoNotRecharge:
+          isDeepStrictEqual(
+            beforeWorkers.filter((row) => row.key !== MAIL_SUBMISSION_GATE.key),
+            afterWorkers.filter((row) => row.key !== MAIL_SUBMISSION_GATE.key),
+          ) && isDeepStrictEqual(cooldownBeforeWorkers, await cooldowns()),
+        crowdedIpStateStillUnchanged: isDeepStrictEqual(
+          originalSharedState,
+          afterWorkers.filter((row) => crowdedKeys.includes(row.key)),
+        ),
+        noInvalidHttp: invalidHttp === 0,
+      };
+      scenarios.push({
+        name: 'shared-ip-delivery-drain',
+        sent: final.filter((row) => row.status === 'SENT').length,
+        providerCalls: submissions.length,
+        workerClaims,
+        checks,
+      });
+      expect(Object.values(checks).every(Boolean)).toBe(true);
+    }
     try {
       await prisma.$connect();
       const [authPending, notificationPending] = await Promise.all([
@@ -887,7 +1165,9 @@ describe(`Stage 4 Iteration 7 ${isolation ? 'block 2.2: identity isolation' : 'b
           },
         },
       });
-      if (isolation) {
+      if (sharedIp) {
+        await shareIp(endpoint, initial);
+      } else if (isolation) {
         await isolateIdentity(endpoint, initial);
       } else {
         const distinct = Array.from({ length: 8 }, (_, index) =>
@@ -975,9 +1255,11 @@ describe(`Stage 4 Iteration 7 ${isolation ? 'block 2.2: identity isolation' : 'b
       await new Promise<void>((done) => server.close(() => done()));
       const report = {
         schemaVersion: 1,
-        scenario: isolation
-          ? 'internal-auth-identity-cooldown-isolation'
-          : 'internal-auth-two-process-concurrency',
+        scenario: sharedIp
+          ? 'internal-auth-shared-ip-budget'
+          : isolation
+            ? 'internal-auth-identity-cooldown-isolation'
+            : 'internal-auth-two-process-concurrency',
         runId,
         recordedAt: new Date().toISOString(),
         commit: execFileSync('git', ['rev-parse', 'HEAD'], {
@@ -1001,8 +1283,13 @@ describe(`Stage 4 Iteration 7 ${isolation ? 'block 2.2: identity isolation' : 'b
           'Internal services after email/domain eligibility; not public HTTP or mailbox delivery.',
           'Two local OS processes share host resources; no production capacity or fairness claim.',
           'Always-200 fake provider; process/network faults and commit ambiguity are later work.',
-          'No shared-IP exhaustion, notifications, configuration/key rotation or cleanup scenarios in this command.',
-          'Personal GCRA exhaustion and heavy traffic are not exercised by the identity-cooldown scenario.',
+          'No notifications, configuration/key rotation or cleanup scenarios in this command.',
+          'Personal identity GCRA exhaustion and heavy traffic are not exercised.',
+          ...(sharedIp
+            ? [
+                'Shared-IP values are experimental fixtures, not production sizing.',
+              ]
+            : ['Shared-IP saturation is not exercised by this command.']),
           'Active state and fixture data are retained; no reset or refund.',
         ],
       };
