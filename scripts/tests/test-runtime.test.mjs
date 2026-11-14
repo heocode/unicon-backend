@@ -122,6 +122,26 @@ test('isolated cwd has required resources and is removed even after failure', as
   assert.equal(existsSync(created), false);
 });
 
+test('load CLI rejects unknown or repeated lifecycle flags before connecting', () => {
+  for (const args of [
+    ['--state=unknown'],
+    ['smoke', '--state=unknown'],
+    ['smoke', '--state=isolated', '--state=retained'],
+    ['smoke', '--config=other'],
+  ]) {
+    const result = spawnSync(
+      process.execPath,
+      [join(repositoryRoot, 'scripts/run-auth-load-smoke.mjs'), ...args],
+      {
+        env: testEnvironment(testTarget('load')),
+        encoding: 'utf8',
+      },
+    );
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, /Unsupported auth load stand mode/);
+  }
+});
+
 test('dotenv in the child cannot read a synthetic caller .env', async () => {
   await withTestWorkdir(async (outer) => {
     await writeFile(

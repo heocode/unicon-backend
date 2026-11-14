@@ -5,6 +5,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { Test, type TestingModule } from '@nestjs/testing';
 import { performance } from 'node:perf_hooks';
 
+import { loadDatabaseRuntime } from '../utils/test-database-runtime';
 import { AuthModule } from '../../src/auth/auth.module';
 import { AuthenticationDeliveryWorkerService } from '../../src/auth/delivery/services/authentication-delivery-worker.service';
 import { AuthenticationDeliveryRepository } from '../../src/auth/delivery/repositories/authentication-delivery.repository';
@@ -53,18 +54,11 @@ async function close() {
 }
 
 async function initialize() {
-  const database = new URL(process.env.DATABASE_URL ?? '');
+  const databaseLifecycle = loadDatabaseRuntime();
   const endpoint = new URL(process.env.LOAD_PROVIDER_ENDPOINT ?? '');
   if (
     !process.send ||
     process.env.DOTENV_CONFIG_PATH !== '/dev/null' ||
-    !['postgres:', 'postgresql:'].includes(database.protocol) ||
-    !['localhost', '127.0.0.1'].includes(database.hostname) ||
-    database.port !== '5433' ||
-    database.pathname !== '/unicon_load_test' ||
-    database.username !== 'unicon_e2e' ||
-    database.search ||
-    database.hash ||
     endpoint.protocol !== 'http:' ||
     endpoint.hostname !== '127.0.0.1' ||
     !/^\/emails\/[01]$/.test(endpoint.pathname) ||
@@ -129,7 +123,15 @@ async function initialize() {
       'MAIL_DELIVERY_WORKER_BATCH_SIZE',
     ].map((key) => [key, config.getOrThrow<number>(key)]),
   );
-  await reply(0, true, { pid: process.pid, settings });
+  const [identity] = await testingModule.get(PrismaService).$queryRaw<
+    { oid: string }[]
+  >`SELECT oid::text AS oid FROM pg_database WHERE datname=current_database()`;
+  await reply(0, true, {
+    pid: process.pid,
+    settings,
+    databaseLifecycle,
+    databaseOid: identity.oid,
+  });
 }
 
 async function handle(command: ReplicaCommand) {

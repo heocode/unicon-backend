@@ -114,7 +114,8 @@ docker compose --profile test up -d postgres-test
 
 It exposes the dedicated test PostgreSQL instance at `localhost:5433`.
 Ordinary e2e creates a temporary database from `unicon_e2e_template` for each
-run; load scenarios retain `unicon_load_test`. The guarded launchers ignore
+run; load scenarios also use temporary copies by default. Explicit
+`--state=retained` uses persistent `unicon_load_test`. The guarded launchers ignore
 repository `.env` and restrict all targets to this local instance.
 See [test infrastructure](docs/test-infrastructure.md).
 
@@ -247,7 +248,17 @@ the launcher for manual review; it never rebuilds the template automatically.
 Each temporary database has a unique name, ownership marker and ignored run
 record under `.temp/e2e-runs`. Cleanup verifies its recorded identity. On failed
 cleanup or a hard crash the record remains for deliberate recovery; there is no
-automatic orphan sweeper. Load state, historical databases and volumes are preserved.
+automatic orphan sweeper. Load commands share this lifecycle, recording their
+copies under `.temp/load-runs`; explicit retained mode preserves load state.
+
+```bash
+npm run test:load:smoke
+npm run test:load:smoke -- --state=retained
+```
+
+All stages and workers in one load invocation share its database. No rate-limit
+or queue state is reset during measurement. Reports identify the chosen mode;
+retained mode keeps the existing unfinished-work preflight.
 
 For a focused run:
 

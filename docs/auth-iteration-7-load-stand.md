@@ -22,9 +22,18 @@ Start the existing `unicon-postgres-test` PostgreSQL container on port 5433, the
 npm run test:load:smoke
 ```
 
-The launcher creates/migrates only `unicon_load_test`, using the local test role
-`unicon_e2e`. Its URL defaults to the existing public local-test credentials.
-An explicit `TEST_DATABASE_URL` must still identify that exact database and role
+By default the launcher updates/verifies the shared `unicon_e2e_template`, creates
+one `unicon_load_<UUID hex>_test` copy, and deletes that copy after Jest and all
+replicas stop. Every stage/process in the scenario shares this copy. Select
+`--state=retained` explicitly to keep using persistent `unicon_load_test`:
+
+```bash
+npm run test:load:smoke -- --state=retained
+```
+
+Both modes use local role `unicon_e2e`. The connection selector defaults to the
+existing public local-test credentials for `unicon_load_test`.
+An explicit `TEST_DATABASE_URL` must still identify that selector database and role
 on localhost/127.0.0.1 port 5433, without URL query parameters. It rejects other
 targets. It never loads repository `.env`, strips inherited application settings
 and secrets, and runs Jest from a temporary working directory. Public test defaults
@@ -50,22 +59,33 @@ Only the actual auth worker scheduler is started. The stand does not initialize
 the entire app or run unrelated cleanup/notification schedulers. The shared
 [test launcher](test-infrastructure.md) takes an advisory lock in the admin
 database before database creation/migrations and holds it through Jest and any
-replica processes. It prevents cooperating stand launches from running together. Do not run other
+replica processes. Isolated runs share the template lock with ordinary e2e;
+retained runs use a separate persistent-target lock. Do not run other
 applications/tests against this dedicated database concurrently. A preflight
 rejects unfinished auth or notification work before starting the worker.
 
-Data and active rate/cooldown/provider-pressure state are retained across runs;
-the command never resets counters, refunds debt, deletes queued jobs or drops
-the database. Repeated runs can therefore encounter real retained restrictions.
-On interrupted/failed runs inspect unfinished work before choosing a separate
-recovery/fixture-maintenance action. No automatic destructive recovery is built in.
+Within every scenario, data and active rate/cooldown/provider-pressure state
+remain authoritative and are never reset or refunded. Between independent
+isolated runs, prior state is absent because each starts from the template.
+In retained mode it persists, so repeated runs can encounter retained restrictions.
+The unfinished-work preflight remains unchanged in both modes. After an
+interrupted retained run inspect unfinished work before a separate recovery action.
+Failed isolated runs drop only their verified copy; failed cleanup/hard crashes
+retain a record for deliberate recovery. No orphan sweeper is built in.
+
+Database setup, cloning and teardown are outside the measured scenario.
+Fresh data does not imply cold PostgreSQL/OS caches. The local shared host still
+cannot establish production capacity.
 
 ## Measurements and assertions
 
-The ignored `load-results/smoke-<timestamp>.json` artifact contains:
+New ignored `load-results/smoke-<timestamp>.json` artifacts use `schemaVersion: 2`
+and contain:
 
 - scenario, run ID, source HEAD, runtime settings from an explicit non-secret
   allowlist, Node/PostgreSQL versions and host resource information;
+- `databaseLifecycle` with a separate lifecycle UUID, state mode and initial
+  state source; two-process readiness also records matching database OIDs;
 - configured arrival rate/count, actual launch span and scheduling lag;
 - operation outcomes/denial reasons and safe infrastructure-error categories;
 - nearest-rank p50/p95/p99/max with sample counts for operation latency, actual
@@ -101,6 +121,10 @@ production enforcement path. The report identifies HEAD and worktree dirtiness; 
 changes must be reviewed alongside that commit.
 
 ## Block 1 verification
+
+Verification sections below record earlier fixed-database, schema-version-1
+runs. Their measurements are historical; current lifecycle modes and report
+version are defined above and in `docs/test-infrastructure.md`.
 
 Verified locally on 2026-11-13, based on HEAD `5f3c4d2` plus this uncommitted
 block. The dedicated stand database was created and all 39 existing migrations

@@ -4,15 +4,17 @@
 
 The first infrastructure block introduced one guarded execution path for
 ordinary e2e and the existing load scenarios. The second adds a migrated template
-and one disposable copy per ordinary e2e invocation. Backups, historical database
-deletion, orphan sweeping and load-database lifecycle changes remain outside scope.
+and one disposable copy per ordinary e2e invocation. The third extends that same
+lifecycle to load scenarios, with isolated copies by default and explicit retained
+state. Backups, automatic orphan sweeping and crash recovery remain outside scope.
 Auth Stage 4 / Iteration 7 block 2.3 remains pending during this infrastructure work.
 
 | Use | PostgreSQL target | Database |
 | --- | --- | --- |
 | E2e template | localhost:5433, role `unicon_e2e` | `unicon_e2e_template` |
 | Ordinary e2e | Same instance and role | `unicon_e2e_<32 lowercase UUID hex digits>_test` |
-| Load stand | localhost:5433, role `unicon_e2e` | `unicon_load_test` |
+| Load stand, default `isolated` | Same instance and role | `unicon_load_<32 lowercase UUID hex digits>_test` |
+| Load stand, explicit `retained` | Same instance and role | `unicon_load_test` |
 
 All targets belong to the dedicated Compose `postgres-test` service and volume.
 The legacy `unicon-postgres` container on port 5432 belongs to the other workspace;
@@ -21,8 +23,13 @@ it is outside these launchers. The passwordless development service uses port
 
 The audit on 2026-11-13 found 17 user databases in the test container and two in
 the legacy container, excluding PostgreSQL service/template databases. This
-work preserves all of them. The template adds one persistent database; successful
-e2e runs add no persistent databases. Historical verification documents retain the names
+inventory was reviewed again on 2026-11-14. With explicit approval, 15 obsolete
+test databases (about 151 MB) were deleted after checking ownership, connections
+and row counts. The three persistent test databases are now the template,
+`unicon_load_test` and `unicon_test` (healthcheck/connection selector). The legacy
+container and all volumes were preserved. A post-cleanup e2e smoke passed and
+the container remained healthy. Successful isolated e2e/load runs add no persistent
+databases. Historical verification documents retain the names
 of the databases actually used at the time; those names are no longer accepted
 by the ordinary e2e launcher.
 
@@ -49,16 +56,18 @@ lifecycle handling. Entrypoints are `scripts/run-e2e.mjs`,
 3. Connect to the local `postgres` admin database with explicit connection options
    and obtain a session advisory lock identified by a test namespace and target
    database name. A busy lock fails immediately. No creation/migration or fixture
-   mutation occurs before locking. E2e locks the template for its full lifecycle;
-   load retains its separate lock. Verify database ownership before migrations.
+   mutation occurs before locking. Isolated e2e/load lock the shared template
+   for their full lifecycle; retained load locks `unicon_load_test` separately.
+   Verify database ownership before migrations.
 4. Hold that connection throughout migration, compilation where needed, Jest and
    replica execution. Ordinary e2e always runs serially because suites share
    fixture tables. Standalone preparation updates only the template and takes
    the same lock, but releases it when preparation ends; the full launcher is
-   required to protect a test run. Separate invocations remain serialized, even
-   though each receives its own database.
+   required to protect a test run. Isolated invocations remain serialized, even
+   though each receives its own database. Retained load invocations serialize
+   on their persistent target.
 5. Preserve subprocess failure status. On SIGINT/SIGTERM or lock connection loss,
-   abort the run and stop its own subprocess group, with a kill fallback. E2e
+   abort the run and stop its own subprocess group, with a kill fallback. Isolated runs
    drops only its own verified temporary database while the lock is still held,
    then closes the lock connection and removes the invocation's temporary directory.
    No PostgreSQL backends
@@ -66,8 +75,9 @@ lifecycle handling. Entrypoints are `scripts/run-e2e.mjs`,
 
 ## Template and disposable database lifecycle
 
-`scripts/e2e-database.mjs` implements the e2e-specific lifecycle on top of the
-shared runtime. A missing `unicon_e2e_template` is created from PostgreSQL
+`scripts/test-database.mjs` implements the shared e2e/load lifecycle on top of
+the runtime. The existing template name/marker remain unchanged. A missing
+`unicon_e2e_template` is created from PostgreSQL
 `template0`, marked as infrastructure-owned, and migrated with the real Prisma
 CLI. An existing database with that name must have the expected owner and marker;
 otherwise preparation stops without adopting or replacing it.
@@ -96,7 +106,8 @@ name corresponding to `UNICON_TEST_RUN_ID`; it rejects the template and old fixe
 database as e2e runtime destinations.
 
 Before allocation, the launcher writes a non-secret ignored JSON record at
-`.temp/e2e-runs/<UUID>.json` with the run ID, database/template names, PID and
+`.temp/e2e-runs/<UUID>.json` or `.temp/load-runs/<UUID>.json` with the kind, run ID,
+database/template names, PID and
 creation time. After creation it records the PostgreSQL OID via atomic file
 replacement and marks the database with the same run ID. Cleanup uses the
 invocation's generated name and verifies OID, owner and marker before dropping.
@@ -104,12 +115,53 @@ It briefly retries busy-database failures after its child processes stop, withou
 `DROP ... FORCE` or terminating unrelated sessions. Only successful cleanup removes
 the run record. Loss of the lock connection, hard crashes, incomplete allocations
 or ownership mismatches retain evidence for a later controlled recovery action.
-No command in this block scans and deletes historical or orphan databases.
+No launcher scans and deletes historical or orphan databases.
+
+## Load lifecycle modes
+
+All five existing load commands accept one optional `--state=isolated|retained`.
+Omitting the option selects `isolated`. The explicit `TEST_DATABASE_URL` selector
+still identifies only `unicon_load_test` on the local test instance; it is not an
+arbitrary runtime destination override.
+
+```bash
+npm run test:load:smoke
+npm run test:load:concurrency -- --state=isolated
+npm run test:load:mixed-mail -- --state=retained
+```
+
+An isolated run updates/verifies the shared template, clones a generated
+`unicon_load_<UUID hex>_test`, then compiles replicas and starts Jest. All stages
+and workers in that invocation share the same database. Data, cooldowns, GCRA
+debt and provider pressure are never reset during the scenario. Its final JSON
+report is saved outside the temporary directory before that invocation's copy
+is deleted. Setup/migration/compilation/cleanup are outside scenario timing.
+A fresh database does not reset PostgreSQL/OS caches or establish production capacity.
+
+Retained mode prepares and locks the existing `unicon_load_test` and deliberately
+keeps its data after success, failure or interruption. It does not allocate/drop
+a database or write an allocation record. Each invocation still has a lifecycle
+UUID for its report. The existing unfinished-work preflight remains mandatory;
+this mode does not resume or erase work left by a crashed run automatically.
+It is explicit continuation of state, not an orphan-recovery mechanism.
+
+`test/utils/test-database-runtime.ts` is the test-only destination policy shared
+by Jest setup, load observers and compiled replicas. It checks local role/endpoint,
+run UUID, mode, exact expected database and equality of both database settings.
+Two-process scenarios additionally compare the actual PostgreSQL database OID
+and lifecycle metadata of each replica against the observer.
+
+Reports now have `schemaVersion: 2` and `databaseLifecycle` with `runId`,
+`stateMode` (`isolated`/`retained`) and `initialState` (`template`/`retained`).
+The existing scenario `runId` remains independent. Reports do not include
+connection URLs or credentials. Replica readiness includes the actual database
+OID and matching lifecycle metadata. Existing measurements/assertions remain;
+historical schema-version-1 artifacts keep their original meaning.
 
 Advisory locks coordinate cooperating launchers. They do not prevent arbitrary
 manual SQL clients from changing the target. Test fixture cleanup can delete
-test data inside its own temporary database. Load runs retain their existing state
-and unfinished-work preflight; this block adds no automatic recovery/reset.
+test data inside its own temporary database. Retained load keeps its existing
+state; both load modes keep the unfinished-work preflight. There is no automatic recovery/reset.
 SIGKILL, host crashes and PostgreSQL outages cannot guarantee graceful cleanup.
 
 ## Commands and verification
@@ -209,5 +261,54 @@ The final ignored load artifact is `load-results/smoke-1794697738264.json`.
 The full `tsc --noEmit` check still reports the same 67 pre-existing test
 diagnostics, with none in the changed files.
 
-Next infrastructure work will review historical databases and crash leftovers
-for deliberate cleanup. It requires its own agreed boundaries before implementation.
+## Load lifecycle verification (infrastructure block 3)
+
+Verified locally on 2026-11-14 at HEAD `4f1180e` plus this uncommitted block:
+
+| Check | Result |
+| --- | --- |
+| Node launcher/manifest/CLI guards | 11 tests passed |
+| Real PostgreSQL lifecycle and lock checks | 8 tests passed |
+| Application unit regression | 1085 tests, 88 suites passed |
+| Full ordinary e2e regression | 457 tests, 25 suites passed; 93.493 seconds |
+| Isolated load modes | Smoke, concurrency, identity isolation, shared IP and mixed mail passed |
+| Explicit retained modes | Two consecutive smoke runs and mixed mail passed |
+| Smoke helper/runtime boundary coverage | 8 tests in 3 suites per smoke run |
+| Build; lint without fixes; changed code formatting; diff whitespace | Passed |
+| Prisma validation and retained migration status | Valid; all 39 migrations applied |
+
+Database tests exercised both e2e and load copies, their isolation and deletion
+after success/failure/interruption. A retained test inserted its own canary table,
+failed the invocation, then verified the same physical database and preserved row
+in a later invocation; it explicitly removed only its own canary table afterward.
+Busy-template tests rejected both ordinary e2e and default isolated-load entrypoints.
+No database-backed behavior was substituted with a mock.
+
+Every two-process load scenario checked each replica's actual database OID and
+lifecycle against the observer. The first concurrency attempt exposed a new
+metadata serialization bug: Prisma returned OID as BigInt, causing JSON writing
+to fail after the scenario. Both OID queries now explicitly return PostgreSQL
+text; the full set of two-process scenarios then passed and reports serialized
+correctly. Assertions, policy values and timeouts were not relaxed.
+
+All eight successful load artifacts use schema version 2 and have `passed: true`:
+
+- Isolated: `smoke-1794699934264.json`, `concurrency-1794700111840.json`,
+  `identity-isolation-1794700178673.json`, `shared-ip-1794700184020.json`,
+  `mixed-mail-1794700194229.json`.
+- Retained: `smoke-1794700199616.json`, `smoke-1794700205098.json`,
+  `mixed-mail-1794700210867.json`.
+
+Files are under ignored `load-results/`. Each report records its state mode and
+lifecycle UUID; retained invocations have distinct UUIDs while preserving their
+database. The final inventory contained only `unicon_e2e_template`,
+`unicon_load_test` and `unicon_test`, all owned by `unicon_e2e`. Template
+connections were disabled with its existing ownership marker intact; the
+container was healthy and both allocation-record directories were empty.
+Full `tsc --noEmit` retains 67 pre-existing test diagnostics, with none in changed
+files. No production auth behavior, production limits or provider integration
+was changed. These bounded local scenarios do not establish production capacity.
+
+The historical database cleanup is complete as recorded above. Automatic orphan
+recovery remains a separate future task; it is not required to resume Stage 4 /
+Iteration 7 block 2.3 after lifecycle verification.

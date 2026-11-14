@@ -21,7 +21,16 @@ export type ReplicaExecution = {
   elapsedMs: number;
 };
 
-export type ReplicaReady = { pid: number; settings: Record<string, number> };
+export type ReplicaReady = {
+  pid: number;
+  settings: Record<string, number>;
+  databaseOid: string;
+  databaseLifecycle: {
+    runId: string;
+    stateMode: 'isolated' | 'retained';
+    initialState: string;
+  };
+};
 export type ReplicaWorkerStarted = {
   summary: AuthenticationDeliveryWorkerSummary;
 };

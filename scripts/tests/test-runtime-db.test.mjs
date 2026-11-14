@@ -45,6 +45,17 @@ test('real PG lock rejects other prepare/full runners and is released after chil
           }),
           1,
         );
+        assert.equal(
+          await first.command(
+            [join(repositoryRoot, 'scripts/run-auth-load-smoke.mjs')],
+            {
+              cwd: directory,
+              env: testEnvironment(testTarget('load')),
+              stdio: 'ignore',
+            },
+          ),
+          1,
+        );
       });
       await assert.rejects(
         withTestDatabase(target, first, async () => {

@@ -2,15 +2,15 @@ import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import test from 'node:test';
 import {
-  e2eRunTarget,
+  testRunTarget,
   migrationManifest,
   verifyMigrationHistory,
-} from '../e2e-database.mjs';
+} from '../test-database.mjs';
 import { testEnvironment, testTarget } from '../test-runtime.mjs';
 
 test('temporary destination is derived only from a validated endpoint and UUID', () => {
   const runId = randomUUID();
-  const target = e2eRunTarget(testTarget('e2e'), runId);
+  const target = testRunTarget(testTarget('e2e'), runId);
   assert.equal(target.database, `unicon_e2e_${runId.replaceAll('-', '')}_test`);
   assert.equal(new URL(target.url).pathname, `/${target.database}`);
   assert.equal(testEnvironment(target).UNICON_TEST_RUN_ID, runId);
@@ -21,8 +21,11 @@ test('temporary destination is derived only from a validated endpoint and UUID',
     `${runId}"`,
     runId.replaceAll('-', ''),
   ])
-    assert.throws(() => e2eRunTarget(testTarget('e2e'), invalid));
-  assert.throws(() => e2eRunTarget(testTarget('load'), runId));
+    assert.throws(() => testRunTarget(testTarget('e2e'), invalid));
+  const load = testRunTarget(testTarget('load'), runId);
+  assert.equal(load.database, `unicon_load_${runId.replaceAll('-', '')}_test`);
+  assert.equal(testEnvironment(load).LOAD_DATABASE_STATE, 'isolated');
+  assert.throws(() => testRunTarget(testTarget('template'), runId));
   assert.throws(() => testTarget('e2e', target.url));
 });
 

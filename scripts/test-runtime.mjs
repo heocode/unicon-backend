@@ -55,6 +55,9 @@ export function testEnvironment(target, source = process.env) {
     DOTENV_CONFIG_PATH: '/dev/null',
     UNICON_TEST_TARGET: target.kind,
     ...(target.runId ? { UNICON_TEST_RUN_ID: target.runId } : {}),
+    ...(target.kind === 'load'
+      ? { LOAD_DATABASE_STATE: target.stateMode }
+      : {}),
     TEST_DATABASE_URL: target.url,
     DATABASE_URL: target.url,
   };

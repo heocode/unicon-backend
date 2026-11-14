@@ -31,6 +31,7 @@ import type {
   DeferralObservations,
 } from './concurrency-protocol';
 import { distribution } from './load-utils';
+import { loadDatabaseRuntime } from '../utils/test-database-runtime';
 
 type Input = {
   request: AuthenticationOperationRequest;
@@ -105,18 +106,10 @@ describe(`Stage 4 Iteration 7 ${scenarioLabel}`, () => {
       process.env.DOTENV_CONFIG_PATH !== '/dev/null'
     )
       throw new Error('Use npm run test:load:concurrency.');
-    const url = new URL(process.env.TEST_DATABASE_URL ?? '');
-    if (
-      !['postgres:', 'postgresql:'].includes(url.protocol) ||
-      !['localhost', '127.0.0.1'].includes(url.hostname) ||
-      url.port !== '5433' ||
-      url.pathname !== '/unicon_load_test' ||
-      url.username !== 'unicon_e2e' ||
-      url.search ||
-      url.hash ||
-      process.env.DATABASE_URL !== url.toString()
-    )
-      throw new Error('Dedicated local stand database required.');
+    const databaseLifecycle = loadDatabaseRuntime();
+    if (!process.env.LOAD_REPORT_PATH)
+      throw new Error('Load report path required.');
+
     const config = new ConfigService(validateEnvironment({ ...process.env }));
     const prisma = new PrismaService(config);
     const derivation = new RateLimitBucketKeyService(config);
@@ -173,6 +166,13 @@ describe(`Stage 4 Iteration 7 ${scenarioLabel}`, () => {
         (index) => new ConcurrencyProcess(`${endpoint}/emails/${index}`),
       );
       const ready = await Promise.all(pair.map((item) => item.ready));
+      const [identity] = await prisma.$queryRaw<
+        { oid: string }[]
+      >`SELECT oid::text AS oid FROM pg_database WHERE datname=current_database()`;
+      for (const replica of ready) {
+        expect(replica.databaseOid).toBe(identity.oid);
+        expect(replica.databaseLifecycle).toEqual(databaseLifecycle);
+      }
       expect(
         ready[0].pid !== ready[1].pid &&
           ready.every((item) => item.pid !== process.pid),
@@ -1595,7 +1595,8 @@ describe(`Stage 4 Iteration 7 ${scenarioLabel}`, () => {
       server.closeAllConnections();
       await new Promise<void>((done) => server.close(() => done()));
       const report = {
-        schemaVersion: 1,
+        schemaVersion: 2,
+        databaseLifecycle,
         scenario: mixedMail
           ? 'internal-auth-and-notification-shared-gate'
           : sharedIp
@@ -1639,7 +1640,9 @@ describe(`Stage 4 Iteration 7 ${scenarioLabel}`, () => {
                 'Shared-IP values are experimental fixtures, not production sizing.',
               ]
             : ['Shared-IP saturation is not exercised by this command.']),
-          'Active state and fixture data are retained; no reset or refund.',
+          databaseLifecycle.stateMode === 'retained'
+            ? 'Active state and fixture data are retained; no reset or refund.'
+            : 'One fresh template copy shared by every stage and process; no reset/refund during the scenario.',
         ],
       };
       await writeFile(

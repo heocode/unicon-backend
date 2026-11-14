@@ -6,7 +6,7 @@ import {
   TestRun,
   withTestWorkdir,
 } from './test-runtime.mjs';
-import { withE2eDatabase } from './e2e-database.mjs';
+import { withTemporaryDatabase } from './test-database.mjs';
 
 // No dotenv. Only explicit public test configuration reaches subprocesses.
 async function main() {
@@ -28,7 +28,7 @@ async function main() {
   const run = new TestRun();
   try {
     return await withTestWorkdir(async (directory) => {
-      return withE2eDatabase(target, run, directory, async (database) => {
+      return withTemporaryDatabase(target, run, directory, async (database) => {
         const env = testEnvironment(database);
         return run.command(
           [

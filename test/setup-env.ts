@@ -1,48 +1,18 @@
 import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { testDatabaseRuntime } from './utils/test-database-runtime';
 
 // This runs before AppModule can inspect cwd/.env. Direct Jest invocation is
 // unsupported: use the guarded npm e2e/load commands.
-const target = process.env.UNICON_TEST_TARGET;
-const runId = process.env.UNICON_TEST_RUN_ID;
-const validRunId =
-  !!runId &&
-  /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(
-    runId,
-  );
-const expectedDatabase =
-  target === 'e2e' && validRunId
-    ? `unicon_e2e_${runId.replaceAll('-', '')}_test`
-    : target === 'load'
-      ? 'unicon_load_test'
-      : undefined;
-let targetUrl: URL;
-try {
-  targetUrl = new URL(process.env.TEST_DATABASE_URL ?? '');
-} catch {
-  throw new Error('Use the guarded e2e or load launcher.');
-}
+testDatabaseRuntime();
 if (
-  !expectedDatabase ||
-  process.env.DOTENV_CONFIG_PATH !== '/dev/null' ||
-  !['postgres:', 'postgresql:'].includes(targetUrl.protocol) ||
-  !['localhost', '127.0.0.1'].includes(targetUrl.hostname) ||
-  targetUrl.port !== '5433' ||
-  targetUrl.username !== 'unicon_e2e' ||
-  !targetUrl.password ||
-  targetUrl.pathname !== `/${expectedDatabase}` ||
-  targetUrl.search ||
-  targetUrl.hash ||
-  process.env.DATABASE_URL !== targetUrl.toString() ||
   existsSync(resolve(process.cwd(), '.env')) ||
   resolve(process.cwd()) === resolve(__dirname, '..')
-) {
+)
   throw new Error(
     'Tests require the guarded launcher and an isolated working directory.',
   );
-}
 
-process.env.DATABASE_URL = targetUrl.toString();
 process.env.JWT_ACCESS_SECRET ??= 'test-access-secret';
 process.env.JWT_ACCESS_TTL_SECONDS ??= '900';
 process.env.JWT_REFRESH_SECRET ??= 'test-refresh-secret';

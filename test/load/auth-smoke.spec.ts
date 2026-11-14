@@ -19,27 +19,16 @@ import { ResendMailHttpClient } from '../../src/mail/services/resend-mail-http-c
 import type { MailSubmission } from '../../src/mail/types/mail-submission.type';
 import { PrismaService } from '../../src/prisma/prisma.service';
 import { boundedInteger, distribution, offerLoad } from './load-utils';
+import { loadDatabaseRuntime } from '../utils/test-database-runtime';
 
 // Opt-in, bounded instrumentation stand. Not part of regular unit/e2e discovery.
 describe('Stage 4 Iteration 7 internal load smoke', () => {
   jest.setTimeout(120000);
 
   it('records real admission, scheduled worker, gate and local provider outcomes', async () => {
-    const database = new URL(process.env.TEST_DATABASE_URL ?? '');
-    if (
-      !['postgres:', 'postgresql:'].includes(database.protocol) ||
-      !['localhost', '127.0.0.1'].includes(database.hostname) ||
-      database.port !== '5433' ||
-      database.pathname !== '/unicon_load_test' ||
-      database.username !== 'unicon_e2e' ||
-      database.search ||
-      database.hash ||
-      process.env.DATABASE_URL !== database.toString() ||
-      !process.env.LOAD_REPORT_PATH
-    )
-      throw new Error(
-        'Use npm run test:load:smoke with its dedicated local database.',
-      );
+    const databaseLifecycle = loadDatabaseRuntime();
+    if (!process.env.LOAD_REPORT_PATH)
+      throw new Error('Load report path required.');
 
     const rate = boundedInteger(process.env.LOAD_RATE, 2, 20);
     const durationSeconds = boundedInteger(
@@ -284,7 +273,8 @@ describe('Stage 4 Iteration 7 internal load smoke', () => {
         someWorkCreated: deliveries.length > 0,
       };
       const report = {
-        schemaVersion: 1,
+        schemaVersion: 2,
+        databaseLifecycle,
         scenario: 'internal-auth-distinct-identities-smoke',
         runId,
         recordedAt: new Date().toISOString(),
@@ -353,7 +343,9 @@ describe('Stage 4 Iteration 7 internal load smoke', () => {
           'Small sample; percentiles are descriptive, not SLO evidence.',
           'One process and colocated generator/provider; no capacity conclusion.',
           'Worker and gate waits are not individually instrumented.',
-          'Existing debt/provider-pressure state is retained between runs.',
+          databaseLifecycle.stateMode === 'retained'
+            ? 'Existing debt/provider-pressure state is retained between runs.'
+            : 'Fresh template copy; no debt from prior runs; shared PostgreSQL caches are not reset.',
           'No public HTTP/domain eligibility boundary, real mailbox, faults or competing notifications exercised.',
         ],
       };

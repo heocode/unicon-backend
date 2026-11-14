@@ -18,17 +18,28 @@ import {
 } from './test-runtime.mjs';
 
 const templateMarker = 'unicon.e2e.template.v1';
-const registry = join(repositoryRoot, '.temp/e2e-runs');
 const uuidPattern =
   /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 
-export function e2eRunTarget(base, runId) {
-  base = testTarget('e2e', base.url);
-  if (!uuidPattern.test(runId)) throw new Error('Invalid e2e run identifier.');
-  const database = `unicon_e2e_${runId.replaceAll('-', '')}_test`;
+function validateBase(base) {
+  if (!['e2e', 'load'].includes(base.kind))
+    throw new Error('Unsupported disposable database kind.');
+  return testTarget(base.kind, base.url);
+}
+
+export function testRunTarget(base, runId) {
+  base = validateBase(base);
+  if (!uuidPattern.test(runId)) throw new Error('Invalid test run identifier.');
+  const database = `unicon_${base.kind}_${runId.replaceAll('-', '')}_test`;
   const url = new URL(base.url);
   url.pathname = `/${database}`;
-  return { kind: 'e2e', database, url: url.toString(), runId };
+  return {
+    kind: base.kind,
+    database,
+    url: url.toString(),
+    runId,
+    stateMode: 'isolated',
+  };
 }
 
 export async function migrationManifest(
@@ -91,7 +102,7 @@ async function inspectTemplate(target, manifest, complete) {
     );
     for (const { schemaname, tablename } of tables) {
       if (schemaname !== 'public')
-        throw new Error('Unexpected schema in e2e template.');
+        throw new Error('Unexpected schema in test template.');
       if (tablename === '_prisma_migrations') continue;
       // The only data installed by current migrations: two infrastructure singletons.
       if (tablename === 'AuthenticationDeliveryBacklogState') {
@@ -121,18 +132,18 @@ async function inspectTemplate(target, manifest, complete) {
           continue;
       }
       throw new Error(
-        'E2e template contains unexpected data; manual review is required.',
+        'Test template contains unexpected data; manual review is required.',
       );
     }
     if (!present[0].table_name && tables.length)
-      throw new Error('E2e template has schema without migration history.');
+      throw new Error('Test template has schema without migration history.');
   } finally {
     await client.end();
   }
 }
 
 function templateTarget(base) {
-  const url = new URL(testTarget('e2e', base.url).url);
+  const url = new URL(validateBase(base).url);
   url.pathname = '/unicon_e2e_template';
   return testTarget('template', url.toString());
 }
@@ -174,7 +185,7 @@ async function prepareTemplate(database, target, run, directory) {
 }
 
 /** Standalone preparation and full runs share the template lock. */
-export async function withE2eTemplate(base, run, directory, action) {
+export async function withTestTemplate(base, run, directory, action) {
   const target = templateTarget(base);
   return withTestDatabase(target, run, async (database) => {
     await prepareTemplate(database, target, run, directory);
@@ -182,13 +193,15 @@ export async function withE2eTemplate(base, run, directory, action) {
   });
 }
 
-export async function withE2eDatabase(base, run, directory, action) {
-  return withE2eTemplate(base, run, directory, async (client, template) => {
-    const target = e2eRunTarget(base, randomUUID());
-    const marker = `unicon.e2e.run.v1:${target.runId}`;
+export async function withTemporaryDatabase(base, run, directory, action) {
+  return withTestTemplate(base, run, directory, async (client, template) => {
+    const target = testRunTarget(base, randomUUID());
+    const registry = join(repositoryRoot, `.temp/${target.kind}-runs`);
+    const marker = `unicon.${target.kind}.run.v1:${target.runId}`;
     const recordPath = join(registry, `${target.runId}.json`);
     const record = {
       version: 1,
+      kind: target.kind,
       runId: target.runId,
       database: target.database,
       template: template.database,
@@ -227,7 +240,7 @@ export async function withE2eDatabase(base, run, directory, action) {
       );
       await rename(`${recordPath}.tmp`, recordPath);
       run.controller.signal.throwIfAborted();
-      console.log(`E2e temporary database: ${target.database}`);
+      console.log(`${target.kind} temporary database: ${target.database}`);
       return await action(target);
     } finally {
       if (created) {
@@ -273,5 +286,24 @@ export async function withE2eDatabase(base, run, directory, action) {
       await rm(recordPath);
       await rm(`${recordPath}.tmp`, { force: true });
     }
+  });
+}
+
+export async function withLoadDatabase(
+  base,
+  run,
+  directory,
+  stateMode,
+  action,
+) {
+  if (base.kind !== 'load' || !['isolated', 'retained'].includes(stateMode))
+    throw new Error('Unsupported load database lifecycle.');
+  base = testTarget('load', base.url);
+  if (stateMode === 'isolated')
+    return withTemporaryDatabase(base, run, directory, action);
+  return withTestDatabase(base, run, async (database) => {
+    const target = { ...base, runId: randomUUID(), stateMode };
+    await database.prepare(directory, testEnvironment(target));
+    return action(target);
   });
 }
