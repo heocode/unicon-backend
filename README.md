@@ -113,9 +113,10 @@ docker compose --profile test up -d postgres-test
 ```
 
 It exposes the dedicated test PostgreSQL instance at `localhost:5433`.
-Ordinary e2e uses `unicon_test`; load scenarios use `unicon_load_test`.
-The guarded launchers ignore repository `.env` and accept only these fixed
-local targets. See [test infrastructure](docs/test-infrastructure.md).
+Ordinary e2e creates a temporary database from `unicon_e2e_template` for each
+run; load scenarios retain `unicon_load_test`. The guarded launchers ignore
+repository `.env` and restrict all targets to this local instance.
+See [test infrastructure](docs/test-infrastructure.md).
 
 ### 4. Apply migrations and seed development data
 
@@ -221,23 +222,32 @@ npm test -- --runInBand
 npm run test:e2e -- --runInBand
 ```
 
-The e2e launcher prepares the dedicated test PostgreSQL database, applies
-migrations, and runs real HTTP flows through guards, services, and Prisma.
+The e2e launcher updates a dedicated template using project migrations, creates
+an isolated copy for the run, and runs real HTTP flows through guards, services,
+and Prisma. After stopping Jest it deletes only its own temporary database.
 It runs migration and Jest subprocesses from an isolated temporary directory,
 without reading repository `.env` or forwarding inherited application secrets.
-It defaults to the separate Compose test service:
+The connection selector defaults to the separate Compose test service:
 
 ```text
 postgresql://unicon_e2e:unicon_e2e_local@localhost:5433/unicon_test
 ```
 
-An explicitly exported `TEST_DATABASE_URL` must still use `unicon_e2e`,
+This selector identifies the approved instance; `unicon_test` itself is no longer
+modified by e2e. An explicitly exported `TEST_DATABASE_URL` must still use `unicon_e2e`,
 localhost/127.0.0.1, port 5433 and exactly `unicon_test`, without URL parameters.
 An arbitrary `_test` suffix is insufficient. A PostgreSQL advisory lock spans
-preparation and the complete serial Jest run; another cooperating invocation
-fails before migrations or fixture cleanup. Standalone `test:e2e:prepare`
-uses the same guard and lock. Load scenarios use the same mechanism with their
-separate fixed database. Existing databases and volumes are not removed.
+template preparation and the complete serial Jest run; another cooperating
+invocation fails before migrations or fixture cleanup. Standalone
+`test:e2e:prepare` updates only the template under the same lock. The template
+contains migration-installed state, never test fixtures, and is closed to
+connections while tests run. Changed, foreign or failed migration history stops
+the launcher for manual review; it never rebuilds the template automatically.
+
+Each temporary database has a unique name, ownership marker and ignored run
+record under `.temp/e2e-runs`. Cleanup verifies its recorded identity. On failed
+cleanup or a hard crash the record remains for deliberate recovery; there is no
+automatic orphan sweeper. Load state, historical databases and volumes are preserved.
 
 For a focused run:
 

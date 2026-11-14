@@ -12,20 +12,22 @@ import {
 } from '../test-runtime.mjs';
 
 test('real PG lock rejects other prepare/full runners and is released after child failure', async () => {
-  const target = testTarget('e2e', process.env.TEST_DATABASE_URL);
+  const target = testTarget('template');
   const first = new TestRun(),
     second = new TestRun();
   let observedDirectory;
   try {
     await withTestWorkdir(async (directory) => {
       observedDirectory = directory;
-      const env = testEnvironment(target);
+      const env = testEnvironment(
+        testTarget('e2e', process.env.TEST_DATABASE_URL),
+      );
       await withTestDatabase(target, first, async () => {
         await assert.rejects(
           withTestDatabase(target, second, () =>
             assert.fail('Second owner entered.'),
           ),
-          /Another e2e run/,
+          /Another template run/,
         );
         // Both public entrypoints must stop before migrations/Jest under the same lock.
         assert.equal(

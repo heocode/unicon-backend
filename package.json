@@ -27,8 +27,8 @@
     "test:load:shared-ip": "node scripts/run-auth-load-smoke.mjs shared-ip",
     "test:load:mixed-mail": "node scripts/run-auth-load-smoke.mjs mixed-mail",
     "test:e2e": "node scripts/run-e2e.mjs",
-    "test:infra": "node --test scripts/tests/test-runtime.test.mjs",
-    "test:infra:db": "node --test scripts/tests/test-runtime-db.test.mjs"
+    "test:infra": "node --test scripts/tests/test-runtime.test.mjs scripts/tests/e2e-database.test.mjs",
+    "test:infra:db": "node --test --test-concurrency=1 scripts/tests/test-runtime-db.test.mjs scripts/tests/e2e-database-db.test.mjs"
   },
   "dependencies": {
     "@maxmind/geoip2-node": "^7.1.0",

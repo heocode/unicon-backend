@@ -4,9 +4,15 @@ import { resolve } from 'node:path';
 // This runs before AppModule can inspect cwd/.env. Direct Jest invocation is
 // unsupported: use the guarded npm e2e/load commands.
 const target = process.env.UNICON_TEST_TARGET;
+const runId = process.env.UNICON_TEST_RUN_ID;
+const validRunId =
+  !!runId &&
+  /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(
+    runId,
+  );
 const expectedDatabase =
-  target === 'e2e'
-    ? 'unicon_test'
+  target === 'e2e' && validRunId
+    ? `unicon_e2e_${runId.replaceAll('-', '')}_test`
     : target === 'load'
       ? 'unicon_load_test'
       : undefined;
@@ -36,9 +42,7 @@ if (
   );
 }
 
-process.env.DATABASE_URL =
-  process.env.TEST_DATABASE_URL ??
-  'postgresql://unicon_e2e:unicon_e2e_local@localhost:5433/unicon_test';
+process.env.DATABASE_URL = targetUrl.toString();
 process.env.JWT_ACCESS_SECRET ??= 'test-access-secret';
 process.env.JWT_ACCESS_TTL_SECONDS ??= '900';
 process.env.JWT_REFRESH_SECRET ??= 'test-refresh-secret';

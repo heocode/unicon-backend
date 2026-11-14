@@ -12,6 +12,7 @@ export const repositoryRoot = resolve(
 const databaseNames = Object.freeze({
   e2e: 'unicon_test',
   load: 'unicon_load_test',
+  template: 'unicon_e2e_template',
 });
 
 export function testTarget(kind, input) {
@@ -53,9 +54,26 @@ export function testEnvironment(target, source = process.env) {
     NODE_ENV: 'test',
     DOTENV_CONFIG_PATH: '/dev/null',
     UNICON_TEST_TARGET: target.kind,
+    ...(target.runId ? { UNICON_TEST_RUN_ID: target.runId } : {}),
     TEST_DATABASE_URL: target.url,
     DATABASE_URL: target.url,
   };
+}
+
+// Use explicit options for admin and target connections; never fall back to PG*.
+export function testClient(target, database = target.database) {
+  const url = new URL(target.url);
+  return new pg.Client({
+    host: url.hostname,
+    port: 5433,
+    user: 'unicon_e2e',
+    password: decodeURIComponent(url.password),
+    database,
+    ssl: false,
+    options: '',
+    application_name: 'unicon-test-launcher',
+    connectionTimeoutMillis: 5000,
+  });
 }
 
 /** Own only this invocation's processes; abort cleanup never targets PG backends. */
@@ -131,18 +149,7 @@ export async function withTestWorkdir(run) {
 /** Admin-DB lock precedes CREATE/migrations and spans prepare plus execution. */
 export async function withTestDatabase(target, run, action) {
   target = testTarget(target.kind, target.url);
-  const url = new URL(target.url);
-  const client = new pg.Client({
-    host: url.hostname,
-    port: 5433,
-    user: 'unicon_e2e',
-    password: decodeURIComponent(url.password),
-    database: 'postgres',
-    ssl: false,
-    options: '',
-    application_name: 'unicon-test-launcher',
-    connectionTimeoutMillis: 5000,
-  });
+  const client = testClient(target, 'postgres');
   let closing = false;
   const lost = () => {
     if (!closing)
@@ -173,6 +180,7 @@ export async function withTestDatabase(target, run, action) {
       );
     run.controller.signal.throwIfAborted();
     const result = await action({
+      client,
       async prepare(directory, env) {
         run.controller.signal.throwIfAborted();
         if (
