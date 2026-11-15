@@ -182,6 +182,26 @@ test('configuration mismatch CLI refuses retained state before connecting', () =
   );
 });
 
+test('key rotation CLI refuses retained state before connecting', () => {
+  const result = spawnSync(
+    process.execPath,
+    [
+      join(repositoryRoot, 'scripts/run-auth-load-smoke.mjs'),
+      'key-rotation',
+      '--state=retained',
+    ],
+    {
+      env: testEnvironment(testTarget('load')),
+      encoding: 'utf8',
+    },
+  );
+  assert.equal(result.status, 1);
+  assert.match(
+    result.stderr,
+    /Key rotation requires an isolated test database/,
+  );
+});
+
 test('dotenv in the child cannot read a synthetic caller .env', async () => {
   await withTestWorkdir(async (outer) => {
     await writeFile(

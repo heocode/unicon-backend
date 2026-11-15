@@ -805,3 +805,144 @@ Step 2.3.2 is complete only for active-policy mismatch/restart protection.
 Actual coordinated parameter transitions, safe key rotation/retirement and
 telemetry failure isolation are not completed by this scenario. Block 2.3 remains
 IN PROGRESS.
+
+## Block 2.3 step 3: retained-key addition and active-version promotion
+
+```bash
+npm run test:load:key-rotation
+```
+
+This is an isolated-only real-PostgreSQL/two-process correctness scenario, not a
+production rotation command or capacity test. It exercises only
+`RATE_LIMIT_HMAC_KEYS` / `RATE_LIMIT_HMAC_ACTIVE_KEY_VERSION`; JWT, challenge
+proof-hash and proof-encryption keyrings remain unchanged. Protocol v1 remains
+immutable; material version 2 derives `rl:v1:k2:...`, not a new protocol.
+
+The closed fixtures in `test/load/key-rotation-fixture.ts` use public synthetic
+32-byte material, with v1 equal to the existing test key and v2 distinct. Existing
+version-to-material mappings never change. The parent validates the named fixture
+before forking; the child validates it again and applies it before normal startup
+validation and service construction. Arbitrary keyring overrides are not a CLI.
+Only version lists and the active version appear in readiness/JSON reports.
+
+| Phase | Participating versions | Active | Required transition |
+| --- | --- | --- | --- |
+| old | 1 | 1 | Create real state using only v1 |
+| retained | 1, 2 | 1 | Finish admissions/transactions, stop old processes, start two matching readers/writers |
+| promoted | 1, 2 | 2 | Finish operations, stop processes, start two matching processes with both versions still retained |
+
+Every phase uses the same disposable database, numeric policy settings and policy
+IDs. The observer checks actual key version metadata, unchanged numeric settings,
+database OID and lifecycle identity for both processes. Startup must preserve the
+full snapshot. There are never old-only writers serving alongside the expanded
+key set. A pending admitted Delivery may survive promotion without being admitted
+or charged again; workers are not admission writers.
+
+Initial state is produced by four real INITIAL admissions: three identities
+exhaust an experimental IP budget (burst 3, rate 1 per 3600 seconds), while one
+identity on a second IP leaves two allowances available. Both workers deliver all
+four through the loopback HTTP provider and stop before key-set changes. This
+makes an early RESEND reach real cooldown checks instead of returning existing
+unfinished work. No limiter row, TAT or cooldown clock is seeded, reset or expired
+manually. Original proof/envelope records and fixed expiration remain live.
+
+At both retained and promoted phases:
+
+- A fresh identity on the exhausted IP must be denied from its v1-only state,
+  despite the absence of a v2 alias. Retry boundary remains the independent
+  original rational-TAT boundary.
+- Early RESEND of the original second-IP challenge must be denied by both the
+  original identity and challenge cooldowns. The latest persisted boundary is
+  unchanged and the database evaluation time must still precede it.
+- Each denial adds only a DENIED receipt: every other row, including proof,
+  domain state, quotas, cooldowns, backlog and provider-pressure state, remains
+  unchanged. In particular, denial must not materialize missing aliases.
+
+The retained phase then admits one new identity on the second IP. Its existing
+v1 debt plus one unit is calculated independently; both IP aliases must contain
+that exact result and full-recovery deadline. This is one logical charge mirrored
+to two rows, not summed debt or two independent allowances. The new identity and
+challenge cooldowns also have two matching boundaries based on their one
+admission timestamp and configured intervals.
+
+After promotion, both processes concurrently request the one remaining allowance
+on that second IP. Exactly one CREATED and one IP-policy DENIED receipt must
+commit. A logical accounting oracle reconstructs all global/identity/IP charges
+from CREATED receipts alone, using each writer phase's retained-version set to
+predict which physical aliases mirror each logical state. It independently checks
+exact reduced rational TAT, policy snapshots, full-recovery ceilings, cooldown
+boundaries and the complete expected key sets. It neither sums aliases nor treats
+a missing alias as zero previous debt.
+
+Final requirements are six CREATED and five DENIED receipts, six subjects,
+challenges and Deliveries, with no partial domain or alias rows for the loser.
+Original four challenge/proof records must remain unchanged. The two remaining
+Deliveries drain under promoted processes; all six must be SENT after one attempt
+and one HTTP submission each. Provider processing must not recharge admission.
+
+No old key is removed. The exhausted IP and original cooldowns intentionally still
+have old-only restrictions after promotion, proving that promotion alone does
+not establish retirement safety. Retirement requires its own database-backed
+transition/proof after old-only writers and transactions are gone; challenge or
+Delivery lifetime and a guessed waiting period are insufficient. HTTP request and
+verification-owner integration, unsafe key removal, arbitrary mixed-key-set
+rollout, rollback faults, telemetry outages, policy retuning and production key
+operations are outside this step.
+
+### Step 2.3.3 verification
+
+Verified locally on 2026-11-15 at HEAD `7689afb` plus this uncommitted step.
+After correcting the synthetic keyring fixture's tuple typing, both complete
+isolated rotation scenarios passed. An earlier launcher attempt stopped during
+replica compilation before the scenario ran; its disposable database was cleaned
+up. No assertions, numeric policies, key-retention requirements or clock bounds
+were relaxed.
+
+| Check in both complete runs | Observed result |
+| --- | --- |
+| Old-key real admissions and delivery | 4 CREATED, all four SENT before expanding the key set |
+| Adding v2, keeping v1 active | Exhausted-IP INITIAL and early RESEND both denied with unchanged original boundaries; no missing alias materialized |
+| Allowed admission under v1+v2 | 1 CREATED, two IP aliases with exactly one additional logical charge; matching new cooldown aliases |
+| Promoting v2 with v1 retained | Same old-only IP and cooldown restrictions still deny without state/proof mutation |
+| Two-process race for the last allowance | 1 CREATED and 1 IP-policy DENIED |
+| Final accounting | 6 CREATED and 5 DENIED; 12 physical admission GCRA rows and 16 cooldown rows matching the logical oracle |
+| Final delivery | 6 SENT, one processing attempt and one unique HTTP submission each |
+
+The physical admission-GCRA count excludes the independent provider-gate row.
+Aliases are storage mirrors, not additional budgets. Both actors reported the
+expected retained versions/active flag, identical numeric settings and the same
+database OID/lifecycle. Startup did not modify snapshots. The four old challenge
+records, including their proof fields and fixed expiration, remained unchanged.
+The scenario portions took approximately 4730 ms and 3524 ms; these local test
+durations do not establish capacity or an SLO.
+
+Handoff results:
+
+- All seven previous isolated load modes passed (including configuration
+  mismatch, rollback/cleanup and real-cooldown concurrency); retained mixed-mail
+  also passed.
+- Smoke passed 12 checks in five suites, including the synthetic keyring fixture
+  invariants and rejection of retirement/unknown profiles. Fourteen Node launcher
+  checks passed, including retained-database rejection before connection.
+- Build, lint without fixes, scoped replica compilation, formatting and diff
+  checks passed. Unit regression passed 1085 tests in 88 suites; full e2e passed
+  457 tests in 25 suites in 89.612 seconds.
+- Prisma validation passed; all 39 existing migrations are applied on the
+  persistent load database. Final inventory contained only `unicon_e2e_template`,
+  `unicon_load_test` and `unicon_test`; template connections were disabled, the
+  container was healthy and both allocation-record directories were empty.
+- Full `tsc --noEmit` still reports 67 pre-existing test diagnostics, with none
+  in the changed files. No `.env` secrets, primary database or live Resend were used.
+
+New ignored artifacts: `load-results/key-rotation-1794720668747.json` and
+`load-results/key-rotation-1794721614796.json`, both schema version 2 with
+`passed: true`. Regression artifacts under `load-results/`:
+`config-mismatch-1794721623415.json`, `rollback-cleanup-1794721632177.json`,
+`concurrency-1794721638149.json`, `identity-isolation-1794721704260.json`,
+`shared-ip-1794721709100.json`, `mixed-mail-1794721714244.json`,
+`smoke-1794721719743.json` and retained `mixed-mail-1794721725543.json`.
+
+Step 2.3.3 is complete for addition/promotion with v1 retained. Old-only active
+restrictions remain, so this test explicitly does not justify removing v1.
+Safe retirement and telemetry failure isolation remain separate gates; Block 2.3
+remains IN PROGRESS.

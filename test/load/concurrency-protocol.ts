@@ -40,6 +40,9 @@ export type ReplicaReady = {
   settings: Record<string, number>;
   databaseOid: string;
   configurationProfile?: string;
+  keyRotationProfile?: string;
+  rateLimitKeyVersions: number[];
+  rateLimitActiveVersion: number;
   databaseLifecycle: {
     runId: string;
     stateMode: 'isolated' | 'retained';

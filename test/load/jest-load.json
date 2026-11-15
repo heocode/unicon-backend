@@ -5,7 +5,8 @@
     "<rootDir>/test/load/auth-smoke.spec.ts",
     "<rootDir>/test/load/load-utils.spec.ts",
     "<rootDir>/test/load/database-runtime.spec.ts",
-    "<rootDir>/test/load/configuration-fixture.spec.ts"
+    "<rootDir>/test/load/configuration-fixture.spec.ts",
+    "<rootDir>/test/load/key-rotation-fixture.spec.ts"
   ],
   "setupFiles": ["<rootDir>/test/setup-env.ts", "<rootDir>/test/load/setup.ts"],
   "moduleNameMapper": { "^(\\.{1,2}/.*)\\.js$": "$1" },

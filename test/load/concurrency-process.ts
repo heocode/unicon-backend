@@ -11,6 +11,10 @@ import {
   type ConfigurationProfile,
 } from './configuration-fixture';
 import { loadDatabaseRuntime } from '../utils/test-database-runtime';
+import {
+  keyRotationFixture,
+  type KeyRotationProfile,
+} from './key-rotation-fixture';
 
 /** Bounded IPC for this stand only; no public/server endpoint is introduced. */
 export class ConcurrencyProcess {
@@ -27,12 +31,22 @@ export class ConcurrencyProcess {
   readonly ready: Promise<ReplicaReady>;
   readonly exited: Promise<void>;
 
-  constructor(endpoint: string, configurationProfile?: ConfigurationProfile) {
+  constructor(
+    endpoint: string,
+    configurationProfile?: ConfigurationProfile,
+    keyRotationProfile?: KeyRotationProfile,
+  ) {
     if (!process.env.LOAD_REPLICA_PATH)
       throw new Error('Compiled test replica required.');
     if (configurationProfile !== undefined)
       configurationFixture(
         configurationProfile,
+        process.env.LOAD_STAND_SCENARIO,
+        loadDatabaseRuntime().stateMode,
+      );
+    if (keyRotationProfile !== undefined)
+      keyRotationFixture(
+        keyRotationProfile,
         process.env.LOAD_STAND_SCENARIO,
         loadDatabaseRuntime().stateMode,
       );
@@ -42,6 +56,7 @@ export class ConcurrencyProcess {
         ...process.env,
         LOAD_PROVIDER_ENDPOINT: endpoint,
         LOAD_CONFIG_PROFILE: configurationProfile,
+        LOAD_ROTATION_PROFILE: keyRotationProfile,
       },
       execArgv: [],
       serialization: 'advanced',

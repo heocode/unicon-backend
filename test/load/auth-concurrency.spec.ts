@@ -37,6 +37,12 @@ import {
   configurationProfiles,
   type ConfigurationProfile,
 } from './configuration-fixture';
+import {
+  keyRotationProfiles,
+  keyRotationFixture,
+  type KeyRotationProfile,
+} from './key-rotation-fixture';
+import type { VersionedKeyring } from '../../src/config/types/versioned-keyring.type';
 
 type Input = {
   request: AuthenticationOperationRequest;
@@ -89,28 +95,33 @@ const sharedIp = process.env.LOAD_STAND_SCENARIO === 'shared-ip';
 const mixedMail = process.env.LOAD_STAND_SCENARIO === 'mixed-mail';
 const rollbackCleanup = process.env.LOAD_STAND_SCENARIO === 'rollback-cleanup';
 const configMismatch = process.env.LOAD_STAND_SCENARIO === 'config-mismatch';
-const scenarioLabel = configMismatch
-  ? 'block 2.3.2: configuration mismatch'
-  : rollbackCleanup
-    ? 'block 2.3.1: rollback and cleanup'
-    : mixedMail
-      ? 'block 2.2: mixed mail queues'
-      : sharedIp
-        ? 'block 2.2: shared IP'
-        : isolation
-          ? 'block 2.2: identity isolation'
-          : 'block 2.1: two OS processes';
-const testName = configMismatch
-  ? 'fails closed on active policy mismatches and preserves debt across matched process restarts'
-  : rollbackCleanup
-    ? 'rolls back receipt failures and preserves active debt through concurrent and retained cleanup'
-    : mixedMail
-      ? 'drains auth and notifications across two processes through one real gate without charging capacity waits'
-      : sharedIp
-        ? 'shares one IP budget across processes without blocking another IP or charging denials'
-        : isolation
-          ? 'preserves personal cooldown and independent admission during repeated initial/resend traffic'
-          : 'shares admission, stable challenge/resend and scheduled delivery across two processes';
+const keyRotation = process.env.LOAD_STAND_SCENARIO === 'key-rotation';
+const scenarioLabel = keyRotation
+  ? 'block 2.3.3: retained-key rotation'
+  : configMismatch
+    ? 'block 2.3.2: configuration mismatch'
+    : rollbackCleanup
+      ? 'block 2.3.1: rollback and cleanup'
+      : mixedMail
+        ? 'block 2.2: mixed mail queues'
+        : sharedIp
+          ? 'block 2.2: shared IP'
+          : isolation
+            ? 'block 2.2: identity isolation'
+            : 'block 2.1: two OS processes';
+const testName = keyRotation
+  ? 'preserves old-only debt and cooldowns while adding and promoting retained HMAC aliases'
+  : configMismatch
+    ? 'fails closed on active policy mismatches and preserves debt across matched process restarts'
+    : rollbackCleanup
+      ? 'rolls back receipt failures and preserves active debt through concurrent and retained cleanup'
+      : mixedMail
+        ? 'drains auth and notifications across two processes through one real gate without charging capacity waits'
+        : sharedIp
+          ? 'shares one IP budget across processes without blocking another IP or charging denials'
+          : isolation
+            ? 'preserves personal cooldown and independent admission during repeated initial/resend traffic'
+            : 'shares admission, stable challenge/resend and scheduled delivery across two processes';
 describe(`Stage 4 Iteration 7 ${scenarioLabel}`, () => {
   jest.setTimeout(180000);
 
@@ -179,12 +190,14 @@ describe(`Stage 4 Iteration 7 ${scenarioLabel}`, () => {
     async function newPair(
       endpoint: string,
       profiles?: readonly [ConfigurationProfile, ConfigurationProfile],
+      rotationProfile?: KeyRotationProfile,
     ) {
       pair = [0, 1].map(
         (index) =>
           new ConcurrencyProcess(
             `${endpoint}/emails/${index}`,
             profiles?.[index],
+            rotationProfile,
           ),
       );
       const ready = await Promise.all(pair.map((item) => item.ready));
@@ -194,6 +207,21 @@ describe(`Stage 4 Iteration 7 ${scenarioLabel}`, () => {
       for (const replica of ready) {
         expect(replica.databaseOid).toBe(identity.oid);
         expect(replica.databaseLifecycle).toEqual(databaseLifecycle);
+        const expected = rotationProfile
+          ? keyRotationProfiles[rotationProfile]
+          : {
+              activeVersion: config.getOrThrow<number>(
+                'RATE_LIMIT_HMAC_ACTIVE_KEY_VERSION',
+              ),
+              versions: [
+                ...config
+                  .getOrThrow<VersionedKeyring>('RATE_LIMIT_HMAC_KEYS')
+                  .keys(),
+              ].sort((a, b) => a - b),
+            };
+        expect(replica.rateLimitActiveVersion).toBe(expected.activeVersion);
+        expect(replica.rateLimitKeyVersions).toEqual(expected.versions);
+        expect(replica.keyRotationProfile).toBe(rotationProfile);
       }
       expect(
         ready[0].pid !== ready[1].pid &&
@@ -1520,6 +1548,512 @@ describe(`Stage 4 Iteration 7 ${scenarioLabel}`, () => {
       });
       expect(Object.values(checks).every(Boolean)).toBe(true);
     }
+    async function rotateKeys(
+      endpoint: string,
+      initial: (identity: string, ip: string) => Input,
+    ) {
+      if (databaseLifecycle.stateMode !== 'isolated')
+        throw new Error('Isolated key rotation required.');
+      const fixture = keyRotationFixture(
+        'promoted',
+        'key-rotation',
+        'isolated',
+      );
+      const keyConfig = new ConfigService({
+        RATE_LIMIT_HMAC_KEYS: fixture.keys,
+        RATE_LIMIT_HMAC_ACTIVE_KEY_VERSION: fixture.activeVersion,
+      });
+      const allKeys = new RateLimitBucketKeyService(keyConfig);
+      const aliases = (
+        policy: (typeof policies)[keyof typeof policies],
+        characteristic: string,
+      ) => allKeys.deriveKeys(policy, characteristic).buckets;
+      const inputs = new Map<string, Input>();
+      const writers = new Map<string, readonly number[]>();
+      const fullIp = '2001:db8:233::1',
+        availableIp = '2001:db8:233::2';
+      const value = (label: string, ip: string) =>
+        initial(`${runId}-${label}@load.example.edu`, ip);
+      const snapshot = async () => ({
+        rates: await rates(),
+        cooldowns: await cooldowns(),
+        subjects: await prisma.authenticationChallengeSubject.findMany({
+          orderBy: { key: 'asc' },
+        }),
+        challenges: await prisma.authenticationChallenge.findMany({
+          orderBy: { id: 'asc' },
+        }),
+        deliveries: await prisma.authenticationChallengeDelivery.findMany({
+          orderBy: { id: 'asc' },
+        }),
+        receipts: await prisma.authenticationOperation.findMany({
+          orderBy: { id: 'asc' },
+        }),
+        backlog: await prisma.authenticationDeliveryBacklogState.findMany(),
+        pressure: await prisma.mailProviderPressure.findMany(),
+      });
+      const prepare = async (
+        index: number,
+        input: Input,
+        versions: readonly number[],
+      ) => {
+        const [id] = await pair[index].call<string[]>({
+          kind: 'PREPARE',
+          requests: [input.request],
+        });
+        inputs.set(id, input);
+        writers.set(id, versions);
+        return id;
+      };
+      const execute = async (index: number) =>
+        (await pair[index].call<ReplicaExecution[]>({ kind: 'EXECUTE' }))[0];
+      const created = (execution: ReplicaExecution) => {
+        expect(execution.error).toBeUndefined();
+        expect(execution.response?.result.outcome).toBe('CREATED');
+        if (execution.response?.result.outcome !== 'CREATED')
+          throw new Error('Expected committed rotated-key admission.');
+        return execution.response.result;
+      };
+      const submit = async (
+        index: number,
+        input: Input,
+        versions: readonly number[],
+      ) => {
+        const id = await prepare(index, input, versions);
+        return { id, result: created(await execute(index)) };
+      };
+      const eligibility = (row: GcraRateLimit) => {
+        const tat = persisted(row),
+          denominator = tat.d * row.rate;
+        const numerator =
+          tat.n * row.rate -
+          (row.burst - 1n) * row.periodSeconds * 1000000n * tat.d;
+        return (numerator + denominator - 1n) / denominator;
+      };
+      const oldReady = await newPair(endpoint, undefined, 'old');
+      for (let i = 0; i < 3; i++)
+        await submit(i % 2, value(`exhaust-${i}`, fullIp), [1]);
+      const protectedInput = value('protected-cooldown', availableIp);
+      const protectedAdmission = await submit(0, protectedInput, [1]);
+      const seededReceipts = await prisma.authenticationOperation.findMany();
+      const baselineDrain = await drainDeliveries(
+        seededReceipts.map((row) => row.deliveryId!),
+      );
+      expect(baselineDrain.final).toHaveLength(4);
+      expect(
+        baselineDrain.final.every(
+          (row) => row.status === 'SENT' && row.attemptCount === 1,
+        ),
+      ).toBe(true);
+      expect(baselineDrain.submissions).toHaveLength(4);
+      const protectedChallenges = await prisma.authenticationChallenge.findMany(
+        { orderBy: { id: 'asc' } },
+      );
+      const initialRates = await rates(),
+        initialCooldowns = await cooldowns();
+      expect(
+        initialRates
+          .filter((row) => row.key.startsWith('rl:'))
+          .every((row) => row.key.startsWith('rl:v1:k1:')),
+      ).toBe(true);
+      const fullAliases = aliases(policies.deliveryIp, fullIp);
+      const availableAliases = aliases(policies.deliveryIp, availableIp);
+      const fullRow = initialRates.find(
+        (row) => row.key === fullAliases[0].key,
+      )!;
+      expect(fullRow.burst).toBe(3n);
+      const fullBoundary = eligibility(fullRow);
+      const protectedRow = protectedChallenges.find(
+        (row) => row.id === protectedAdmission.result.challengeId,
+      )!;
+      const oldCooldownKeys = [
+        aliases(policies.identityDeliveryCooldown, protectedInput.identity)[0]
+          .key,
+        aliases(policies.challengeDeliveryCooldown, protectedRow.id)[0].key,
+      ];
+      const oldCooldowns = initialCooldowns.filter((row) =>
+        oldCooldownKeys.includes(row.key),
+      );
+      expect(oldCooldowns).toHaveLength(2);
+      const cooldownBoundary = oldCooldowns
+        .map((row) => BigInt(row.boundary))
+        .reduce((a, b) => (a > b ? a : b));
+      const resend: Input = {
+        identity: protectedInput.identity,
+        ip: availableIp,
+        request: {
+          kind: 'RESEND',
+          input: {
+            challengeId: protectedRow.id,
+            ipAddress: availableIp,
+            templateProtocolVersion: 1,
+            retentionExpiresAt: protectedRow.retentionExpiresAt,
+          },
+        },
+      };
+      const deny = async (
+        index: number,
+        input: Input,
+        policyIds: string[],
+        boundary: bigint,
+      ) => {
+        const id = await prepare(index, input, [1, 2]);
+        const before = await snapshot(),
+          result = await execute(index);
+        expect(result.error).toBeUndefined();
+        expect(result.response?.result).toMatchObject({
+          outcome: 'DENIED',
+          denial: 'RATE_LIMITED',
+          deniedPolicyIds: [...policyIds].sort(),
+        });
+        if (result.response?.result.outcome !== 'DENIED')
+          throw new Error('Expected retained-key denial.');
+        expect(result.response.result.retryNotBeforeMicros).toBe(boundary);
+        expect(result.response.result.evaluatedAtMicros < boundary).toBe(true);
+        const after = await snapshot();
+        expect({ ...after, receipts: [] }).toEqual({ ...before, receipts: [] });
+        expect(after.receipts).toHaveLength(before.receipts.length + 1);
+        for (const row of before.receipts)
+          expect(after.receipts.find((item) => item.id === row.id)).toEqual(
+            row,
+          );
+        expect(after.receipts.find((row) => row.id === id)?.outcome).toBe(
+          'DENIED',
+        );
+      };
+      scenarios.push({
+        name: 'old-key-real-debt-and-delivery',
+        processes: oldReady,
+        created: 4,
+        sent: 4,
+        checks: {
+          exhaustedIpFromRealAdmissions: true,
+          oldOnlyAliases: true,
+          resendHasNoPendingDelivery: true,
+        },
+      });
+      for (const stage of ['retained', 'promoted'] as const) {
+        const beforeRestart = await snapshot();
+        const ready = await newPair(endpoint, undefined, stage);
+        expect(await snapshot()).toEqual(beforeRestart);
+        await deny(
+          0,
+          value(`${stage}-full-ip`, fullIp),
+          [policies.deliveryIp.id],
+          fullBoundary,
+        );
+        await deny(
+          1,
+          resend,
+          [
+            policies.challengeDeliveryCooldown.id,
+            policies.identityDeliveryCooldown.id,
+          ],
+          cooldownBoundary,
+        );
+        expect(
+          (await rates()).filter((row) =>
+            fullAliases.some((alias) => alias.key === row.key),
+          ),
+        ).toEqual([fullRow]);
+        expect(
+          (await cooldowns()).filter((row) =>
+            oldCooldownKeys.includes(row.key),
+          ),
+        ).toEqual(oldCooldowns);
+        scenarios.push({
+          name: 'retained-restrictions-after-key-transition',
+          stage,
+          processes: ready,
+          activeVersion: keyRotationProfiles[stage].activeVersion,
+          retainedVersions: [1, 2],
+          deniedInitial: 1,
+          deniedResend: 1,
+          checks: {
+            startupImmutable: true,
+            missingV2DoesNotGrantCapacity: true,
+            originalIpBoundary: true,
+            originalIdentityAndChallengeCooldown: true,
+            denialDoesNotMaterializeAliases: true,
+            noProofOrDomainMutation: true,
+          },
+        });
+        if (stage === 'retained') {
+          const before = (await rates()).find(
+            (row) => row.key === availableAliases[0].key,
+          )!;
+          const accepted = await submit(
+            1,
+            value('retained-allowed', availableIp),
+            [1, 2],
+          );
+          const expected = charged(
+            persisted(before),
+            accepted.result.admissionNowMicros,
+            Number(before.rate),
+            Number(before.periodSeconds),
+          );
+          const mirrored = (await rates()).filter((row) =>
+            availableAliases.some((alias) => alias.key === row.key),
+          );
+          expect(mirrored).toHaveLength(2);
+          for (const row of mirrored) {
+            expect(persisted(row)).toEqual(expected);
+            expect(BigInt(row.idleAfterMicros.toFixed(0))).toBe(
+              (expected.n + expected.d - 1n) / expected.d,
+            );
+          }
+          const cooldownScopes = [
+            {
+              policy: policies.identityDeliveryCooldown,
+              characteristic: inputs.get(accepted.id)!.identity,
+              interval: 'AUTH_IDENTITY_DELIVERY_COOLDOWN_SECONDS',
+            },
+            {
+              policy: policies.challengeDeliveryCooldown,
+              characteristic: accepted.result.challengeId,
+              interval: 'AUTH_CHALLENGE_DELIVERY_COOLDOWN_SECONDS',
+            },
+          ];
+          for (const scope of cooldownScopes) {
+            const expectedKeys = aliases(
+              scope.policy,
+              scope.characteristic,
+            ).map((item) => item.key);
+            const rows = (await cooldowns()).filter((row) =>
+              expectedKeys.includes(row.key),
+            );
+            expect(rows).toHaveLength(2);
+            expect(
+              rows.every(
+                (row) =>
+                  BigInt(row.boundary) ===
+                  accepted.result.admissionNowMicros +
+                    BigInt(config.getOrThrow<number>(scope.interval)) *
+                      1000000n,
+              ),
+            ).toBe(true);
+          }
+          scenarios.push({
+            name: 'one-charge-mirrored-to-two-aliases',
+            logicalCreated: 1,
+            ipAliasRows: mirrored.length,
+            checks: {
+              oldDebtNotSummed: true,
+              exactlyOneNewCharge: true,
+              aliasesAgree: true,
+              cooldownAliasesAgree: true,
+            },
+          });
+          await stopPair();
+        }
+      }
+      const wave = await executeBatch([
+        value('promoted-race-a', availableIp),
+        value('promoted-race-b', availableIp),
+      ]);
+      for (const [id, input] of wave.byId) {
+        inputs.set(id, input);
+        writers.set(id, [1, 2]);
+      }
+      expect(
+        wave.all.every(
+          (item) => !item.error && item.response && !item.response.replayed,
+        ),
+      ).toBe(true);
+      expect(wave.receipts).toHaveLength(2);
+      expect(
+        wave.receipts.filter((row) => row.outcome === 'CREATED'),
+      ).toHaveLength(1);
+      expect(
+        wave.receipts.filter((row) => row.outcome === 'DENIED'),
+      ).toHaveLength(1);
+      const availableRows = (await rates()).filter((row) =>
+        availableAliases.some((alias) => alias.key === row.key),
+      );
+      expect(availableRows).toHaveLength(2);
+      const nextBoundary = eligibility(availableRows[0]);
+      for (const item of wave.all)
+        if (item.response?.result.outcome === 'DENIED') {
+          expect(item.response.result).toMatchObject({
+            denial: 'RATE_LIMITED',
+            deniedPolicyIds: [policies.deliveryIp.id],
+          });
+          expect(item.response.result.retryNotBeforeMicros).toBe(nextBoundary);
+        }
+      const receipts = await prisma.authenticationOperation.findMany();
+      const createdReceipts = receipts.filter(
+        (row) => row.outcome === 'CREATED',
+      );
+      expect(createdReceipts).toHaveLength(6);
+      expect(receipts.filter((row) => row.outcome === 'DENIED')).toHaveLength(
+        5,
+      );
+      expect(receipts).toHaveLength(11);
+      expect(await prisma.authenticationChallengeSubject.count()).toBe(6);
+      expect(await prisma.authenticationChallenge.count()).toBe(6);
+      expect(await prisma.authenticationChallengeDelivery.count()).toBe(6);
+
+      // Independent logical accounting: each CREATED charges once, then its
+      // writer's retained versions mirror that logical result. Aliases are not
+      // separate budgets and a missing alias is not zero prior debt.
+      const logical = new Map<string, Rational>();
+      const physical = new Map<
+        string,
+        {
+          tat: Rational;
+          policy: string;
+          burst: number;
+          rate: number;
+          period: number;
+        }
+      >();
+      const expectedCooldowns = new Map<string, string>();
+      for (const receipt of [...createdReceipts].sort((a, b) =>
+        Number(a.admissionNowMicros! - b.admissionNowMicros!),
+      )) {
+        const input = inputs.get(receipt.id)!,
+          versions = writers.get(receipt.id)!;
+        const scopes = [
+          {
+            policy: globalAdmission.policyId,
+            prefix: 'AUTH_DELIVERY_GLOBAL',
+            aliases: [{ key: globalAdmission.key, keyVersion: 0 }],
+          },
+          {
+            policy: policies.deliveryIdentity.id,
+            prefix: 'AUTH_DELIVERY_IDENTITY',
+            aliases: aliases(policies.deliveryIdentity, input.identity),
+          },
+          {
+            policy: policies.deliveryIp.id,
+            prefix: 'AUTH_DELIVERY_IP',
+            aliases: aliases(policies.deliveryIp, input.ip),
+          },
+        ];
+        for (const scope of scopes) {
+          const burst = config.getOrThrow<number>(`${scope.prefix}_BURST`),
+            rate = config.getOrThrow<number>(`${scope.prefix}_RATE`),
+            period = config.getOrThrow<number>(
+              `${scope.prefix}_PERIOD_SECONDS`,
+            );
+          const canonical = scope.aliases[0].key;
+          const next = charged(
+            logical.get(canonical) ?? { n: 0n, d: 1n },
+            receipt.admissionNowMicros!,
+            rate,
+            period,
+          );
+          logical.set(canonical, next);
+          for (const alias of scope.aliases.filter(
+            (alias) =>
+              alias.keyVersion === 0 || versions.includes(alias.keyVersion),
+          ))
+            physical.set(alias.key, {
+              tat: next,
+              policy: scope.policy,
+              burst,
+              rate,
+              period,
+            });
+        }
+        for (const scope of [
+          {
+            policy: policies.identityDeliveryCooldown,
+            value: input.identity,
+            interval: 'AUTH_IDENTITY_DELIVERY_COOLDOWN_SECONDS',
+          },
+          {
+            policy: policies.challengeDeliveryCooldown,
+            value: receipt.challengeId!,
+            interval: 'AUTH_CHALLENGE_DELIVERY_COOLDOWN_SECONDS',
+          },
+        ])
+          for (const alias of aliases(scope.policy, scope.value).filter(
+            (alias) => versions.includes(alias.keyVersion),
+          ))
+            expectedCooldowns.set(
+              alias.key,
+              (
+                receipt.admissionNowMicros! +
+                BigInt(config.getOrThrow<number>(scope.interval)) * 1000000n
+              ).toString(),
+            );
+      }
+      const stored = (await rates()).filter(
+        (row) => row.key !== MAIL_SUBMISSION_GATE.key,
+      );
+      expect(stored.map((row) => row.key).sort()).toEqual(
+        [...physical.keys()].sort(),
+      );
+      for (const row of stored) {
+        const expected = physical.get(row.key)!;
+        expect(persisted(row)).toEqual(expected.tat);
+        expect(row.policyId).toBe(expected.policy);
+        expect([row.burst, row.rate, row.periodSeconds]).toEqual(
+          [expected.burst, expected.rate, expected.period].map(BigInt),
+        );
+        expect(BigInt(row.idleAfterMicros.toFixed(0))).toBe(
+          (expected.tat.n + expected.tat.d - 1n) / expected.tat.d,
+        );
+      }
+      const storedCooldowns = await cooldowns();
+      expect(storedCooldowns.map((row) => row.key).sort()).toEqual(
+        [...expectedCooldowns.keys()].sort(),
+      );
+      expect(
+        storedCooldowns.every(
+          (row) =>
+            row.count === 1 && row.boundary === expectedCooldowns.get(row.key),
+        ),
+      ).toBe(true);
+      expect(
+        await prisma.authenticationChallenge.findMany({
+          where: { id: { in: protectedChallenges.map((row) => row.id) } },
+          orderBy: { id: 'asc' },
+        }),
+      ).toEqual(protectedChallenges);
+      const remaining = createdReceipts.filter(
+        (row) => !seededReceipts.some((seed) => seed.id === row.id),
+      );
+      const finalDrain = await drainDeliveries(
+        remaining.map((row) => row.deliveryId!),
+      );
+      expect(
+        finalDrain.final.every(
+          (row) => row.status === 'SENT' && row.attemptCount === 1,
+        ),
+      ).toBe(true);
+      expect(finalDrain.final).toHaveLength(2);
+      expect(finalDrain.submissions).toHaveLength(2);
+      expect(
+        (await rates()).filter((row) => row.key !== MAIL_SUBMISSION_GATE.key),
+      ).toEqual(stored);
+      expect(await cooldowns()).toEqual(storedCooldowns);
+      expect(calls).toHaveLength(6);
+      expect(new Set(calls.map((call) => call.key)).size).toBe(6);
+      scenarios.push({
+        name: 'promoted-concurrency-and-logical-accounting',
+        concurrentCreated: 1,
+        concurrentDenied: 1,
+        createdReceipts: 6,
+        deniedReceipts: 5,
+        physicalRateRows: stored.length,
+        physicalCooldownRows: storedCooldowns.length,
+        sent: 6,
+        httpSubmissions: calls.length,
+        checks: {
+          oneRemainingAllowanceAcrossProcesses: true,
+          noFreshBurstOrDoubleCharge: true,
+          exactLogicalChargesAndAliasMirrors: true,
+          exactCooldownMirrors: true,
+          noAliasesCreatedByDenial: true,
+          oldProofUnchanged: true,
+          allDeliveriesSentOnce: true,
+          v1StillRetained: true,
+        },
+      });
+    }
     async function configurationMismatch(
       endpoint: string,
       initial: (identity: string, ip: string) => Input,
@@ -2155,7 +2689,9 @@ describe(`Stage 4 Iteration 7 ${scenarioLabel}`, () => {
           },
         },
       });
-      if (configMismatch) {
+      if (keyRotation) {
+        await rotateKeys(endpoint, initial);
+      } else if (configMismatch) {
         await configurationMismatch(endpoint, initial);
       } else if (rollbackCleanup) {
         await rollbackAndCleanup(endpoint, initial);
@@ -2252,17 +2788,19 @@ describe(`Stage 4 Iteration 7 ${scenarioLabel}`, () => {
       const report = {
         schemaVersion: 2,
         databaseLifecycle,
-        scenario: configMismatch
-          ? 'internal-auth-configuration-mismatch'
-          : rollbackCleanup
-            ? 'internal-auth-rollback-and-cleanup'
-            : mixedMail
-              ? 'internal-auth-and-notification-shared-gate'
-              : sharedIp
-                ? 'internal-auth-shared-ip-budget'
-                : isolation
-                  ? 'internal-auth-identity-cooldown-isolation'
-                  : 'internal-auth-two-process-concurrency',
+        scenario: keyRotation
+          ? 'internal-auth-retained-key-rotation'
+          : configMismatch
+            ? 'internal-auth-configuration-mismatch'
+            : rollbackCleanup
+              ? 'internal-auth-rollback-and-cleanup'
+              : mixedMail
+                ? 'internal-auth-and-notification-shared-gate'
+                : sharedIp
+                  ? 'internal-auth-shared-ip-budget'
+                  : isolation
+                    ? 'internal-auth-identity-cooldown-isolation'
+                    : 'internal-auth-two-process-concurrency',
         runId,
         recordedAt: new Date().toISOString(),
         commit: execFileSync('git', ['rev-parse', 'HEAD'], {
@@ -2286,11 +2824,13 @@ describe(`Stage 4 Iteration 7 ${scenarioLabel}`, () => {
           'Internal services after email/domain eligibility; not public HTTP or mailbox delivery.',
           'Two local OS processes share host resources; no production capacity or fairness claim.',
           'Always-200 fake provider; process/network faults and commit ambiguity are later work.',
-          configMismatch
-            ? 'Active IP-policy snapshot mismatch and matched restarts only; no retuning, key rotation or fleet-wide configuration consensus.'
-            : rollbackCleanup
-              ? 'Confirmed receipt aborts and existing entity cleanup only; no GCRA/cooldown bucket garbage collector is implemented or tested.'
-              : 'No configuration/key rotation, cleanup or provider-fault scenarios in this command.',
+          keyRotation
+            ? 'Rate-limit key addition/promotion with v1 retained only; no key retirement, policy retuning or HTTP/verification integration.'
+            : configMismatch
+              ? 'Active IP-policy snapshot mismatch and matched restarts only; no retuning, key rotation or fleet-wide configuration consensus.'
+              : rollbackCleanup
+                ? 'Confirmed receipt aborts and existing entity cleanup only; no GCRA/cooldown bucket garbage collector is implemented or tested.'
+                : 'No configuration/key rotation, cleanup or provider-fault scenarios in this command.',
           ...(mixedMail
             ? [
                 'Deferral observers add DB reads; these timings do not establish capacity or queue fairness.',
@@ -2298,7 +2838,7 @@ describe(`Stage 4 Iteration 7 ${scenarioLabel}`, () => {
               ]
             : ['Notification competition is not exercised by this command.']),
           'Personal identity GCRA exhaustion and heavy traffic are not exercised.',
-          ...(sharedIp || configMismatch
+          ...(sharedIp || configMismatch || keyRotation
             ? [
                 'Shared-IP values are experimental fixtures, not production sizing.',
               ]

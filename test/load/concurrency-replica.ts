@@ -24,6 +24,8 @@ import { MailDeliveryWorkerService } from '../../src/mail/services/mail-delivery
 import { PrismaService } from '../../src/prisma/prisma.service';
 import { observeMailDeferrals } from './observe-mail-deferrals';
 import { configurationFixture } from './configuration-fixture';
+import { keyRotationFixture } from './key-rotation-fixture';
+import type { VersionedKeyring } from '../../src/config/types/versioned-keyring.type';
 import type {
   ReplicaCommand,
   ReplicaExecution,
@@ -70,6 +72,22 @@ async function initialize() {
       process.env[key] = String(value);
   } else if (process.env.LOAD_STAND_SCENARIO === 'config-mismatch') {
     throw new Error('Explicit configuration profile required.');
+  }
+  const keyRotationProfile = process.env.LOAD_ROTATION_PROFILE;
+  if (keyRotationProfile !== undefined) {
+    const fixture = keyRotationFixture(
+      keyRotationProfile,
+      process.env.LOAD_STAND_SCENARIO,
+      databaseLifecycle.stateMode,
+    );
+    process.env.RATE_LIMIT_HMAC_ACTIVE_KEY_VERSION = String(
+      fixture.activeVersion,
+    );
+    process.env.RATE_LIMIT_HMAC_KEYS = [...fixture.keys]
+      .map(([version, key]) => `${version}:${key.toString('base64')}`)
+      .join(',');
+  } else if (process.env.LOAD_STAND_SCENARIO === 'key-rotation') {
+    throw new Error('Explicit key-rotation profile required.');
   }
   const endpoint = new URL(process.env.LOAD_PROVIDER_ENDPOINT ?? '');
   if (
@@ -146,6 +164,13 @@ async function initialize() {
     pid: process.pid,
     settings,
     configurationProfile,
+    keyRotationProfile,
+    rateLimitKeyVersions: [
+      ...config.getOrThrow<VersionedKeyring>('RATE_LIMIT_HMAC_KEYS').keys(),
+    ].sort((a, b) => a - b),
+    rateLimitActiveVersion: config.getOrThrow<number>(
+      'RATE_LIMIT_HMAC_ACTIVE_KEY_VERSION',
+    ),
     databaseLifecycle,
     databaseOid: identity.oid,
   });

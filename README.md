@@ -269,6 +269,11 @@ installs temporary database fault triggers and historical test fixtures. See
 and matched process restarts. It is isolated-only and uses closed test profiles;
 it does not apply production parameter transitions.
 
+`npm run test:load:key-rotation` checks adding a second rate-limit HMAC key and
+promoting it while retaining v1. It is isolated-only, uses public synthetic test
+keys and preserves active debt/cooldown across aliases. Old-key retirement is a
+separate database-backed gate.
+
 For a focused run:
 
 ```bash

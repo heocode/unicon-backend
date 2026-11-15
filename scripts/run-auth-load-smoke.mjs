@@ -22,6 +22,7 @@ async function main() {
       'mixed-mail',
       'rollback-cleanup',
       'config-mismatch',
+      'key-rotation',
     ].includes(mode) ||
     args.length > 1 ||
     (args.length === 1 &&
@@ -34,6 +35,8 @@ async function main() {
     throw new Error(
       'Configuration mismatch requires an isolated test database.',
     );
+  if (mode === 'key-rotation' && stateMode !== 'isolated')
+    throw new Error('Key rotation requires an isolated test database.');
   const target = testTarget('load', process.env.TEST_DATABASE_URL);
   const run = new TestRun();
   try {

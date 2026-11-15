@@ -7,7 +7,7 @@ process.env.AUTH_DELIVERY_BACKLOG_LIMIT = '1000';
 // Bounded shared-IP/configuration experiments. Each run uses fresh IPs; do not retune or
 // reset previously retained buckets, and do not export these as production values.
 if (
-  ['shared-ip', 'config-mismatch'].includes(
+  ['shared-ip', 'config-mismatch', 'key-rotation'].includes(
     process.env.LOAD_STAND_SCENARIO ?? '',
   )
 ) {

@@ -1350,8 +1350,12 @@ introduced or claimed tested. The configuration-mismatch guard step (2.3.2) is
 COMPLETE within its bounded isolated scope. It checks incompatible active IP
 burst/rate/period snapshots and matched process
 restarts without resetting debt. It does not apply actual parameter retuning or
-establish fleet-wide configuration agreement. Key rotation and telemetry failure
-isolation remain pending in 2.3; broader fault/load work stays in later blocks.
+establish fleet-wide configuration agreement. The retained-key addition/promotion
+step (2.3.3) is COMPLETE within its add/promote-only scope. It checks old-only IP
+debt and identity/challenge cooldowns, exact alias
+mirroring and two-process admission after promoting v2. V1 remains configured;
+promotion is not proof of safe retirement. Old-key retirement and telemetry
+failure isolation remain separate gates; broader fault/load work stays in later blocks.
 Public request-to-session HTTP coverage remains Stage 5–6 work.
 
 ## Stage 5: Request and resend endpoints

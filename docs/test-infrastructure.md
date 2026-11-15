@@ -158,6 +158,16 @@ child validates it again before normal startup validation. Other load modes keep
 their original requirement that all reported configuration fields match. There
 is no arbitrary environment-override CLI or production configuration-transition tool.
 
+`npm run test:load:key-rotation` is isolated-only and validates a closed private
+keyring profile before forking and again inside each replica. Profiles are `old`
+(v1 active), `retained` (v1+v2, v1 active) and `promoted` (v1+v2, v2 active).
+Here `retained` names a keyring phase; the database lifecycle always remains
+isolated. Only public synthetic fixture keys are used. Readiness exposes version
+numbers/active version, never key material. All original scenarios must still
+match their observer's key versions. No profile retires v1 or changes production
+secrets. The isolated fixture prevents state from being lost between phases;
+the common launcher deletes only the completed invocation's copy.
+
 `test/utils/test-database-runtime.ts` is the test-only destination policy shared
 by Jest setup, load observers and compiled replicas. It checks local role/endpoint,
 run UUID, mode, exact expected database and equality of both database settings.
