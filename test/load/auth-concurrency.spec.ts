@@ -33,6 +33,10 @@ import type {
 } from './concurrency-protocol';
 import { distribution } from './load-utils';
 import { loadDatabaseRuntime } from '../utils/test-database-runtime';
+import {
+  configurationProfiles,
+  type ConfigurationProfile,
+} from './configuration-fixture';
 
 type Input = {
   request: AuthenticationOperationRequest;
@@ -84,24 +88,29 @@ const isolation = process.env.LOAD_STAND_SCENARIO === 'identity-isolation';
 const sharedIp = process.env.LOAD_STAND_SCENARIO === 'shared-ip';
 const mixedMail = process.env.LOAD_STAND_SCENARIO === 'mixed-mail';
 const rollbackCleanup = process.env.LOAD_STAND_SCENARIO === 'rollback-cleanup';
-const scenarioLabel = rollbackCleanup
-  ? 'block 2.3.1: rollback and cleanup'
-  : mixedMail
-    ? 'block 2.2: mixed mail queues'
-    : sharedIp
-      ? 'block 2.2: shared IP'
-      : isolation
-        ? 'block 2.2: identity isolation'
-        : 'block 2.1: two OS processes';
-const testName = rollbackCleanup
-  ? 'rolls back receipt failures and preserves active debt through concurrent and retained cleanup'
-  : mixedMail
-    ? 'drains auth and notifications across two processes through one real gate without charging capacity waits'
-    : sharedIp
-      ? 'shares one IP budget across processes without blocking another IP or charging denials'
-      : isolation
-        ? 'preserves personal cooldown and independent admission during repeated initial/resend traffic'
-        : 'shares admission, stable challenge/resend and scheduled delivery across two processes';
+const configMismatch = process.env.LOAD_STAND_SCENARIO === 'config-mismatch';
+const scenarioLabel = configMismatch
+  ? 'block 2.3.2: configuration mismatch'
+  : rollbackCleanup
+    ? 'block 2.3.1: rollback and cleanup'
+    : mixedMail
+      ? 'block 2.2: mixed mail queues'
+      : sharedIp
+        ? 'block 2.2: shared IP'
+        : isolation
+          ? 'block 2.2: identity isolation'
+          : 'block 2.1: two OS processes';
+const testName = configMismatch
+  ? 'fails closed on active policy mismatches and preserves debt across matched process restarts'
+  : rollbackCleanup
+    ? 'rolls back receipt failures and preserves active debt through concurrent and retained cleanup'
+    : mixedMail
+      ? 'drains auth and notifications across two processes through one real gate without charging capacity waits'
+      : sharedIp
+        ? 'shares one IP budget across processes without blocking another IP or charging denials'
+        : isolation
+          ? 'preserves personal cooldown and independent admission during repeated initial/resend traffic'
+          : 'shares admission, stable challenge/resend and scheduled delivery across two processes';
 describe(`Stage 4 Iteration 7 ${scenarioLabel}`, () => {
   jest.setTimeout(180000);
 
@@ -167,9 +176,16 @@ describe(`Stage 4 Iteration 7 ${scenarioLabel}`, () => {
       >`SELECT trunc(EXTRACT(EPOCH FROM clock_timestamp()) * 1000000)::text AS micros`;
       return BigInt(row.micros);
     };
-    async function newPair(endpoint: string) {
+    async function newPair(
+      endpoint: string,
+      profiles?: readonly [ConfigurationProfile, ConfigurationProfile],
+    ) {
       pair = [0, 1].map(
-        (index) => new ConcurrencyProcess(`${endpoint}/emails/${index}`),
+        (index) =>
+          new ConcurrencyProcess(
+            `${endpoint}/emails/${index}`,
+            profiles?.[index],
+          ),
       );
       const ready = await Promise.all(pair.map((item) => item.ready));
       const [identity] = await prisma.$queryRaw<
@@ -183,16 +199,34 @@ describe(`Stage 4 Iteration 7 ${scenarioLabel}`, () => {
         ready[0].pid !== ready[1].pid &&
           ready.every((item) => item.pid !== process.pid),
       ).toBe(true);
-      expect(isDeepStrictEqual(ready[0].settings, ready[1].settings)).toBe(
-        true,
-      );
-      expect(
-        ready.every((replica) =>
-          Object.entries(replica.settings).every(
-            ([key, value]) => config.getOrThrow<number>(key) === value,
+      if (!profiles) {
+        expect(isDeepStrictEqual(ready[0].settings, ready[1].settings)).toBe(
+          true,
+        );
+        expect(
+          ready.every((replica) =>
+            Object.entries(replica.settings).every(
+              ([key, value]) => config.getOrThrow<number>(key) === value,
+            ),
           ),
-        ),
-      ).toBe(true);
+        ).toBe(true);
+      } else {
+        expect(
+          configMismatch && databaseLifecycle.stateMode === 'isolated',
+        ).toBe(true);
+        for (const [index, replica] of ready.entries()) {
+          expect(replica.configurationProfile).toBe(profiles[index]);
+          const expected = configurationProfiles[profiles[index]] as Readonly<
+            Record<string, number>
+          >;
+          expect(
+            Object.entries(replica.settings).every(
+              ([key, value]) =>
+                value === (expected[key] ?? config.getOrThrow<number>(key)),
+            ),
+          ).toBe(true);
+        }
+      }
       launched.push(...ready.map((item) => item.pid));
       return ready;
     }
@@ -1486,6 +1520,249 @@ describe(`Stage 4 Iteration 7 ${scenarioLabel}`, () => {
       });
       expect(Object.values(checks).every(Boolean)).toBe(true);
     }
+    async function configurationMismatch(
+      endpoint: string,
+      initial: (identity: string, ip: string) => Input,
+    ) {
+      if (databaseLifecycle.stateMode !== 'isolated')
+        throw new Error('Isolated configuration scenario required.');
+      const baseline = ['baseline', 'baseline'] as const;
+      const beforeRates = await rates(),
+        beforeCooldowns = await cooldowns();
+      const inputs = new Map<string, Input>();
+      const mainIp = '2001:db8:232::1';
+      const input = (label: string, ip = mainIp) =>
+        initial(`${runId}-${label}@load.example.edu`, ip);
+      const snapshot = async () => ({
+        rates: await rates(),
+        cooldowns: await cooldowns(),
+        subjects: await prisma.authenticationChallengeSubject.findMany({
+          orderBy: { key: 'asc' },
+        }),
+        challenges: await prisma.authenticationChallenge.findMany({
+          orderBy: { id: 'asc' },
+        }),
+        deliveries: await prisma.authenticationChallengeDelivery.findMany({
+          orderBy: { id: 'asc' },
+        }),
+        receipts: await prisma.authenticationOperation.findMany({
+          orderBy: { id: 'asc' },
+        }),
+        backlog: await prisma.authenticationDeliveryBacklogState.findMany(),
+        pressure: await prisma.mailProviderPressure.findMany(),
+      });
+      const counts = (state: Awaited<ReturnType<typeof snapshot>>) => ({
+        subjects: state.subjects.length,
+        challenges: state.challenges.length,
+        deliveries: state.deliveries.length,
+        receipts: state.receipts.length,
+        rateBuckets: state.rates.length,
+        cooldownBuckets: state.cooldowns.length,
+      });
+      const prepare = async (index: number, value: Input) => {
+        const [id] = await pair[index].call<string[]>({
+          kind: 'PREPARE',
+          requests: [value.request],
+        });
+        inputs.set(id, value);
+        return id;
+      };
+      const execute = async (index: number) =>
+        (await pair[index].call<ReplicaExecution[]>({ kind: 'EXECUTE' }))[0];
+      const retry = (index: number, id: string, value: Input) =>
+        pair[index].call<ReplicaExecution>({
+          kind: 'EXECUTE_OPERATION',
+          operationId: id,
+          request: value.request,
+        });
+      const ipKeys = keys(policies.deliveryIp, mainIp);
+      const ready = await newPair(endpoint, baseline);
+      for (let index = 0; index < 3; index++) {
+        await prepare(0, input(`seed-${index}`));
+        expect((await execute(0)).response?.result.outcome).toBe('CREATED');
+      }
+      const seeded = await snapshot();
+      const aliases = seeded.rates.filter((row) => ipKeys.includes(row.key));
+      expect(aliases).toHaveLength(ipKeys.length);
+      expect(
+        aliases.every(
+          (row) =>
+            row.burst === 3n && row.rate === 1n && row.periodSeconds === 3600n,
+        ),
+      ).toBe(true);
+      // Independent rational oracle: ceil(TAT - (burst - 1) * period/rate).
+      const eligible = aliases
+        .map((row) => {
+          const tat = persisted(row);
+          const denominator = tat.d * row.rate;
+          const numerator =
+            tat.n * row.rate -
+            (row.burst - 1n) * row.periodSeconds * 1000000n * tat.d;
+          return (numerator + denominator - 1n) / denominator;
+        })
+        .reduce((a, b) => (a > b ? a : b));
+      const assertDenial = (execution: ReplicaExecution) => {
+        expect(execution.error).toBeUndefined();
+        expect(execution.response?.result).toMatchObject({
+          outcome: 'DENIED',
+          denial: 'RATE_LIMITED',
+          deniedPolicyIds: [policies.deliveryIp.id],
+        });
+        if (execution.response?.result.outcome !== 'DENIED')
+          throw new Error('Expected persisted IP debt denial.');
+        expect(execution.response.result.retryNotBeforeMicros).toBe(eligible);
+        expect(execution.response.result.evaluatedAtMicros < eligible).toBe(
+          true,
+        );
+      };
+      const assertOnlyReceiptAdded = (
+        before: Awaited<ReturnType<typeof snapshot>>,
+        after: Awaited<ReturnType<typeof snapshot>>,
+      ) => {
+        expect({ ...after, receipts: [] }).toEqual({ ...before, receipts: [] });
+        expect(after.receipts).toHaveLength(before.receipts.length + 1);
+        for (const row of before.receipts)
+          expect(after.receipts.find((item) => item.id === row.id)).toEqual(
+            row,
+          );
+      };
+      scenarios.push({
+        name: 'exhaust-real-ip-policy',
+        processes: ready,
+        policy: { burst: 3, rate: 1, periodSeconds: 3600 },
+        committedDeliveries: 3,
+        checks: {
+          debtCreatedByRealAdmissions: true,
+          aliasesHaveBaselineSnapshot: true,
+        },
+      });
+      await stopPair();
+      const variants = ['burst', 'rate', 'period'] as const;
+      for (const [wave, variant] of variants.entries()) {
+        const badIndex = wave % 2 === 0 ? 1 : 0;
+        const profiles: [ConfigurationProfile, ConfigurationProfile] = [
+          'baseline',
+          'baseline',
+        ];
+        profiles[badIndex] = variant;
+        const beforeStartup = await snapshot();
+        const mixedReady = await newPair(endpoint, profiles);
+        expect(await snapshot()).toEqual(beforeStartup);
+        const fresh = input(`mismatch-${variant}`);
+        const operationId = await prepare(badIndex, fresh);
+        const before = await snapshot();
+        const failed = await execute(badIndex);
+        expect(failed.error).toBe('STATE_UNAVAILABLE');
+        expect(failed.response).toBeUndefined();
+        const afterFailure = await snapshot();
+        expect(afterFailure).toEqual(before);
+        expect(
+          afterFailure.receipts.some((row) => row.id === operationId),
+        ).toBe(false);
+        // The correctly configured peer sees a policy denial, never the
+        // misconfigured peer's infrastructure failure or a new burst.
+        const controlId = await prepare(
+          1 - badIndex,
+          input(`matched-control-${variant}`),
+        );
+        const control = await execute(1 - badIndex);
+        assertDenial(control);
+        const beforeRestart = await snapshot();
+        assertOnlyReceiptAdded(afterFailure, beforeRestart);
+        expect(
+          beforeRestart.receipts.find((row) => row.id === controlId)?.outcome,
+        ).toBe('DENIED');
+        await stopPair();
+        const recovered = await newPair(endpoint, baseline);
+        expect(
+          recovered.every(
+            (replica) => !mixedReady.some((old) => old.pid === replica.pid),
+          ),
+        ).toBe(true);
+        expect(await snapshot()).toEqual(beforeRestart);
+        const retried = await retry(badIndex, operationId, fresh);
+        assertDenial(retried);
+        expect(retried.response?.replayed).toBe(false);
+        const afterRetry = await snapshot();
+        assertOnlyReceiptAdded(beforeRestart, afterRetry);
+        expect(
+          afterRetry.receipts.find((row) => row.id === operationId)?.outcome,
+        ).toBe('DENIED');
+        const replay = await retry(1 - badIndex, operationId, fresh);
+        expect(replay.response?.replayed).toBe(true);
+        assertDenial(replay);
+        expect(await snapshot()).toEqual(afterRetry);
+        scenarios.push({
+          name: 'policy-mismatch-and-matched-restart',
+          changedParameter: variant,
+          misconfiguredProcess: badIndex,
+          profiles,
+          processes: mixedReady,
+          recoveredProcesses: recovered,
+          technicalFailure: failed.error,
+          before: counts(before),
+          afterFailure: counts(afterFailure),
+          afterRecovery: counts(afterRetry),
+          checks: {
+            startupDidNotRetune: true,
+            technicalFailureNotPolicyDenial: true,
+            noPartialWrites: true,
+            correctlyConfiguredPeerStillEnforcesDebt: true,
+            newProcessesObserved: true,
+            restartDidNotResetState: true,
+            sameOperationRetriedAsPolicyDenial: true,
+            originalRetryBoundaryPreserved: true,
+            replayImmutable: true,
+          },
+        });
+        if (wave < variants.length - 1) await stopPair();
+      }
+      // Positive control: matched processes may still admit an independent IP.
+      await prepare(0, input('independent-control', '2001:db8:232::2'));
+      expect((await execute(0)).response?.result.outcome).toBe('CREATED');
+      const receipts = await prisma.authenticationOperation.findMany();
+      const committed = receipts.filter((row) => row.outcome === 'CREATED');
+      expect(committed).toHaveLength(4);
+      expect(receipts.filter((row) => row.outcome === 'DENIED')).toHaveLength(
+        6,
+      );
+      expect(receipts).toHaveLength(10);
+      expect(
+        checkAccounting(beforeRates, await rates(), receipts, inputs),
+      ).toBe(true);
+      expect(
+        checkCooldowns(beforeCooldowns, await cooldowns(), receipts, inputs),
+      ).toBe(true);
+      expect((await rates()).filter((row) => ipKeys.includes(row.key))).toEqual(
+        aliases,
+      );
+      const drained = await drainDeliveries(
+        committed.map((row) => row.deliveryId!),
+      );
+      expect(
+        drained.final.every(
+          (row) => row.status === 'SENT' && row.attemptCount === 1,
+        ),
+      ).toBe(true);
+      expect(drained.final).toHaveLength(4);
+      expect(drained.submissions).toHaveLength(4);
+      scenarios.push({
+        name: 'independent-control-and-delivery-drain',
+        createdReceipts: 4,
+        deniedReceipts: 6,
+        technicalFailuresWithoutReceipts: 3,
+        sent: drained.final.length,
+        httpSubmissions: drained.submissions.length,
+        checks: {
+          noFreshBurst: true,
+          noChargeForTechnicalFailuresOrDenials: true,
+          originalIpDebtUnchanged: true,
+          exactCommittedCharges: true,
+          independentIpStillAllowed: true,
+          allCreatedSentOnce: true,
+        },
+      });
+    }
     async function rollbackAndCleanup(
       endpoint: string,
       initial: (identity: string, ip: string) => Input,
@@ -1878,7 +2155,9 @@ describe(`Stage 4 Iteration 7 ${scenarioLabel}`, () => {
           },
         },
       });
-      if (rollbackCleanup) {
+      if (configMismatch) {
+        await configurationMismatch(endpoint, initial);
+      } else if (rollbackCleanup) {
         await rollbackAndCleanup(endpoint, initial);
       } else if (mixedMail) {
         await mixMail(endpoint, initial);
@@ -1973,15 +2252,17 @@ describe(`Stage 4 Iteration 7 ${scenarioLabel}`, () => {
       const report = {
         schemaVersion: 2,
         databaseLifecycle,
-        scenario: rollbackCleanup
-          ? 'internal-auth-rollback-and-cleanup'
-          : mixedMail
-            ? 'internal-auth-and-notification-shared-gate'
-            : sharedIp
-              ? 'internal-auth-shared-ip-budget'
-              : isolation
-                ? 'internal-auth-identity-cooldown-isolation'
-                : 'internal-auth-two-process-concurrency',
+        scenario: configMismatch
+          ? 'internal-auth-configuration-mismatch'
+          : rollbackCleanup
+            ? 'internal-auth-rollback-and-cleanup'
+            : mixedMail
+              ? 'internal-auth-and-notification-shared-gate'
+              : sharedIp
+                ? 'internal-auth-shared-ip-budget'
+                : isolation
+                  ? 'internal-auth-identity-cooldown-isolation'
+                  : 'internal-auth-two-process-concurrency',
         runId,
         recordedAt: new Date().toISOString(),
         commit: execFileSync('git', ['rev-parse', 'HEAD'], {
@@ -2005,9 +2286,11 @@ describe(`Stage 4 Iteration 7 ${scenarioLabel}`, () => {
           'Internal services after email/domain eligibility; not public HTTP or mailbox delivery.',
           'Two local OS processes share host resources; no production capacity or fairness claim.',
           'Always-200 fake provider; process/network faults and commit ambiguity are later work.',
-          rollbackCleanup
-            ? 'Confirmed receipt aborts and existing entity cleanup only; no GCRA/cooldown bucket garbage collector is implemented or tested.'
-            : 'No configuration/key rotation, cleanup or provider-fault scenarios in this command.',
+          configMismatch
+            ? 'Active IP-policy snapshot mismatch and matched restarts only; no retuning, key rotation or fleet-wide configuration consensus.'
+            : rollbackCleanup
+              ? 'Confirmed receipt aborts and existing entity cleanup only; no GCRA/cooldown bucket garbage collector is implemented or tested.'
+              : 'No configuration/key rotation, cleanup or provider-fault scenarios in this command.',
           ...(mixedMail
             ? [
                 'Deferral observers add DB reads; these timings do not establish capacity or queue fairness.',
@@ -2015,7 +2298,7 @@ describe(`Stage 4 Iteration 7 ${scenarioLabel}`, () => {
               ]
             : ['Notification competition is not exercised by this command.']),
           'Personal identity GCRA exhaustion and heavy traffic are not exercised.',
-          ...(sharedIp
+          ...(sharedIp || configMismatch
             ? [
                 'Shared-IP values are experimental fixtures, not production sizing.',
               ]

@@ -150,6 +150,14 @@ Stage 4 / Iteration 7 block 2.3.1. It rejects `--state=retained` before opening 
 database connection: fault triggers and historical retention fixtures belong only
 to its disposable copy. See the scenario boundary in the load-stand guide.
 
+`npm run test:load:config-mismatch` is also isolated-only. It deliberately starts
+replicas with closed test profiles for incompatible IP burst/rate/period values,
+then replaces them with matching processes without changing stored state. Only
+that scenario may supply a profile to the private process constructor, and the
+child validates it again before normal startup validation. Other load modes keep
+their original requirement that all reported configuration fields match. There
+is no arbitrary environment-override CLI or production configuration-transition tool.
+
 `test/utils/test-database-runtime.ts` is the test-only destination policy shared
 by Jest setup, load observers and compiled replicas. It checks local role/endpoint,
 run UUID, mode, exact expected database and equality of both database settings.

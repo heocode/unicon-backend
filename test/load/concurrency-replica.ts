@@ -23,6 +23,7 @@ import { MailDeliveryRepository } from '../../src/mail/repositories/mail-deliver
 import { MailDeliveryWorkerService } from '../../src/mail/services/mail-delivery-worker.service';
 import { PrismaService } from '../../src/prisma/prisma.service';
 import { observeMailDeferrals } from './observe-mail-deferrals';
+import { configurationFixture } from './configuration-fixture';
 import type {
   ReplicaCommand,
   ReplicaExecution,
@@ -58,6 +59,18 @@ async function close() {
 
 async function initialize() {
   const databaseLifecycle = loadDatabaseRuntime();
+  const configurationProfile = process.env.LOAD_CONFIG_PROFILE;
+  if (configurationProfile !== undefined) {
+    const settings = configurationFixture(
+      configurationProfile,
+      process.env.LOAD_STAND_SCENARIO,
+      databaseLifecycle.stateMode,
+    );
+    for (const [key, value] of Object.entries(settings))
+      process.env[key] = String(value);
+  } else if (process.env.LOAD_STAND_SCENARIO === 'config-mismatch') {
+    throw new Error('Explicit configuration profile required.');
+  }
   const endpoint = new URL(process.env.LOAD_PROVIDER_ENDPOINT ?? '');
   if (
     !process.send ||
@@ -132,6 +145,7 @@ async function initialize() {
   await reply(0, true, {
     pid: process.pid,
     settings,
+    configurationProfile,
     databaseLifecycle,
     databaseOid: identity.oid,
   });
@@ -191,10 +205,12 @@ async function handle(command: ReplicaCommand) {
     }
     case 'EXECUTE_OPERATION': {
       if (
-        process.env.LOAD_STAND_SCENARIO !== 'rollback-cleanup' ||
+        !['rollback-cleanup', 'config-mismatch'].includes(
+          process.env.LOAD_STAND_SCENARIO ?? '',
+        ) ||
         loadDatabaseRuntime().stateMode !== 'isolated'
       )
-        throw new Error('Invalid rollback scenario command.');
+        throw new Error('Invalid isolated operation retry command.');
       const start = performance.now();
       try {
         return {

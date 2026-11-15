@@ -673,3 +673,135 @@ Regression artifacts: `concurrency-1794701070538.json`,
 Block 2.3 remains IN PROGRESS: configuration/key rotation and telemetry failure
 isolation are not completed by this step. Broader real provider/network/process
 faults and uncertain-commit work remain in later blocks.
+
+## Block 2.3 step 2: active configuration mismatch and matched restarts
+
+```bash
+npm run test:load:config-mismatch
+```
+
+This isolated-only scenario verifies the existing persisted-policy guard and
+restart behavior. It deliberately constructs incompatible test replicas; this is
+not an approved production rollout. Production policy changes still require
+draining protected admissions/in-flight transactions and a coordinated state
+transition before resuming with matching settings. No retuning/transition command,
+application runtime change, schema migration or new production value is added.
+
+The observer and initial replicas use an experimental IP fixture: burst 3, rate 1,
+period 3600 seconds. Three real INITIAL admissions for distinct synthetic identities
+on one IP exhaust its burst and persist exact debt. All other policies and key
+material remain unchanged. No limiter row is seeded or reset directly.
+
+The closed profiles in `test/load/configuration-fixture.ts` change exactly one
+IP-policy field at a time:
+
+| Profile | Burst | Rate | Period seconds |
+| --- | --- | --- | --- |
+| baseline | 3 | 1 | 3600 |
+| burst | 4 | 1 | 3600 |
+| rate | 3 | 2 | 3600 |
+| period | 3 | 1 | 7200 |
+
+Only this scenario in isolated mode may pass a named profile to the private
+`ConcurrencyProcess` constructor. Both parent and child validate it; the child
+sets only the three fixed fixture values before normal environment validation
+and `ConfigService` snapshots. There is no arbitrary override object or public
+profile CLI. Readiness reports actual `ConfigService` values and the profile name.
+The observer requires every non-fixture reported value to match and verifies the
+same database OID/lifecycle for all replicas. Original modes retain their existing
+strict equal-configuration assertions.
+
+For each incompatible profile, with process roles varied:
+
+1. Start a baseline and an incompatible process. Assert startup itself did not
+   change stored data. Use a fresh identity on the already exhausted IP to avoid
+   challenge reuse bypassing new-Delivery admission.
+2. The incompatible process must fail technically: the inner GCRA guard classifies
+   the policy snapshot as INVALID_STATE; the real operation boundary exposes the
+   existing safe `STATE_UNAVAILABLE`. The test observes this operation-level reason,
+   not an added public error field. It requires no response/receipt and full
+   pre/post equality of quota/cooldown rows, subjects, challenges/proof, Deliveries,
+   existing receipts, backlog singleton and provider-pressure state.
+3. A fresh request in the correctly configured peer must instead produce a normal
+   RATE_LIMITED receipt attributed only to `AUTH_DELIVERY_IP`. It changes no other
+   state. Its retry boundary must equal an independent rational calculation from
+   the original persisted TAT/policy and its DB evaluation time must precede that
+   boundary.
+4. Stop both processes after their operations finish, then launch two new baseline
+   processes. Their PIDs must differ and startup must preserve the full snapshot.
+   Retry the originally failed operation ID and request: it must now commit a
+   normal DENIED receipt, with the original retry boundary and no new burst or
+   partial domain mutation. A further replay from the other process is immutable.
+
+Finally, a matched process admits a fresh identity on an independent IP. The four
+CREATED and six DENIED receipts must match the independent exact charge/cooldown
+oracle; the original IP aliases and all stored fields remain unchanged. Three technical
+attempts had no receipts when they failed; their later recovered retries account
+for three of the six DENIED receipts. Both real workers drain the four created
+Deliveries through the loopback HTTP provider, each SENT after one processing
+attempt and one submission.
+
+Schema-version-2 reports contain safe profile names/effective settings, process
+readiness/restart evidence, state counts before/after technical failure and
+recovery, failure category and enforced checks. They contain no connection URLs,
+key material, proof, identities, IPs or operation/challenge identifiers.
+
+This guard applies when the addressed bucket already has a conflicting policy
+snapshot. It is not fleet-wide configuration consensus and does not claim that a
+misconfigured replica is globally disabled or that fresh buckets can detect a
+different replica's settings. It does not permit mixed-policy production serving,
+automatic retuning, key rotation/retirement, cooldown-interval transitions or
+provider-gate reconfiguration. Those boundaries remain separate.
+
+### Step 2.3.2 verification
+
+Verified locally on 2026-11-14 at HEAD `0a2b84c` plus this uncommitted step.
+Both complete isolated configuration-mismatch runs passed. The scenario portions
+took approximately 4498 ms and 5176 ms; these are coordination-test durations,
+not capacity or latency SLO measurements.
+
+| Incompatible profile | Actor slot | Receipts before / after technical failure | Receipts after baseline-peer denial and recovered retry | Domain/quota/cooldown changes during failure |
+| --- | --- | --- | --- | --- |
+| burst | 1 | 3 / 3 | 5 | None |
+| rate | 0 | 5 / 5 | 7 | None |
+| period | 1 | 7 / 7 | 9 | None |
+
+Every incompatible attempt returned safe `STATE_UNAVAILABLE` with no response or
+receipt at that point. Matched peers and recovered same-ID retries committed
+ordinary IP-policy DENIED receipts with the original persisted retry boundary.
+Startup/restart and all replays preserved the asserted snapshots. All processes
+used the same database OID/lifecycle; replaced processes had new PIDs. The final
+independent-IP control brought the total to four CREATED and six DENIED receipts,
+with exact receipt-based accounting and four SENT Deliveries after one processing
+attempt and HTTP submission each. No database service was mocked, and no state
+was retuned, reset or removed to obtain those outcomes.
+
+Handoff results:
+
+- All six previous isolated load modes passed, including rollback/cleanup and
+  the real-cooldown concurrency test; explicit retained mixed-mail also passed.
+- Smoke now includes two closed-profile guard/helper checks: 10 tests in four
+  suites passed. Thirteen Node launcher checks passed, including rejecting this
+  scenario's retained mode before connection.
+- Build, lint without fixes, scoped replica compilation, formatting and diff
+  checks passed. Unit regression passed 1085 tests in 88 suites; full e2e passed
+  457 tests in 25 suites in 89.856 seconds.
+- Prisma validation passed; the persistent load database has all 39 migrations
+  applied. The final inventory contained only `unicon_e2e_template`,
+  `unicon_load_test` and `unicon_test`; template connections were disabled, the
+  container was healthy and both allocation-record directories were empty.
+- Full `tsc --noEmit` retains 67 pre-existing test diagnostics, with none in the
+  changed files. No `.env` secrets, primary database or live Resend were used.
+
+New ignored artifacts: `load-results/config-mismatch-1794702911423.json` and
+`load-results/config-mismatch-1794703016947.json`, both schema version 2 with
+`passed: true`. Regression artifacts under `load-results/`:
+`rollback-cleanup-1794703026284.json`, `concurrency-1794703032092.json`,
+`identity-isolation-1794703098117.json`, `shared-ip-1794703103043.json`,
+`mixed-mail-1794703107739.json`, `smoke-1794703113013.json` and retained
+`mixed-mail-1794703118594.json`.
+
+Step 2.3.2 is complete only for active-policy mismatch/restart protection.
+Actual coordinated parameter transitions, safe key rotation/retirement and
+telemetry failure isolation are not completed by this scenario. Block 2.3 remains
+IN PROGRESS.

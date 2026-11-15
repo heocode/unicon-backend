@@ -39,6 +39,7 @@ export type ReplicaReady = {
   pid: number;
   settings: Record<string, number>;
   databaseOid: string;
+  configurationProfile?: string;
   databaseLifecycle: {
     runId: string;
     stateMode: 'isolated' | 'retained';

@@ -265,6 +265,10 @@ concurrent retention cleanup in two processes. It is isolated-only because it
 installs temporary database fault triggers and historical test fixtures. See
 [the scenario guide](docs/auth-iteration-7-load-stand.md).
 
+`npm run test:load:config-mismatch` checks active IP-policy snapshot mismatches
+and matched process restarts. It is isolated-only and uses closed test profiles;
+it does not apply production parameter transitions.
+
 For a focused run:
 
 ```bash

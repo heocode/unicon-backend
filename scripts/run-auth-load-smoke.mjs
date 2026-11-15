@@ -21,6 +21,7 @@ async function main() {
       'shared-ip',
       'mixed-mail',
       'rollback-cleanup',
+      'config-mismatch',
     ].includes(mode) ||
     args.length > 1 ||
     (args.length === 1 &&
@@ -29,6 +30,10 @@ async function main() {
     throw new Error('Unsupported auth load stand mode.');
   if (mode === 'rollback-cleanup' && stateMode !== 'isolated')
     throw new Error('Rollback/cleanup requires an isolated test database.');
+  if (mode === 'config-mismatch' && stateMode !== 'isolated')
+    throw new Error(
+      'Configuration mismatch requires an isolated test database.',
+    );
   const target = testTarget('load', process.env.TEST_DATABASE_URL);
   const run = new TestRun();
   try {

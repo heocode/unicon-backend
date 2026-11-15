@@ -6,6 +6,11 @@ import type {
   ReplicaReply,
   ReplicaStopped,
 } from './concurrency-protocol';
+import {
+  configurationFixture,
+  type ConfigurationProfile,
+} from './configuration-fixture';
+import { loadDatabaseRuntime } from '../utils/test-database-runtime';
 
 /** Bounded IPC for this stand only; no public/server endpoint is introduced. */
 export class ConcurrencyProcess {
@@ -22,12 +27,22 @@ export class ConcurrencyProcess {
   readonly ready: Promise<ReplicaReady>;
   readonly exited: Promise<void>;
 
-  constructor(endpoint: string) {
+  constructor(endpoint: string, configurationProfile?: ConfigurationProfile) {
     if (!process.env.LOAD_REPLICA_PATH)
       throw new Error('Compiled test replica required.');
+    if (configurationProfile !== undefined)
+      configurationFixture(
+        configurationProfile,
+        process.env.LOAD_STAND_SCENARIO,
+        loadDatabaseRuntime().stateMode,
+      );
     this.child = fork(process.env.LOAD_REPLICA_PATH, [], {
       cwd: process.cwd(),
-      env: { ...process.env, LOAD_PROVIDER_ENDPOINT: endpoint },
+      env: {
+        ...process.env,
+        LOAD_PROVIDER_ENDPOINT: endpoint,
+        LOAD_CONFIG_PROFILE: configurationProfile,
+      },
       execArgv: [],
       serialization: 'advanced',
       stdio: ['ignore', 'ignore', 'ignore', 'ipc'],

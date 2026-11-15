@@ -1346,7 +1346,11 @@ orphan cleanup, and retained challenge/Delivery cleanup without refunding active
 GCRA debt or cooldowns. It uses real PostgreSQL and existing production
 repositories; only the isolated test database contains fault triggers and
 historical retention fixtures. No production GCRA/cooldown bucket collector is
-introduced or claimed tested. Configuration/key rotation and telemetry failure
+introduced or claimed tested. The configuration-mismatch guard step (2.3.2) is
+COMPLETE within its bounded isolated scope. It checks incompatible active IP
+burst/rate/period snapshots and matched process
+restarts without resetting debt. It does not apply actual parameter retuning or
+establish fleet-wide configuration agreement. Key rotation and telemetry failure
 isolation remain pending in 2.3; broader fault/load work stays in later blocks.
 Public request-to-session HTTP coverage remains Stage 5–6 work.
 
