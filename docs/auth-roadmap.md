@@ -9,6 +9,24 @@ compatibility is therefore intentionally excluded. Historical migrations stay
 immutable, but the current password runtime and schema are removed before the
 passwordless branch is complete.
 
+## Current execution order
+
+The user approved a scenario-first execution order after Iteration 7 step 2.3.4.
+Read [the integration plan and session handoff](auth-integration-plan.md) before
+choosing the next implementation block. Complete the public passwordless path
+and integrate the mobile screens incrementally, with user checks on a device
+and automated correctness/security tests throughout development. Resume the
+remaining comprehensive load/fault measurements and production calibration
+after authentication is complete. Existing test coverage remains regression
+coverage; no completed work is discarded.
+
+The numbered stages below remain the requirements inventory, not a mandatory
+linear execution order. Necessary dependencies from later stages must move
+with their consumer. Stage 4 / Iteration 7 remains unfinished; no production
+readiness, key retirement, security exception or removal of release gates is
+implied. Controlled device integration is an intermediate milestone distinct
+from the full passwordless-ready definition below.
+
 ## Definition of passwordless-ready
 
 The backend is ready for mobile integration when:

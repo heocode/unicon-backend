@@ -15,6 +15,9 @@ lerna-debug.log*
 # OS
 .DS_Store
 
+# Local design references
+/makets/
+
 # Tests
 /coverage
 /load-results

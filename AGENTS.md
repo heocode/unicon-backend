@@ -5,6 +5,12 @@ Read this file before changing the repository. For auth work, also read
 For Profile or media work, read `docs/profile-architecture.md`. For moderation
 work, also read `docs/moderation-architecture.md`.
 
+For the current passwordless execution order and session handoff, also read
+`docs/auth-integration-plan.md`. Device integration now proceeds alongside
+scenario development; remaining Iteration 7 load/capacity work is deferred until
+the authentication flow is complete. This changes sequencing, not security
+contracts or release requirements.
+
 ## Project conventions
 
 - Keep NestJS controllers thin. Controllers translate HTTP input into service
