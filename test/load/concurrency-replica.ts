@@ -11,6 +11,9 @@ import { AuthenticationDeliveryWorkerService } from '../../src/auth/delivery/ser
 import { AuthenticationDeliveryRepository } from '../../src/auth/delivery/repositories/authentication-delivery.repository';
 import { AuthenticationOperationError } from '../../src/auth/operations/errors/authentication-operation.error';
 import { AuthenticationOperationService } from '../../src/auth/operations/services/authentication-operation.service';
+import { AuthenticationOperationRepository } from '../../src/auth/operations/repositories/authentication-operation.repository';
+import { AuthenticationChallengeCleanupRepository } from '../../src/auth/challenge/repositories/authentication-challenge-cleanup.repository';
+import { AuthenticationDeliveryCleanupRepository } from '../../src/auth/delivery/repositories/authentication-delivery-cleanup.repository';
 import type { AuthenticationOperationRequest } from '../../src/auth/operations/types/authentication-operation.type';
 import { validateEnvironment } from '../../src/config/environment.validation';
 import { MailSubmissionGateService } from '../../src/mail/services/mail-submission-gate.service';
@@ -185,6 +188,56 @@ async function handle(command: ReplicaCommand) {
       const worker = testingModule.get(AuthenticationDeliveryWorkerService);
       worker.onModuleInit();
       return { summary: await worker.runOnce() };
+    }
+    case 'EXECUTE_OPERATION': {
+      if (
+        process.env.LOAD_STAND_SCENARIO !== 'rollback-cleanup' ||
+        loadDatabaseRuntime().stateMode !== 'isolated'
+      )
+        throw new Error('Invalid rollback scenario command.');
+      const start = performance.now();
+      try {
+        return {
+          operationId: command.operationId,
+          response: await operations.execute(
+            command.operationId,
+            command.request,
+          ),
+          elapsedMs: performance.now() - start,
+        } satisfies ReplicaExecution;
+      } catch (error) {
+        return {
+          operationId: command.operationId,
+          error:
+            error instanceof AuthenticationOperationError
+              ? error.reason
+              : 'UNEXPECTED',
+          elapsedMs: performance.now() - start,
+        } satisfies ReplicaExecution;
+      }
+    }
+    case 'CLEANUP': {
+      if (
+        process.env.LOAD_STAND_SCENARIO !== 'rollback-cleanup' ||
+        loadDatabaseRuntime().stateMode !== 'isolated' ||
+        started ||
+        notificationsStarted
+      )
+        throw new Error('Invalid cleanup scenario command.');
+      const challenge = testingModule.get(
+        AuthenticationChallengeCleanupRepository,
+      );
+      return {
+        clearedProof: await challenge.clearOneExpiredEnvelopeBatch(100),
+        deletedDelivery: await testingModule
+          .get(AuthenticationDeliveryCleanupRepository)
+          .deleteOneRetainedTerminalBatch(100),
+        deletedChallenge: await challenge.deleteOneRetainedChallengeBatch(100),
+        deletedSubject: await challenge.deleteOneOrphanedSubjectBatch(100),
+        deletedReceipt: await testingModule
+          .get(AuthenticationOperationRepository)
+          .deleteRetainedBatch(100),
+      };
     }
     case 'ENQUEUE_NOTIFICATIONS': {
       if (

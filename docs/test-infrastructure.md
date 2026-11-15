@@ -119,7 +119,7 @@ No launcher scans and deletes historical or orphan databases.
 
 ## Load lifecycle modes
 
-All five existing load commands accept one optional `--state=isolated|retained`.
+The five original load commands accept one optional `--state=isolated|retained`.
 Omitting the option selects `isolated`. The explicit `TEST_DATABASE_URL` selector
 still identifies only `unicon_load_test` on the local test instance; it is not an
 arbitrary runtime destination override.
@@ -144,6 +144,11 @@ a database or write an allocation record. Each invocation still has a lifecycle
 UUID for its report. The existing unfinished-work preflight remains mandatory;
 this mode does not resume or erase work left by a crashed run automatically.
 It is explicit continuation of state, not an orphan-recovery mechanism.
+
+`npm run test:load:rollback-cleanup` is an additional isolated-only command for
+Stage 4 / Iteration 7 block 2.3.1. It rejects `--state=retained` before opening a
+database connection: fault triggers and historical retention fixtures belong only
+to its disposable copy. See the scenario boundary in the load-stand guide.
 
 `test/utils/test-database-runtime.ts` is the test-only destination policy shared
 by Jest setup, load observers and compiled replicas. It checks local role/endpoint,

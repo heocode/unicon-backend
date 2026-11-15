@@ -559,3 +559,117 @@ session-test socket stability observations are not claimed resolved by this pass
 Methodology references: [k6 open arrival models](https://grafana.com/docs/k6/latest/using-k6/scenarios/concepts/open-vs-closed/),
 [repeatable performance testing](https://grafana.com/docs/k6/latest/testing-guides/automated-performance-testing/),
 [Google SRE capacity testing](https://sre.google/sre-book/service-best-practices/).
+
+## Block 2.3 step 1: confirmed rollback and entity cleanup
+
+```bash
+npm run test:load:rollback-cleanup
+```
+
+This bounded scenario uses the existing two-process launcher, shared template and
+real PostgreSQL. It accepts only isolated state. Retained mode is rejected before
+connecting, so fault injection and historical fixtures cannot affect the persistent
+load database. No production runtime/schema/settings changes are made. The parent
+observes state and coordinates a test-only database barrier; it does not substitute
+admission, cleanup, proof, policy clocks or provider outcomes.
+
+| Scenario | Controlled action | Required evidence |
+| --- | --- | --- |
+| Confirmed receipt abort, once in each process | SQLSTATE 23514 in a real BEFORE INSERT receipt trigger after admission writes | `STATE_UNAVAILABLE`; one nontransactional sequence hit; complete pre/post equality of subjects, challenges, Deliveries, receipts, quota/cooldown rows and backlog singleton |
+| Cross-process retry and replay | Retry the same operation ID in the other process after removing the fault | One CREATED receipt/Delivery; a further replay makes no database mutation |
+| Orphan cleanup during admission | Stop receipt insertion on an advisory barrier after admission holds an existing identified subject | An observed `pg_blocking_pids`/advisory wait, zero subject deletion by the other process, then a committed challenge linked to that subject |
+| Cleanup after commit | Run the same real cleanup repositories with active challenge/proof, debt and cooldown | No rows removed and no state/proof mutation |
+| Historical retention cleanup | Expire only one committed challenge and its SENT Delivery as explicit historical fixtures | One expired envelope cleared, one terminal Delivery/challenge/orphan subject deleted, no unexpired receipt removed |
+| Admission after cleanup | Request the cleaned identity again while its original cooldown is active | RATE_LIMITED by identity cooldown; unchanged debt, retry boundary and domain state, with only a DENIED receipt added |
+
+The trigger checks that the new challenge, Delivery, identity quota and identity
+cooldown are visible inside the real admission transaction before incrementing its
+sequence and raising/waiting. Sequence increments survive rollback and prove the
+fault point was reached. A control admission first establishes existing shared IP
+and global debt. The test swaps failing/retrying process roles and independently
+reconstructs exact global/IP/identity charges and cooldowns from the four committed
+CREATED receipts, excluding failed attempts and the later denial.
+
+The race begins with a committed identified orphan-subject fixture. Admission locks
+that exact row and creates its child inside a still-uncommitted transaction; the
+other process invokes the real `SKIP LOCKED` cleanup paths while the DB wait is
+observed. After releasing the barrier, another cleanup must preserve the active
+subject, child and proof. The barrier has a bounded three-second observation window
+and a ten-second observer-transaction ceiling; application transaction bounds are
+unchanged. This checks the admission-holds-lock interleaving, not every possible
+cleanup ordering.
+
+Before preparing historical retention timestamps, both real auth workers drain
+the four created Deliveries through the loopback HTTP provider and common gate.
+Each must be SENT after one processing attempt and one provider submission. The
+workers stop before retention fixtures are changed. New processes perform cleanup.
+Only challenge expiration/retention and terminal Delivery retention are moved into
+the database past. Active GCRA/cooldown rows and receipt windows are never rewound,
+deleted or reset. Surviving challenge records, including all proof fields and fixed
+expiration, must remain exactly unchanged. Receipts are independent of challenge
+retention and remain available.
+
+`EXECUTE_OPERATION` and `CLEANUP` are private bounded test IPC commands accepted
+only by isolated rollback-cleanup replicas. Cleanup calls the existing challenge,
+Delivery and operation repositories with fixed batches of 100 and no schedulers.
+No production GCRA/cooldown garbage collector currently exists; this block checks
+that entity cleanup does not refund those states, not a newly invented collector.
+Resend-specific fault points, retryable SQLSTATEs, uncertain COMMIT acknowledgments,
+process/network faults, policy/key rotation, telemetry failure isolation and heavy
+load are outside this step. This is not a capacity or production-quota result.
+
+The schema-version-2 JSON report keeps safe row counts before/after abort/retry,
+process roles, observed-barrier status, deletion counts and enforced check results.
+Full database snapshots/proof fields, operation/challenge identifiers, SQL trigger
+arguments and provider bodies/digests stay in memory and are not report fields.
+Test-owned triggers/schema are removed in `finally`; normal launcher teardown
+removes the entire isolated database even on assertion failure.
+
+### Step 2.3.1 verification
+
+Verified locally on 2026-11-14 at HEAD `2e33e2f` plus this uncommitted step.
+Three isolated rollback/cleanup runs passed; the final run includes an explicit
+comparison of the post-cleanup denial's retry boundary and evaluation time against
+the original persisted identity-cooldown boundary.
+
+| Observed scenario | Before fault | After confirmed abort | After cross-process retry |
+| --- | --- | --- | --- |
+| First process fails | 1 challenge / Delivery / receipt | Unchanged, including all existing quota/cooldown values | 2 challenges / Deliveries / receipts |
+| Second process fails | 2 challenges / Deliveries / receipts | Unchanged, including all existing quota/cooldown values | 3 challenges / Deliveries / receipts |
+
+Both faults reached the real trigger exactly once. Both subsequent replays were
+immutable. The controlled cleanup/admission race observed an actual database
+wait, skipped the locked subject, then preserved its committed child. Four total
+CREATED receipts (including the control and racing admission) matched the independent
+exact-charge/cooldown oracle. Four Deliveries reached SENT with four HTTP submissions
+and one processing attempt each. Historical retention cleanup cleared/deleted
+exactly one envelope/terminal Delivery/challenge/orphan subject and zero receipts.
+The next initial request was denied by the original identity cooldown with the
+same retry boundary; only its DENIED receipt was added.
+
+Handoff results:
+
+- Original five load-mode regressions passed, including the real 60-second
+  cooldown concurrency scenario and mixed auth/notification queues.
+- Build, lint without fixes, scoped replica compilation and changed-file
+  formatting passed; 1085 unit tests in 88 suites and 457 e2e tests in 25 suites
+  passed. Full e2e took 90.913 seconds and used its own disposable database.
+- Twelve Node launcher/guard checks passed, including rejection of retained mode
+  for this scenario before connection. Prisma validation passed; the persistent
+  load database has all 39 migrations applied.
+- Only the three expected persistent databases remained; the template was closed
+  to connections, the container was healthy and both allocation directories were
+  empty. Full `tsc --noEmit` still reports the same 67 pre-existing test diagnostics,
+  with none in changed files. No `.env` secrets or live Resend were used.
+
+New ignored artifacts: `load-results/rollback-cleanup-1794700992053.json`,
+`load-results/rollback-cleanup-1794701064415.json`,
+`load-results/rollback-cleanup-1794701318596.json`. The final scenario elapsed
+time was approximately 2508 ms, not a load/capacity measurement.
+Regression artifacts: `concurrency-1794701070538.json`,
+`identity-isolation-1794701137385.json`, `shared-ip-1794701142592.json`,
+`mixed-mail-1794701147533.json` and `smoke-1794701152877.json` under `load-results/`.
+
+Block 2.3 remains IN PROGRESS: configuration/key rotation and telemetry failure
+isolation are not completed by this step. Broader real provider/network/process
+faults and uncertain-commit work remain in later blocks.

@@ -1338,7 +1338,16 @@ denial immutability/rollback and independence of another IP without resetting
 retained state. Its third step verifies two-process auth/notification competition
 through the common gate, including persisted deferral observations with zero
 processing-attempt spend and no admission recharge. No queue priority/fairness or
-production-capacity conclusion is claimed. Block 2.3 remains pending.
+production-capacity conclusion is claimed. Block 2.3 is IN PROGRESS. Its first
+bounded rollback/cleanup step (2.3.1) is COMPLETE within its stated scope. It
+verifies confirmed INITIAL receipt aborts in
+both OS processes, cross-process retry/replay, an observed database barrier with
+orphan cleanup, and retained challenge/Delivery cleanup without refunding active
+GCRA debt or cooldowns. It uses real PostgreSQL and existing production
+repositories; only the isolated test database contains fault triggers and
+historical retention fixtures. No production GCRA/cooldown bucket collector is
+introduced or claimed tested. Configuration/key rotation and telemetry failure
+isolation remain pending in 2.3; broader fault/load work stays in later blocks.
 Public request-to-session HTTP coverage remains Stage 5–6 work.
 
 ## Stage 5: Request and resend endpoints

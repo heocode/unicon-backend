@@ -260,6 +260,11 @@ All stages and workers in one load invocation share its database. No rate-limit
 or queue state is reset during measurement. Reports identify the chosen mode;
 retained mode keeps the existing unfinished-work preflight.
 
+`npm run test:load:rollback-cleanup` checks confirmed transaction rollback and
+concurrent retention cleanup in two processes. It is isolated-only because it
+installs temporary database fault triggers and historical test fixtures. See
+[the scenario guide](docs/auth-iteration-7-load-stand.md).
+
 For a focused run:
 
 ```bash

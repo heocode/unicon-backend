@@ -26,6 +26,7 @@
     "test:load:identity-isolation": "node scripts/run-auth-load-smoke.mjs identity-isolation",
     "test:load:shared-ip": "node scripts/run-auth-load-smoke.mjs shared-ip",
     "test:load:mixed-mail": "node scripts/run-auth-load-smoke.mjs mixed-mail",
+    "test:load:rollback-cleanup": "node scripts/run-auth-load-smoke.mjs rollback-cleanup",
     "test:e2e": "node scripts/run-e2e.mjs",
     "test:infra": "node --test scripts/tests/test-runtime.test.mjs scripts/tests/test-database.test.mjs",
     "test:infra:db": "node --test --test-concurrency=1 scripts/tests/test-runtime-db.test.mjs scripts/tests/test-database-db.test.mjs"

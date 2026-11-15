@@ -24,6 +24,7 @@ import { RateLimitBucketKeyService } from '../../src/rate-limit/services/rate-li
 import { ConcurrencyProcess } from './concurrency-process';
 import type {
   ReplicaExecution,
+  ReplicaCleanup,
   ReplicaReady,
   ReplicaStopped,
   ReplicaWorkerStarted,
@@ -82,20 +83,25 @@ function charged(
 const isolation = process.env.LOAD_STAND_SCENARIO === 'identity-isolation';
 const sharedIp = process.env.LOAD_STAND_SCENARIO === 'shared-ip';
 const mixedMail = process.env.LOAD_STAND_SCENARIO === 'mixed-mail';
-const scenarioLabel = mixedMail
-  ? 'block 2.2: mixed mail queues'
-  : sharedIp
-    ? 'block 2.2: shared IP'
-    : isolation
-      ? 'block 2.2: identity isolation'
-      : 'block 2.1: two OS processes';
-const testName = mixedMail
-  ? 'drains auth and notifications across two processes through one real gate without charging capacity waits'
-  : sharedIp
-    ? 'shares one IP budget across processes without blocking another IP or charging denials'
-    : isolation
-      ? 'preserves personal cooldown and independent admission during repeated initial/resend traffic'
-      : 'shares admission, stable challenge/resend and scheduled delivery across two processes';
+const rollbackCleanup = process.env.LOAD_STAND_SCENARIO === 'rollback-cleanup';
+const scenarioLabel = rollbackCleanup
+  ? 'block 2.3.1: rollback and cleanup'
+  : mixedMail
+    ? 'block 2.2: mixed mail queues'
+    : sharedIp
+      ? 'block 2.2: shared IP'
+      : isolation
+        ? 'block 2.2: identity isolation'
+        : 'block 2.1: two OS processes';
+const testName = rollbackCleanup
+  ? 'rolls back receipt failures and preserves active debt through concurrent and retained cleanup'
+  : mixedMail
+    ? 'drains auth and notifications across two processes through one real gate without charging capacity waits'
+    : sharedIp
+      ? 'shares one IP budget across processes without blocking another IP or charging denials'
+      : isolation
+        ? 'preserves personal cooldown and independent admission during repeated initial/resend traffic'
+        : 'shares admission, stable challenge/resend and scheduled delivery across two processes';
 describe(`Stage 4 Iteration 7 ${scenarioLabel}`, () => {
   jest.setTimeout(180000);
 
@@ -1480,6 +1486,374 @@ describe(`Stage 4 Iteration 7 ${scenarioLabel}`, () => {
       });
       expect(Object.values(checks).every(Boolean)).toBe(true);
     }
+    async function rollbackAndCleanup(
+      endpoint: string,
+      initial: (identity: string, ip: string) => Input,
+    ) {
+      if (databaseLifecycle.stateMode !== 'isolated')
+        throw new Error('Isolated rollback scenario required.');
+      const ready = await newPair(endpoint);
+      const beforeRates = await rates(),
+        beforeCooldowns = await cooldowns();
+      const inputs = new Map<string, Input>();
+      const ip = '2001:db8:23::1';
+      const fixture = (label: string) =>
+        initial(`${runId}-${label}@load.example.edu`, ip);
+      const snapshot = async () => ({
+        rates: await rates(),
+        cooldowns: await cooldowns(),
+        subjects: await prisma.authenticationChallengeSubject.findMany({
+          orderBy: { key: 'asc' },
+        }),
+        challenges: await prisma.authenticationChallenge.findMany({
+          orderBy: { id: 'asc' },
+        }),
+        deliveries: await prisma.authenticationChallengeDelivery.findMany({
+          orderBy: { id: 'asc' },
+        }),
+        receipts: await prisma.authenticationOperation.findMany({
+          orderBy: { id: 'asc' },
+        }),
+        backlog: await prisma.authenticationDeliveryBacklogState.findMany(),
+      });
+      const counts = (state: Awaited<ReturnType<typeof snapshot>>) => ({
+        subjects: state.subjects.length,
+        challenges: state.challenges.length,
+        deliveries: state.deliveries.length,
+        receipts: state.receipts.length,
+        rateBuckets: state.rates.length,
+        cooldownBuckets: state.cooldowns.length,
+      });
+      const prepare = async (index: number, input: Input) => {
+        const [id] = await pair[index].call<string[]>({
+          kind: 'PREPARE',
+          requests: [input.request],
+        });
+        inputs.set(id, input);
+        return id;
+      };
+      const execute = async (index: number) =>
+        (await pair[index].call<ReplicaExecution[]>({ kind: 'EXECUTE' }))[0];
+      const retry = (index: number, id: string, input: Input) =>
+        pair[index].call<ReplicaExecution>({
+          kind: 'EXECUTE_OPERATION',
+          operationId: id,
+          request: input.request,
+        });
+      const cleanup = (index: number) =>
+        pair[index].call<ReplicaCleanup>({ kind: 'CLEANUP' });
+      const emptyCleanup = {
+        clearedProof: 0,
+        deletedDelivery: 0,
+        deletedChallenge: 0,
+        deletedSubject: 0,
+        deletedReceipt: 0,
+      };
+      const control = fixture('control');
+      const controlId = await prepare(0, control);
+      const controlResult = await execute(0);
+      expect(controlResult.response?.result.outcome).toBe('CREATED');
+      const schema = `rollback_${randomUUID().replaceAll('-', '')}`;
+      const trigger = `${schema}_trigger`;
+      const barrier = BigInt.asIntN(
+        64,
+        BigInt(`0x${randomUUID().replaceAll('-', '').slice(0, 16)}`),
+      );
+      await prisma.$executeRawUnsafe(`CREATE SCHEMA "${schema}"`);
+      try {
+        await prisma.$executeRawUnsafe(`CREATE SEQUENCE "${schema}".hits`);
+        // Reaching the sequence proves that the real transaction already wrote
+        // challenge, Delivery, identity quota and cooldown before the fault/wait.
+        await prisma.$executeRawUnsafe(`CREATE FUNCTION "${schema}".receipt_barrier() RETURNS trigger LANGUAGE plpgsql AS $test$
+          BEGIN
+            IF NEW."id"::text <> TG_ARGV[0] THEN RETURN NEW; END IF;
+            IF NEW."outcome" <> 'CREATED'
+              OR NOT EXISTS (SELECT 1 FROM "AuthenticationChallenge" WHERE id=NEW."challengeId")
+              OR NOT EXISTS (SELECT 1 FROM "AuthenticationChallengeDelivery" WHERE id=NEW."deliveryId" AND "challengeId"=NEW."challengeId")
+              OR NOT EXISTS (SELECT 1 FROM "GcraRateLimit" WHERE key=TG_ARGV[2])
+              OR NOT EXISTS (SELECT 1 FROM "AuthenticationRateLimit" WHERE key=TG_ARGV[3])
+            THEN RAISE EXCEPTION 'Invalid test fault point.' USING ERRCODE='22000'; END IF;
+            PERFORM nextval('"${schema}".hits');
+            IF TG_ARGV[1]='fail' THEN RAISE EXCEPTION 'Injected confirmed receipt abort.' USING ERRCODE='23514'; END IF;
+            PERFORM pg_advisory_xact_lock(${barrier.toString()}::bigint);
+            RETURN NEW;
+          END $test$`);
+        const hits = async () => {
+          const [row] = await prisma.$queryRawUnsafe<{ count: string }[]>(
+            `SELECT CASE WHEN is_called THEN last_value ELSE 0 END::text AS count FROM "${schema}".hits`,
+          );
+          return Number(row.count);
+        };
+        const install = async (
+          id: string,
+          mode: 'fail' | 'hold',
+          input: Input,
+        ) => {
+          const quota = keys(policies.deliveryIdentity, input.identity)[0];
+          const cooldown = keys(
+            policies.identityDeliveryCooldown,
+            input.identity,
+          )[0];
+          if (
+            !/^[a-f0-9-]{36}$/.test(id) ||
+            ![quota, cooldown].every((key) =>
+              /^rl:v1:k[1-9][0-9]*:[a-f0-9]{64}$/.test(key),
+            )
+          )
+            throw new Error('Invalid locally generated test arguments.');
+          await prisma.$executeRawUnsafe(
+            `CREATE TRIGGER "${trigger}" BEFORE INSERT ON "AuthenticationOperation" FOR EACH ROW EXECUTE FUNCTION "${schema}".receipt_barrier('${id}', '${mode}', '${quota}', '${cooldown}')`,
+          );
+        };
+        const uninstall = () =>
+          prisma.$executeRawUnsafe(
+            `DROP TRIGGER IF EXISTS "${trigger}" ON "AuthenticationOperation"`,
+          );
+        for (const index of [0, 1]) {
+          const input = fixture(`fault-${index}`);
+          const id = await prepare(index, input);
+          const before = await snapshot(),
+            beforeHits = await hits();
+          await install(id, 'fail', input);
+          let failed: ReplicaExecution;
+          try {
+            failed = await execute(index);
+          } finally {
+            await uninstall();
+          }
+          expect(failed.error).toBe('STATE_UNAVAILABLE');
+          expect(await hits()).toBe(beforeHits + 1);
+          const afterAbort = await snapshot();
+          expect(afterAbort).toEqual(before);
+          const accepted = await retry(1 - index, id, input);
+          expect(accepted.response?.result.outcome).toBe('CREATED');
+          expect(accepted.response?.replayed).toBe(false);
+          const committed = await snapshot();
+          const replay = await retry(index, id, input);
+          expect(replay.response?.replayed).toBe(true);
+          expect(await snapshot()).toEqual(committed);
+          scenarios.push({
+            name: 'confirmed-abort-and-cross-process-retry',
+            failingProcess: index,
+            retryProcess: 1 - index,
+            faultPoint:
+              'real receipt INSERT after admission writes; SQLSTATE 23514',
+            before: counts(before),
+            afterAbort: counts(afterAbort),
+            afterRetry: counts(committed),
+            checks: {
+              faultReachedOnce: true,
+              completeRollback: true,
+              authoritativeFailure: true,
+              retryCreatedOnce: true,
+              replayImmutable: true,
+            },
+          });
+        }
+
+        const racing = fixture('cleanup-race');
+        const subjectKey = randomUUID();
+        await prisma.authenticationChallengeSubject.create({
+          data: {
+            key: subjectKey,
+            normalizedIdentity: racing.identity,
+            purpose: 'SIGN_IN',
+          },
+        });
+        const racingId = await prepare(0, racing);
+        await install(racingId, 'hold', racing);
+        let release!: () => void, announce!: (pid: number) => void;
+        const released = new Promise<void>((resolve) => {
+          release = resolve;
+        });
+        const announced = new Promise<number>((resolve) => {
+          announce = resolve;
+        });
+        const holding = prisma.$transaction(
+          async (tx) => {
+            await tx.$executeRaw`SELECT pg_advisory_xact_lock(${barrier})`;
+            const [row] = await tx.$queryRaw<
+              { pid: number }[]
+            >`SELECT pg_backend_pid() AS pid`;
+            announce(row.pid);
+            await released;
+          },
+          { timeout: 10000 },
+        );
+        // Attach rejection handlers immediately while the test coordinates the barrier.
+        void holding.catch(() => {});
+        let pending: Promise<ReplicaExecution[]> | undefined;
+        let observedWait = false;
+        let during!: ReplicaCleanup;
+        try {
+          const blocker = await Promise.race([
+            announced,
+            holding.then(() => {
+              throw new Error('Barrier ended before ready.');
+            }),
+          ]);
+          pending = pair[0].call<ReplicaExecution[]>({ kind: 'EXECUTE' });
+          void pending.catch(() => {});
+          const deadline = performance.now() + 3000;
+          do {
+            const [row] = await prisma.$queryRaw<
+              { waiting: boolean }[]
+            >`SELECT EXISTS(SELECT 1 FROM pg_stat_activity WHERE datname=current_database() AND wait_event='advisory' AND ${blocker}::int=ANY(pg_blocking_pids(pid))) AS waiting`;
+            observedWait = row.waiting;
+            if (!observedWait) await delay(10);
+          } while (!observedWait && performance.now() < deadline);
+          expect(observedWait).toBe(true);
+          during = await cleanup(1);
+          expect(during).toEqual(emptyCleanup);
+          expect(
+            await prisma.authenticationChallengeSubject.count({
+              where: { key: subjectKey },
+            }),
+          ).toBe(1);
+          release();
+          await holding;
+          expect((await pending)[0].response?.result.outcome).toBe('CREATED');
+        } finally {
+          release();
+          await Promise.allSettled(pending ? [holding, pending] : [holding]);
+          await uninstall();
+        }
+        const afterCommit = await snapshot();
+        expect(await cleanup(1)).toEqual(emptyCleanup);
+        expect(await snapshot()).toEqual(afterCommit);
+        scenarios.push({
+          name: 'cleanup-during-admission',
+          processes: ready,
+          observedDatabaseBarrierWait: observedWait,
+          deletedWhileSubjectLocked: during.deletedSubject,
+          checks: {
+            lockedSubjectSkipped: true,
+            activeChildRetainedAfterCommit: true,
+            activeProofAndStateImmutable: true,
+          },
+        });
+      } finally {
+        await prisma.$executeRawUnsafe(
+          `DROP TRIGGER IF EXISTS "${trigger}" ON "AuthenticationOperation"`,
+        );
+        await prisma.$executeRawUnsafe(`DROP SCHEMA "${schema}" CASCADE`);
+      }
+
+      const receipts = await prisma.authenticationOperation.findMany({
+        where: { id: { in: [...inputs.keys()] } },
+      });
+      expect(receipts).toHaveLength(4);
+      expect(
+        checkAccounting(beforeRates, await rates(), receipts, inputs),
+      ).toBe(true);
+      expect(
+        checkCooldowns(beforeCooldowns, await cooldowns(), receipts, inputs),
+      ).toBe(true);
+      const drained = await drainDeliveries(
+        receipts.map((row) => row.deliveryId!),
+      );
+      expect(drained.final).toHaveLength(4);
+      expect(
+        drained.final.every(
+          (row) => row.status === 'SENT' && row.attemptCount === 1,
+        ),
+      ).toBe(true);
+      expect(drained.submissions).toHaveLength(4);
+      await newPair(endpoint);
+      const activeRates = await rates(),
+        activeCooldowns = await cooldowns();
+      const controlReceipt = receipts.find((row) => row.id === controlId)!;
+      const remaining = await prisma.authenticationChallenge.findMany({
+        where: { id: { not: controlReceipt.challengeId! } },
+        orderBy: { id: 'asc' },
+      });
+      // Historical retention fixtures only. Never rewind a policy clock or edit
+      // active GCRA/cooldown rows. Receipt windows remain unchanged and live.
+      await prisma.$executeRaw`UPDATE "AuthenticationChallenge" SET "expiresAt"=clock_timestamp()-INTERVAL '2 seconds', "retentionExpiresAt"=clock_timestamp()-INTERVAL '1 second' WHERE id=${controlReceipt.challengeId}`;
+      await prisma.$executeRaw`UPDATE "AuthenticationChallengeDelivery" SET "retentionExpiresAt"=clock_timestamp()-INTERVAL '1 second' WHERE id=${controlReceipt.deliveryId}`;
+      const deleted = await cleanup(1);
+      expect(deleted).toEqual({
+        clearedProof: 1,
+        deletedDelivery: 1,
+        deletedChallenge: 1,
+        deletedSubject: 1,
+        deletedReceipt: 0,
+      });
+      expect(await rates()).toEqual(activeRates);
+      expect(await cooldowns()).toEqual(activeCooldowns);
+      expect(
+        await prisma.authenticationChallenge.findMany({
+          orderBy: { id: 'asc' },
+        }),
+      ).toEqual(remaining);
+      expect(await prisma.authenticationOperation.count()).toBe(4);
+      const beforeDenied = await snapshot();
+      const deniedId = await prepare(0, control);
+      const denial = await execute(0);
+      expect(denial.response?.result).toMatchObject({
+        outcome: 'DENIED',
+        denial: 'RATE_LIMITED',
+        deniedPolicyIds: [policies.identityDeliveryCooldown.id],
+      });
+      const identityKeys = keys(
+        policies.identityDeliveryCooldown,
+        control.identity,
+      );
+      const boundaries = activeCooldowns
+        .filter((row) => identityKeys.includes(row.key))
+        .map((row) => BigInt(row.boundary));
+      expect(boundaries).toHaveLength(identityKeys.length);
+      const originalBoundary = boundaries.reduce((a, b) => (a > b ? a : b));
+      if (denial.response?.result.outcome !== 'DENIED')
+        throw new Error('Expected retained identity cooldown denial.');
+      expect(denial.response.result.retryNotBeforeMicros).toBe(
+        originalBoundary,
+      );
+      expect(denial.response.result.evaluatedAtMicros < originalBoundary).toBe(
+        true,
+      );
+      const afterDenied = await snapshot();
+      expect({ ...afterDenied, receipts: [] }).toEqual({
+        ...beforeDenied,
+        receipts: [],
+      });
+      expect(afterDenied.receipts).toHaveLength(5);
+      expect(
+        afterDenied.receipts.find((row) => row.id === deniedId)?.outcome,
+      ).toBe('DENIED');
+      expect(
+        checkAccounting(
+          beforeRates,
+          afterDenied.rates,
+          afterDenied.receipts,
+          inputs,
+        ),
+      ).toBe(true);
+      expect(
+        checkCooldowns(
+          beforeCooldowns,
+          afterDenied.cooldowns,
+          afterDenied.receipts,
+          inputs,
+        ),
+      ).toBe(true);
+      scenarios.push({
+        name: 'retention-without-admission-refund',
+        deleted,
+        committedDeliveriesBeforeCleanup: 4,
+        providerSubmissions: drained.submissions.length,
+        checks: {
+          exactCommittedCharges: true,
+          terminalDeliveriesSentOnce: true,
+          retainedRowsRemoved: true,
+          unexpiredReceiptsPreserved: true,
+          activeProofUnchanged: true,
+          debtAndCooldownUnchanged: true,
+          reentryDeniedByOriginalIdentityCooldown: true,
+          denialHasNoPartialMutation: true,
+        },
+      });
+    }
     try {
       await prisma.$connect();
       const [authPending, notificationPending] = await Promise.all([
@@ -1504,7 +1878,9 @@ describe(`Stage 4 Iteration 7 ${scenarioLabel}`, () => {
           },
         },
       });
-      if (mixedMail) {
+      if (rollbackCleanup) {
+        await rollbackAndCleanup(endpoint, initial);
+      } else if (mixedMail) {
         await mixMail(endpoint, initial);
       } else if (sharedIp) {
         await shareIp(endpoint, initial);
@@ -1597,13 +1973,15 @@ describe(`Stage 4 Iteration 7 ${scenarioLabel}`, () => {
       const report = {
         schemaVersion: 2,
         databaseLifecycle,
-        scenario: mixedMail
-          ? 'internal-auth-and-notification-shared-gate'
-          : sharedIp
-            ? 'internal-auth-shared-ip-budget'
-            : isolation
-              ? 'internal-auth-identity-cooldown-isolation'
-              : 'internal-auth-two-process-concurrency',
+        scenario: rollbackCleanup
+          ? 'internal-auth-rollback-and-cleanup'
+          : mixedMail
+            ? 'internal-auth-and-notification-shared-gate'
+            : sharedIp
+              ? 'internal-auth-shared-ip-budget'
+              : isolation
+                ? 'internal-auth-identity-cooldown-isolation'
+                : 'internal-auth-two-process-concurrency',
         runId,
         recordedAt: new Date().toISOString(),
         commit: execFileSync('git', ['rev-parse', 'HEAD'], {
@@ -1627,7 +2005,9 @@ describe(`Stage 4 Iteration 7 ${scenarioLabel}`, () => {
           'Internal services after email/domain eligibility; not public HTTP or mailbox delivery.',
           'Two local OS processes share host resources; no production capacity or fairness claim.',
           'Always-200 fake provider; process/network faults and commit ambiguity are later work.',
-          'No configuration/key rotation, cleanup or provider-fault scenarios in this command.',
+          rollbackCleanup
+            ? 'Confirmed receipt aborts and existing entity cleanup only; no GCRA/cooldown bucket garbage collector is implemented or tested.'
+            : 'No configuration/key rotation, cleanup or provider-fault scenarios in this command.',
           ...(mixedMail
             ? [
                 'Deferral observers add DB reads; these timings do not establish capacity or queue fairness.',

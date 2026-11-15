@@ -20,12 +20,15 @@ async function main() {
       'identity-isolation',
       'shared-ip',
       'mixed-mail',
+      'rollback-cleanup',
     ].includes(mode) ||
     args.length > 1 ||
     (args.length === 1 &&
       !['--state=isolated', '--state=retained'].includes(args[0]))
   )
     throw new Error('Unsupported auth load stand mode.');
+  if (mode === 'rollback-cleanup' && stateMode !== 'isolated')
+    throw new Error('Rollback/cleanup requires an isolated test database.');
   const target = testTarget('load', process.env.TEST_DATABASE_URL);
   const run = new TestRun();
   try {

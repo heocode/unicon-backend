@@ -9,6 +9,12 @@ import type { MailWorkResult } from '../../src/mail/types/mail-delivery.type';
 export type ReplicaCommand =
   | { kind: 'PREPARE'; requests: AuthenticationOperationRequest[] }
   | { kind: 'EXECUTE' }
+  | {
+      kind: 'EXECUTE_OPERATION';
+      operationId: string;
+      request: AuthenticationOperationRequest;
+    }
+  | { kind: 'CLEANUP' }
   | { kind: 'START_WORKER' }
   | { kind: 'ENQUEUE_NOTIFICATIONS'; notifications: NewSessionEmail[] }
   | { kind: 'START_MIXED_WORKERS' }
@@ -19,6 +25,14 @@ export type ReplicaExecution = {
   response?: AuthenticationOperationResponse;
   error?: string;
   elapsedMs: number;
+};
+
+export type ReplicaCleanup = {
+  clearedProof: number;
+  deletedDelivery: number;
+  deletedChallenge: number;
+  deletedSubject: number;
+  deletedReceipt: number;
 };
 
 export type ReplicaReady = {

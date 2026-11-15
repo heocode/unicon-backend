@@ -142,6 +142,26 @@ test('load CLI rejects unknown or repeated lifecycle flags before connecting', (
   }
 });
 
+test('rollback/cleanup CLI refuses retained state before any database connection', () => {
+  const result = spawnSync(
+    process.execPath,
+    [
+      join(repositoryRoot, 'scripts/run-auth-load-smoke.mjs'),
+      'rollback-cleanup',
+      '--state=retained',
+    ],
+    {
+      env: testEnvironment(testTarget('load')),
+      encoding: 'utf8',
+    },
+  );
+  assert.equal(result.status, 1);
+  assert.match(
+    result.stderr,
+    /Rollback\/cleanup requires an isolated test database/,
+  );
+});
+
 test('dotenv in the child cannot read a synthetic caller .env', async () => {
   await withTestWorkdir(async (outer) => {
     await writeFile(
