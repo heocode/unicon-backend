@@ -2209,6 +2209,16 @@ legitimate people were blocked; review them with success rates, workload
 patterns, and support evidence before changing thresholds. Telemetry failure
 must not alter authoritative admission/accounting decisions.
 
+Iteration 7 step 2.3.4 implements a bounded first slice: completion events from
+`AuthenticationOperationService.execute` through Nest Logger. Publication occurs
+after the authoritative operation settles, outside its transaction/retry loop;
+receiver exceptions/rejections are ignored and receiver promises are not awaited.
+Only fixed outcome/failure categories, known denied policy IDs, replay status and
+duration are recorded. These observations are not an exact charge ledger; replay
+and reconciled results must not be counted as new charges. This does not yet
+implement the full metric set above or select an external telemetry backend.
+See [the event contract](auth-operation-telemetry.md) for analysis and limits.
+
 ### Accepted Delivery-budget UX capacity requirement
 
 Status: **ACCEPTED** as a policy-design requirement, not an implemented limit.

@@ -274,6 +274,12 @@ promoting it while retaining v1. It is isolated-only, uses public synthetic test
 keys and preserves active debt/cooldown across aliases. Old-key retirement is a
 separate database-backed gate.
 
+`npm run test:load:telemetry-failure` checks that a throwing, rejecting or
+never-settling telemetry receiver cannot change real admission results, receipts
+or quota accounting. It is isolated-only. The default receiver writes bounded
+JSON completion events through Nest Logger; see
+[the event contract and analysis example](docs/auth-operation-telemetry.md).
+
 For a focused run:
 
 ```bash

@@ -23,6 +23,7 @@ async function main() {
       'rollback-cleanup',
       'config-mismatch',
       'key-rotation',
+      'telemetry-failure',
     ].includes(mode) ||
     args.length > 1 ||
     (args.length === 1 &&
@@ -37,6 +38,8 @@ async function main() {
     );
   if (mode === 'key-rotation' && stateMode !== 'isolated')
     throw new Error('Key rotation requires an isolated test database.');
+  if (mode === 'telemetry-failure' && stateMode !== 'isolated')
+    throw new Error('Telemetry failure requires an isolated test database.');
   const target = testTarget('load', process.env.TEST_DATABASE_URL);
   const run = new TestRun();
   try {

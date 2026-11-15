@@ -17,6 +17,7 @@ import { AuthenticationDeliveryRepository } from '../src/auth/delivery/repositor
 import { AuthenticationEmailProviderPort } from '../src/auth/delivery/ports/authentication-email-provider.port';
 import { AuthenticationDeliveryCancellationReason } from '../src/auth/delivery/types/authentication-delivery.type';
 import { AuthenticationOperationService } from '../src/auth/operations/services/authentication-operation.service';
+import { AuthenticationOperationTelemetryService } from '../src/auth/operations/services/authentication-operation-telemetry.service';
 import { AuthenticationOperationRepository } from '../src/auth/operations/repositories/authentication-operation.repository';
 import type {
   AuthenticationOperationRequest,
@@ -94,6 +95,7 @@ describe('Auth Delivery backlog admission (PostgreSQL)', () => {
       requests,
       admission,
       bounds,
+      module.get(AuthenticationOperationTelemetryService),
     );
     deliveries = module.get(AuthenticationDeliveryRepository);
     worker = module.get(AuthenticationDeliveryOrchestrationService);

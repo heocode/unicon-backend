@@ -1354,8 +1354,12 @@ establish fleet-wide configuration agreement. The retained-key addition/promotio
 step (2.3.3) is COMPLETE within its add/promote-only scope. It checks old-only IP
 debt and identity/challenge cooldowns, exact alias
 mirroring and two-process admission after promoting v2. V1 remains configured;
-promotion is not proof of safe retirement. Old-key retirement and telemetry
-failure isolation remain separate gates; broader fault/load work stays in later blocks.
+promotion is not proof of safe retirement. Step 2.3.4 adds minimal safe completion
+events and verifies receiver throw/rejection/pending-Promise isolation with real
+PostgreSQL admission, replay, policy denial and a confirmed receipt abort. It is
+COMPLETE within that scope; the full operational metric set remains unfinished.
+Old-key retirement remains a separate gate with v1 retained; broader fault/load
+work stays in later blocks. See [the telemetry contract](auth-operation-telemetry.md).
 Public request-to-session HTTP coverage remains Stage 5–6 work.
 
 ## Stage 5: Request and resend endpoints

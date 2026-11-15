@@ -5,6 +5,7 @@ import type {
 import type { AuthenticationDeliveryWorkerSummary } from '../../src/auth/delivery/types/authentication-delivery-worker.type';
 import type { NewSessionEmail } from '../../src/mail/types/new-session-email.type';
 import type { MailWorkResult } from '../../src/mail/types/mail-delivery.type';
+import type { AuthenticationOperationTelemetryEvent } from '../../src/auth/operations/types/authentication-operation-telemetry.type';
 
 export type ReplicaCommand =
   | { kind: 'PREPARE'; requests: AuthenticationOperationRequest[] }
@@ -43,6 +44,7 @@ export type ReplicaReady = {
   keyRotationProfile?: string;
   rateLimitKeyVersions: number[];
   rateLimitActiveVersion: number;
+  telemetryFault?: string;
   databaseLifecycle: {
     runId: string;
     stateMode: 'isolated' | 'retained';
@@ -55,6 +57,10 @@ export type ReplicaWorkerStarted = {
 export type ReplicaStopped = {
   grants: { now: bigint; next: bigint }[];
   deferredCount: number;
+  telemetry?: {
+    fault: string;
+    events: AuthenticationOperationTelemetryEvent[];
+  };
   deferrals?: {
     auth: DeferralObservations;
     notifications: DeferralObservations;

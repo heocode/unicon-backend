@@ -26,6 +26,9 @@ import { observeMailDeferrals } from './observe-mail-deferrals';
 import { configurationFixture } from './configuration-fixture';
 import { keyRotationFixture } from './key-rotation-fixture';
 import type { VersionedKeyring } from '../../src/config/types/versioned-keyring.type';
+import { AuthenticationOperationTelemetryService } from '../../src/auth/operations/services/authentication-operation-telemetry.service';
+import type { AuthenticationOperationTelemetryEvent } from '../../src/auth/operations/types/authentication-operation-telemetry.type';
+import { telemetryFaultFixture } from './telemetry-fault-fixture';
 import type {
   ReplicaCommand,
   ReplicaExecution,
@@ -103,7 +106,21 @@ async function initialize() {
   class LocalClient extends ResendMailHttpClient {
     protected readonly endpoint = endpoint.toString();
   }
-  testingModule = await Test.createTestingModule({
+  const telemetryFault = process.env.LOAD_TELEMETRY_FAULT;
+  if (
+    telemetryFault === undefined &&
+    process.env.LOAD_STAND_SCENARIO === 'telemetry-failure'
+  )
+    throw new Error('Explicit telemetry fault required.');
+  if (telemetryFault !== undefined) {
+    telemetryFaultFixture(
+      telemetryFault,
+      process.env.LOAD_STAND_SCENARIO,
+      databaseLifecycle.stateMode,
+    );
+    observed.telemetry = { fault: telemetryFault, events: [] };
+  }
+  const builder = Test.createTestingModule({
     imports: [
       ConfigModule.forRoot({
         isGlobal: true,
@@ -112,7 +129,29 @@ async function initialize() {
       }),
       AuthModule,
     ],
-  })
+  });
+  if (telemetryFault !== undefined) {
+    class BrokenTelemetryReceiver extends AuthenticationOperationTelemetryService {
+      protected publish(
+        event: AuthenticationOperationTelemetryEvent,
+      ): void | Promise<void> {
+        if (!observed.telemetry || observed.telemetry.events.length >= 32)
+          throw new Error('Bounded telemetry fixture exceeded.');
+        observed.telemetry.events.push(event);
+        if (telemetryFault === 'throw')
+          throw new Error('Injected telemetry receiver failure.');
+        if (telemetryFault === 'reject')
+          return Promise.reject(
+            new Error('Injected telemetry receiver failure.'),
+          );
+        return new Promise<void>(() => {});
+      }
+    }
+    builder
+      .overrideProvider(AuthenticationOperationTelemetryService)
+      .useClass(BrokenTelemetryReceiver);
+  }
+  testingModule = await builder
     .overrideProvider(ResendMailHttpClient)
     .useClass(LocalClient)
     .compile();
@@ -165,6 +204,7 @@ async function initialize() {
     settings,
     configurationProfile,
     keyRotationProfile,
+    telemetryFault,
     rateLimitKeyVersions: [
       ...config.getOrThrow<VersionedKeyring>('RATE_LIMIT_HMAC_KEYS').keys(),
     ].sort((a, b) => a - b),
@@ -230,7 +270,7 @@ async function handle(command: ReplicaCommand) {
     }
     case 'EXECUTE_OPERATION': {
       if (
-        !['rollback-cleanup', 'config-mismatch'].includes(
+        !['rollback-cleanup', 'config-mismatch', 'telemetry-failure'].includes(
           process.env.LOAD_STAND_SCENARIO ?? '',
         ) ||
         loadDatabaseRuntime().stateMode !== 'isolated'

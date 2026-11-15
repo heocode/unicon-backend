@@ -946,3 +946,82 @@ Step 2.3.3 is complete for addition/promotion with v1 retained. Old-only active
 restrictions remain, so this test explicitly does not justify removing v1.
 Safe retirement and telemetry failure isolation remain separate gates; Block 2.3
 remains IN PROGRESS.
+
+## Block 2.3 step 4: operation telemetry failure isolation
+
+```bash
+npm run test:load:telemetry-failure
+```
+
+This bounded isolated scenario adds the first production completion-event hook
+and verifies that its receiver cannot change authoritative admission/accounting.
+The default receiver emits a sanitized JSON payload through Nest Logger. Its
+[contract and aggregate analysis example](auth-operation-telemetry.md) distinguish
+completion observations from exact database accounting. This is not the full
+operational metric/export backend required by the architecture.
+
+The launcher rejects retained mode before connecting. The closed `throw`,
+`reject` and `pending` fixtures are checked before fork and again inside each
+replica. Two real processes share one disposable template copy for all phases;
+there is no reset/refund between receiver modes. Only the telemetry receiver is
+replaced, after production payload sanitization. Database repositories, admission,
+cooldowns, operation receipts and workers remain real.
+
+For each receiver failure mode the scenario verifies:
+
+- Three fresh INITIAL operations create three Deliveries and exact applicable
+  quota/cooldown charges.
+- A cross-process replay returns the same CREATED receipt with `replayed: true`
+  and leaves the database snapshot unchanged.
+- INITIAL REUSED and RESEND EXISTING add receipts only, preserving all admission
+  state. No unchecked policy is reported as having allowed the request.
+- A new identity on the exhausted IP receives DENIED/RATE_LIMITED, attributed to
+  the IP policy. Only the denial receipt is added.
+- A temporary SQL trigger rejects a CREATED receipt with SQLSTATE 23514 after
+  verifying the in-transaction Delivery exists. A nontransactional sequence proves
+  the fault was reached. The response remains STATE_UNAVAILABLE and the complete
+  observed database snapshot remains unchanged after rollback.
+- Independent receipt-based oracles prove exact GCRA/cooldown accounting.
+  Workers then send three Deliveries once each through the loopback HTTP provider.
+- Eight bounded completion events retain their expected categories, replay flag,
+  denied policy and failure reason without subject identifiers or raw errors.
+  A never-settling receiver does not hold execution or process shutdown open.
+
+Across all three modes this produces nine SENT Deliveries, nine HTTP submissions,
+18 receipts and 24 completion observations. The SQL trigger/schema are removed
+before the launcher drops its verified invocation-owned database copy.
+
+This does not prove safe key retirement, live provider delivery, production
+capacity, a durable telemetry transport, synchronous stdout/CPU stall isolation,
+process-crash recovery, or the full HTTP-to-session flow. V1 keys remain retained;
+retirement still requires its own database-backed gate. Later Iteration 7 fault,
+overload and target-platform measurements remain pending.
+
+### Step 2.3.4 verification
+
+- The new telemetry-failure scenario passed twice, with all three receiver modes
+  and every accounting/immutability assertion true. Ignored artifacts:
+  `load-results/telemetry-failure-1794725350696.json` and
+  `load-results/telemetry-failure-1794727738206.json` (`schemaVersion: 2`,
+  `passed: true`).
+- All eight preceding isolated modes passed: smoke, concurrency, identity
+  isolation, shared IP, mixed mail, rollback/cleanup, configuration mismatch and
+  retained-key rotation. Explicit retained mixed-mail mode also passed. The final
+  smoke includes 14 checks in six suites, including rejection of invalid telemetry
+  fixtures; 15 Node infrastructure checks passed.
+- Unit regression passed 1093 tests in 89 suites. The first full e2e run passed
+  456/457: an existing session-management verify-email case unexpectedly returned
+  404. Its isolated suite then passed 14/14 and the complete repeat passed 457/457
+  in 89.275 seconds, without changes to that test or its production flow. The
+  initial failure's cause is not established by those successful repeats.
+- Build, lint without fixes and scoped replica compilation passed. Prisma
+  validation passed and all 39 migrations remain applied. Full `tsc --noEmit`
+  retains 67 pre-existing test diagnostics, with none in the changed files.
+- Final database inventory contains only `unicon_e2e_template`, `unicon_load_test`
+  and `unicon_test`; template connections are disabled, the test container is
+  healthy and both allocation-record directories are empty. No `.env` secrets,
+  primary database or live Resend were used.
+
+Step 2.3.4 is complete for minimal completion telemetry and receiver failure
+isolation. This does not close the separately documented old-key retirement or
+full operational metrics gates, nor complete Stage 4 / Iteration 7.

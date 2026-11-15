@@ -17,6 +17,7 @@ import { fromGcraPersistenceData } from '../src/rate-limit/utils/gcra-state-pers
 import { AuthenticationChallengeRequestService } from '../src/auth/challenge/services/authentication-challenge-request.service';
 import { AuthenticationDeliveryAdmissionService } from '../src/auth/delivery/services/authentication-delivery-admission.service';
 import { AuthenticationOperationService } from '../src/auth/operations/services/authentication-operation.service';
+import { AuthenticationOperationTelemetryService } from '../src/auth/operations/services/authentication-operation-telemetry.service';
 import { AuthenticationOperationRepository } from '../src/auth/operations/repositories/authentication-operation.repository';
 import {
   createAuthenticationOperationId,
@@ -79,6 +80,7 @@ describe('Authentication operation receipts (PostgreSQL)', () => {
       requests,
       deliveries,
       bounds,
+      module.get(AuthenticationOperationTelemetryService),
     );
   }
   async function mint() {

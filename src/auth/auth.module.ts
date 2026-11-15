@@ -61,6 +61,7 @@ import { AuthenticationDeliveryRateLimitService } from './rate-limit/services/au
 import { AuthenticationVerificationRateLimitService } from './rate-limit/services/authentication-verification-rate-limit.service';
 import { AuthenticationOperationRepository } from './operations/repositories/authentication-operation.repository';
 import { AuthenticationOperationService } from './operations/services/authentication-operation.service';
+import { AuthenticationOperationTelemetryService } from './operations/services/authentication-operation-telemetry.service';
 import { AuthenticationOperationCleanupService } from './operations/services/authentication-operation-cleanup.service';
 import { AuthenticationOperationCleanupSchedulerService } from './operations/services/authentication-operation-cleanup-scheduler.service';
 
@@ -96,6 +97,7 @@ import { AuthenticationOperationCleanupSchedulerService } from './operations/ser
     AuthenticationVerificationRateLimitService,
     AuthenticationOperationRepository,
     AuthenticationOperationService,
+    AuthenticationOperationTelemetryService,
     AuthenticationOperationCleanupService,
     AuthenticationOperationCleanupSchedulerService,
     AuthenticationChallengeProofService,

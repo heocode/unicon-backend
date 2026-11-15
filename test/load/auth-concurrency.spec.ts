@@ -43,6 +43,10 @@ import {
   type KeyRotationProfile,
 } from './key-rotation-fixture';
 import type { VersionedKeyring } from '../../src/config/types/versioned-keyring.type';
+import {
+  telemetryFaults,
+  type TelemetryFault,
+} from './telemetry-fault-fixture';
 
 type Input = {
   request: AuthenticationOperationRequest;
@@ -96,32 +100,38 @@ const mixedMail = process.env.LOAD_STAND_SCENARIO === 'mixed-mail';
 const rollbackCleanup = process.env.LOAD_STAND_SCENARIO === 'rollback-cleanup';
 const configMismatch = process.env.LOAD_STAND_SCENARIO === 'config-mismatch';
 const keyRotation = process.env.LOAD_STAND_SCENARIO === 'key-rotation';
-const scenarioLabel = keyRotation
-  ? 'block 2.3.3: retained-key rotation'
-  : configMismatch
-    ? 'block 2.3.2: configuration mismatch'
-    : rollbackCleanup
-      ? 'block 2.3.1: rollback and cleanup'
-      : mixedMail
-        ? 'block 2.2: mixed mail queues'
-        : sharedIp
-          ? 'block 2.2: shared IP'
-          : isolation
-            ? 'block 2.2: identity isolation'
-            : 'block 2.1: two OS processes';
-const testName = keyRotation
-  ? 'preserves old-only debt and cooldowns while adding and promoting retained HMAC aliases'
-  : configMismatch
-    ? 'fails closed on active policy mismatches and preserves debt across matched process restarts'
-    : rollbackCleanup
-      ? 'rolls back receipt failures and preserves active debt through concurrent and retained cleanup'
-      : mixedMail
-        ? 'drains auth and notifications across two processes through one real gate without charging capacity waits'
-        : sharedIp
-          ? 'shares one IP budget across processes without blocking another IP or charging denials'
-          : isolation
-            ? 'preserves personal cooldown and independent admission during repeated initial/resend traffic'
-            : 'shares admission, stable challenge/resend and scheduled delivery across two processes';
+const telemetryFailure =
+  process.env.LOAD_STAND_SCENARIO === 'telemetry-failure';
+const scenarioLabel = telemetryFailure
+  ? 'block 2.3.4: telemetry failure isolation'
+  : keyRotation
+    ? 'block 2.3.3: retained-key rotation'
+    : configMismatch
+      ? 'block 2.3.2: configuration mismatch'
+      : rollbackCleanup
+        ? 'block 2.3.1: rollback and cleanup'
+        : mixedMail
+          ? 'block 2.2: mixed mail queues'
+          : sharedIp
+            ? 'block 2.2: shared IP'
+            : isolation
+              ? 'block 2.2: identity isolation'
+              : 'block 2.1: two OS processes';
+const testName = telemetryFailure
+  ? 'keeps real admission, receipts and errors correct when telemetry throws, rejects or never settles'
+  : keyRotation
+    ? 'preserves old-only debt and cooldowns while adding and promoting retained HMAC aliases'
+    : configMismatch
+      ? 'fails closed on active policy mismatches and preserves debt across matched process restarts'
+      : rollbackCleanup
+        ? 'rolls back receipt failures and preserves active debt through concurrent and retained cleanup'
+        : mixedMail
+          ? 'drains auth and notifications across two processes through one real gate without charging capacity waits'
+          : sharedIp
+            ? 'shares one IP budget across processes without blocking another IP or charging denials'
+            : isolation
+              ? 'preserves personal cooldown and independent admission during repeated initial/resend traffic'
+              : 'shares admission, stable challenge/resend and scheduled delivery across two processes';
 describe(`Stage 4 Iteration 7 ${scenarioLabel}`, () => {
   jest.setTimeout(180000);
 
@@ -191,6 +201,7 @@ describe(`Stage 4 Iteration 7 ${scenarioLabel}`, () => {
       endpoint: string,
       profiles?: readonly [ConfigurationProfile, ConfigurationProfile],
       rotationProfile?: KeyRotationProfile,
+      telemetryFault?: TelemetryFault,
     ) {
       pair = [0, 1].map(
         (index) =>
@@ -198,6 +209,7 @@ describe(`Stage 4 Iteration 7 ${scenarioLabel}`, () => {
             `${endpoint}/emails/${index}`,
             profiles?.[index],
             rotationProfile,
+            telemetryFault,
           ),
       );
       const ready = await Promise.all(pair.map((item) => item.ready));
@@ -222,6 +234,7 @@ describe(`Stage 4 Iteration 7 ${scenarioLabel}`, () => {
         expect(replica.rateLimitActiveVersion).toBe(expected.activeVersion);
         expect(replica.rateLimitKeyVersions).toEqual(expected.versions);
         expect(replica.keyRotationProfile).toBe(rotationProfile);
+        expect(replica.telemetryFault).toBe(telemetryFault);
       }
       expect(
         ready[0].pid !== ready[1].pid &&
@@ -1548,6 +1561,302 @@ describe(`Stage 4 Iteration 7 ${scenarioLabel}`, () => {
       });
       expect(Object.values(checks).every(Boolean)).toBe(true);
     }
+    async function isolateTelemetry(
+      endpoint: string,
+      initial: (identity: string, ip: string) => Input,
+    ) {
+      if (databaseLifecycle.stateMode !== 'isolated')
+        throw new Error('Isolated telemetry scenario required.');
+      const beforeRates = await rates(),
+        beforeCooldowns = await cooldowns();
+      const inputs = new Map<string, Input>();
+      const snapshot = async () => ({
+        rates: await rates(),
+        cooldowns: await cooldowns(),
+        subjects: await prisma.authenticationChallengeSubject.findMany({
+          orderBy: { key: 'asc' },
+        }),
+        challenges: await prisma.authenticationChallenge.findMany({
+          orderBy: { id: 'asc' },
+        }),
+        deliveries: await prisma.authenticationChallengeDelivery.findMany({
+          orderBy: { id: 'asc' },
+        }),
+        receipts: await prisma.authenticationOperation.findMany({
+          orderBy: { id: 'asc' },
+        }),
+        backlog: await prisma.authenticationDeliveryBacklogState.findMany(),
+        pressure: await prisma.mailProviderPressure.findMany(),
+      });
+      const prepare = async (index: number, input: Input) => {
+        const [id] = await pair[index].call<string[]>({
+          kind: 'PREPARE',
+          requests: [input.request],
+        });
+        inputs.set(id, input);
+        return id;
+      };
+      const execute = async (index: number) =>
+        (await pair[index].call<ReplicaExecution[]>({ kind: 'EXECUTE' }))[0];
+      const replay = (index: number, id: string, input: Input) =>
+        pair[index].call<ReplicaExecution>({
+          kind: 'EXECUTE_OPERATION',
+          operationId: id,
+          request: input.request,
+        });
+      const assertReceiptOnly = (
+        before: Awaited<ReturnType<typeof snapshot>>,
+        after: Awaited<ReturnType<typeof snapshot>>,
+      ) => {
+        expect({ ...after, receipts: [] }).toEqual({ ...before, receipts: [] });
+        expect(after.receipts).toHaveLength(before.receipts.length + 1);
+        for (const row of before.receipts)
+          expect(after.receipts.find((item) => item.id === row.id)).toEqual(
+            row,
+          );
+      };
+      const schema = `telemetry_${randomUUID().replaceAll('-', '')}`,
+        trigger = `${schema}_trigger`;
+      await prisma.$executeRawUnsafe(`CREATE SCHEMA "${schema}"`);
+      try {
+        await prisma.$executeRawUnsafe(`CREATE SEQUENCE "${schema}".hits`);
+        await prisma.$executeRawUnsafe(`CREATE FUNCTION "${schema}".fail_receipt() RETURNS trigger LANGUAGE plpgsql AS $test$
+          BEGIN IF NEW.id::text=TG_ARGV[0] THEN
+            IF NEW.outcome <> 'CREATED' OR NOT EXISTS(SELECT 1 FROM "AuthenticationChallengeDelivery" WHERE id=NEW."deliveryId")
+            THEN RAISE EXCEPTION 'Invalid telemetry fault point.' USING ERRCODE='22000'; END IF;
+            PERFORM nextval('"${schema}".hits');
+            RAISE EXCEPTION 'Injected confirmed receipt failure.' USING ERRCODE='23514';
+          END IF; RETURN NEW; END $test$`);
+        for (const [stage, fault] of telemetryFaults.entries()) {
+          const ready = await newPair(endpoint, undefined, undefined, fault);
+          const ip = `2001:db8:234::${stage + 1}`;
+          const value = (label: string, source = ip) =>
+            initial(`${runId}-${fault}-${label}@load.example.edu`, source);
+          const firstInput = value('created-a');
+          const firstId = await prepare(0, firstInput);
+          const first = await execute(0);
+          expect(first.response?.replayed).toBe(false);
+          expect(first.response?.result.outcome).toBe('CREATED');
+          if (first.response?.result.outcome !== 'CREATED')
+            throw new Error('Expected created work despite telemetry outage.');
+          for (const [index, label] of [
+            [1, 'created-b'],
+            [0, 'created-c'],
+          ] as const) {
+            await prepare(index, value(label));
+            const result = await execute(index);
+            expect(result.error).toBeUndefined();
+            expect(result.response?.replayed).toBe(false);
+            expect(result.response?.result.outcome).toBe('CREATED');
+          }
+          const committed = await snapshot();
+          const replayed = await replay(1, firstId, firstInput);
+          expect(replayed.response).toEqual({
+            ...first.response,
+            replayed: true,
+          });
+          expect(await snapshot()).toEqual(committed);
+          await prepare(0, firstInput);
+          const reused = await execute(0);
+          expect(reused.response?.result.outcome).toBe('REUSED');
+          expect(reused.response?.replayed).toBe(false);
+          const afterReuse = await snapshot();
+          assertReceiptOnly(committed, afterReuse);
+          const challenge =
+            await prisma.authenticationChallenge.findUniqueOrThrow({
+              where: { id: first.response.result.challengeId },
+            });
+          const resend: Input = {
+            identity: firstInput.identity,
+            ip,
+            request: {
+              kind: 'RESEND',
+              input: {
+                challengeId: challenge.id,
+                ipAddress: ip,
+                templateProtocolVersion: 1,
+                retentionExpiresAt: challenge.retentionExpiresAt,
+              },
+            },
+          };
+          await prepare(1, resend);
+          const existing = await execute(1);
+          expect(existing.response?.result.outcome).toBe('EXISTING');
+          expect(existing.response?.replayed).toBe(false);
+          const afterExisting = await snapshot();
+          assertReceiptOnly(afterReuse, afterExisting);
+          const denialId = await prepare(1, value('denied'));
+          const denied = await execute(1);
+          expect(denied.error).toBeUndefined();
+          expect(denied.response?.result).toMatchObject({
+            outcome: 'DENIED',
+            denial: 'RATE_LIMITED',
+            deniedPolicyIds: [policies.deliveryIp.id],
+          });
+          const afterDenial = await snapshot();
+          assertReceiptOnly(afterExisting, afterDenial);
+          expect(
+            afterDenial.receipts.find((row) => row.id === denialId)?.outcome,
+          ).toBe('DENIED');
+          const failingIndex = stage % 2;
+          const failedId = await prepare(
+            failingIndex,
+            value('technical', `2001:db8:235::${stage + 1}`),
+          );
+          if (!/^[a-f0-9-]{36}$/.test(failedId))
+            throw new Error('Invalid locally minted operation ID.');
+          await prisma.$executeRawUnsafe(
+            `CREATE TRIGGER "${trigger}" BEFORE INSERT ON "AuthenticationOperation" FOR EACH ROW EXECUTE FUNCTION "${schema}".fail_receipt('${failedId}')`,
+          );
+          let technical: ReplicaExecution;
+          try {
+            technical = await execute(failingIndex);
+          } finally {
+            await prisma.$executeRawUnsafe(
+              `DROP TRIGGER IF EXISTS "${trigger}" ON "AuthenticationOperation"`,
+            );
+          }
+          expect(technical.error).toBe('STATE_UNAVAILABLE');
+          expect(technical.response).toBeUndefined();
+          expect(await snapshot()).toEqual(afterDenial);
+          const [hits] = await prisma.$queryRawUnsafe<{ count: string }[]>(
+            `SELECT last_value::text AS count FROM "${schema}".hits`,
+          );
+          expect(Number(hits.count)).toBe(stage + 1);
+          const receipts = await prisma.authenticationOperation.findMany();
+          expect(
+            checkAccounting(beforeRates, await rates(), receipts, inputs),
+          ).toBe(true);
+          expect(
+            checkCooldowns(
+              beforeCooldowns,
+              await cooldowns(),
+              receipts,
+              inputs,
+            ),
+          ).toBe(true);
+          const stageCreated = receipts.filter(
+            (row) => row.outcome === 'CREATED' && inputs.get(row.id)?.ip === ip,
+          );
+          expect(stageCreated).toHaveLength(3);
+          const drained = await drainDeliveries(
+            stageCreated.map((row) => row.deliveryId!),
+          );
+          expect(drained.final).toHaveLength(3);
+          expect(
+            drained.final.every(
+              (row) => row.status === 'SENT' && row.attemptCount === 1,
+            ),
+          ).toBe(true);
+          expect(drained.submissions).toHaveLength(3);
+          const events = drained.stopped.flatMap((item) => {
+            expect(item.telemetry?.fault).toBe(fault);
+            return item.telemetry?.events ?? [];
+          });
+          expect(events).toHaveLength(8);
+          expect(
+            events.filter(
+              (event) => event.outcome === 'CREATED' && !event.replayed,
+            ),
+          ).toHaveLength(3);
+          expect(
+            events.filter(
+              (event) => event.outcome === 'CREATED' && event.replayed,
+            ),
+          ).toHaveLength(1);
+          for (const outcome of ['REUSED', 'EXISTING', 'DENIED', 'FAILURE'])
+            expect(
+              events.filter((event) => event.outcome === outcome),
+            ).toHaveLength(1);
+          expect(
+            events.find((event) => event.outcome === 'DENIED'),
+          ).toMatchObject({
+            operation: 'SIGN_IN_REQUEST',
+            denial: 'RATE_LIMITED',
+            deniedPolicyIds: [policies.deliveryIp.id],
+          });
+          expect(
+            events.find((event) => event.outcome === 'FAILURE'),
+          ).toMatchObject({
+            failureReason: 'STATE_UNAVAILABLE',
+            deniedPolicyIds: [],
+          });
+          expect(
+            events.find((event) => event.outcome === 'EXISTING')?.operation,
+          ).toBe('RESEND');
+          const fields = [
+            'event',
+            'schemaVersion',
+            'operation',
+            'outcome',
+            'replayed',
+            'durationMs',
+            'denial',
+            'deniedPolicyIds',
+            'failureReason',
+          ].sort();
+          for (const event of events) {
+            expect(Object.keys(event).sort()).toEqual(fields);
+            expect(event.event).toBe('AUTHENTICATION_OPERATION_COMPLETED');
+            expect(event.schemaVersion).toBe(1);
+            expect(
+              Number.isFinite(event.durationMs) && event.durationMs >= 0,
+            ).toBe(true);
+            if (event.outcome !== 'DENIED')
+              expect(event.deniedPolicyIds).toEqual([]);
+          }
+          const encoded = JSON.stringify(events);
+          for (const forbidden of [
+            firstInput.identity,
+            ip,
+            firstId,
+            challenge.id,
+            first.response.result.deliveryId,
+          ])
+            expect(encoded).not.toContain(forbidden);
+          scenarios.push({
+            name: 'outcome-isolation-from-telemetry',
+            receiverFailure: fault,
+            processes: ready,
+            observedEvents: events.length,
+            outcomes: {
+              created: 3,
+              replayedCreated: 1,
+              reused: 1,
+              existing: 1,
+              denied: 1,
+              technical: 1,
+            },
+            sent: drained.final.length,
+            httpSubmissions: drained.submissions.length,
+            checks: {
+              receiverCalledAfterAuthoritativeOutcome: true,
+              committedResultsPreserved: true,
+              replayDoesNotCharge: true,
+              policyDenialPreserved: true,
+              technicalErrorNotMasked: true,
+              confirmedAbortImmutable: true,
+              exactChargeAccounting: true,
+              noWaitForUnsettledTelemetry: true,
+              telemetryPayloadBounded: true,
+              telemetryHasNoPerSubjectIdentifiers: true,
+            },
+          });
+        }
+      } finally {
+        await prisma.$executeRawUnsafe(
+          `DROP TRIGGER IF EXISTS "${trigger}" ON "AuthenticationOperation"`,
+        );
+        await prisma.$executeRawUnsafe(`DROP SCHEMA "${schema}" CASCADE`);
+      }
+      expect(await prisma.authenticationOperation.count()).toBe(18);
+      expect(
+        await prisma.authenticationChallengeDelivery.count({
+          where: { status: 'SENT' },
+        }),
+      ).toBe(9);
+      expect(calls).toHaveLength(9);
+    }
     async function rotateKeys(
       endpoint: string,
       initial: (identity: string, ip: string) => Input,
@@ -2689,7 +2998,9 @@ describe(`Stage 4 Iteration 7 ${scenarioLabel}`, () => {
           },
         },
       });
-      if (keyRotation) {
+      if (telemetryFailure) {
+        await isolateTelemetry(endpoint, initial);
+      } else if (keyRotation) {
         await rotateKeys(endpoint, initial);
       } else if (configMismatch) {
         await configurationMismatch(endpoint, initial);
@@ -2788,19 +3099,21 @@ describe(`Stage 4 Iteration 7 ${scenarioLabel}`, () => {
       const report = {
         schemaVersion: 2,
         databaseLifecycle,
-        scenario: keyRotation
-          ? 'internal-auth-retained-key-rotation'
-          : configMismatch
-            ? 'internal-auth-configuration-mismatch'
-            : rollbackCleanup
-              ? 'internal-auth-rollback-and-cleanup'
-              : mixedMail
-                ? 'internal-auth-and-notification-shared-gate'
-                : sharedIp
-                  ? 'internal-auth-shared-ip-budget'
-                  : isolation
-                    ? 'internal-auth-identity-cooldown-isolation'
-                    : 'internal-auth-two-process-concurrency',
+        scenario: telemetryFailure
+          ? 'internal-auth-telemetry-failure-isolation'
+          : keyRotation
+            ? 'internal-auth-retained-key-rotation'
+            : configMismatch
+              ? 'internal-auth-configuration-mismatch'
+              : rollbackCleanup
+                ? 'internal-auth-rollback-and-cleanup'
+                : mixedMail
+                  ? 'internal-auth-and-notification-shared-gate'
+                  : sharedIp
+                    ? 'internal-auth-shared-ip-budget'
+                    : isolation
+                      ? 'internal-auth-identity-cooldown-isolation'
+                      : 'internal-auth-two-process-concurrency',
         runId,
         recordedAt: new Date().toISOString(),
         commit: execFileSync('git', ['rev-parse', 'HEAD'], {
@@ -2824,13 +3137,15 @@ describe(`Stage 4 Iteration 7 ${scenarioLabel}`, () => {
           'Internal services after email/domain eligibility; not public HTTP or mailbox delivery.',
           'Two local OS processes share host resources; no production capacity or fairness claim.',
           'Always-200 fake provider; process/network faults and commit ambiguity are later work.',
-          keyRotation
-            ? 'Rate-limit key addition/promotion with v1 retained only; no key retirement, policy retuning or HTTP/verification integration.'
-            : configMismatch
-              ? 'Active IP-policy snapshot mismatch and matched restarts only; no retuning, key rotation or fleet-wide configuration consensus.'
-              : rollbackCleanup
-                ? 'Confirmed receipt aborts and existing entity cleanup only; no GCRA/cooldown bucket garbage collector is implemented or tested.'
-                : 'No configuration/key rotation, cleanup or provider-fault scenarios in this command.',
+          telemetryFailure
+            ? 'Execute-outcome telemetry receiver throw/rejection/pending promise only; no external metrics backend, process crash or synchronous CPU stall.'
+            : keyRotation
+              ? 'Rate-limit key addition/promotion with v1 retained only; no key retirement, policy retuning or HTTP/verification integration.'
+              : configMismatch
+                ? 'Active IP-policy snapshot mismatch and matched restarts only; no retuning, key rotation or fleet-wide configuration consensus.'
+                : rollbackCleanup
+                  ? 'Confirmed receipt aborts and existing entity cleanup only; no GCRA/cooldown bucket garbage collector is implemented or tested.'
+                  : 'No configuration/key rotation, cleanup or provider-fault scenarios in this command.',
           ...(mixedMail
             ? [
                 'Deferral observers add DB reads; these timings do not establish capacity or queue fairness.',
@@ -2838,7 +3153,7 @@ describe(`Stage 4 Iteration 7 ${scenarioLabel}`, () => {
               ]
             : ['Notification competition is not exercised by this command.']),
           'Personal identity GCRA exhaustion and heavy traffic are not exercised.',
-          ...(sharedIp || configMismatch || keyRotation
+          ...(sharedIp || configMismatch || keyRotation || telemetryFailure
             ? [
                 'Shared-IP values are experimental fixtures, not production sizing.',
               ]

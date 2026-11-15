@@ -15,6 +15,10 @@ import {
   keyRotationFixture,
   type KeyRotationProfile,
 } from './key-rotation-fixture';
+import {
+  telemetryFaultFixture,
+  type TelemetryFault,
+} from './telemetry-fault-fixture';
 
 /** Bounded IPC for this stand only; no public/server endpoint is introduced. */
 export class ConcurrencyProcess {
@@ -35,6 +39,7 @@ export class ConcurrencyProcess {
     endpoint: string,
     configurationProfile?: ConfigurationProfile,
     keyRotationProfile?: KeyRotationProfile,
+    telemetryFault?: TelemetryFault,
   ) {
     if (!process.env.LOAD_REPLICA_PATH)
       throw new Error('Compiled test replica required.');
@@ -50,6 +55,12 @@ export class ConcurrencyProcess {
         process.env.LOAD_STAND_SCENARIO,
         loadDatabaseRuntime().stateMode,
       );
+    if (telemetryFault !== undefined)
+      telemetryFaultFixture(
+        telemetryFault,
+        process.env.LOAD_STAND_SCENARIO,
+        loadDatabaseRuntime().stateMode,
+      );
     this.child = fork(process.env.LOAD_REPLICA_PATH, [], {
       cwd: process.cwd(),
       env: {
@@ -57,6 +68,7 @@ export class ConcurrencyProcess {
         LOAD_PROVIDER_ENDPOINT: endpoint,
         LOAD_CONFIG_PROFILE: configurationProfile,
         LOAD_ROTATION_PROFILE: keyRotationProfile,
+        LOAD_TELEMETRY_FAULT: telemetryFault,
       },
       execArgv: [],
       serialization: 'advanced',

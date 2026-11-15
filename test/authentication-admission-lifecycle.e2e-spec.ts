@@ -28,6 +28,7 @@ import type {
   AuthenticationEmailSubmission,
 } from '../src/auth/delivery/types/authentication-email-provider.type';
 import { AuthenticationOperationService } from '../src/auth/operations/services/authentication-operation.service';
+import { AuthenticationOperationTelemetryService } from '../src/auth/operations/services/authentication-operation-telemetry.service';
 import { AuthenticationOperationRepository } from '../src/auth/operations/repositories/authentication-operation.repository';
 import type { AuthenticationOperationRequest } from '../src/auth/operations/types/authentication-operation.type';
 import { AuthenticationDeliveryCooldownRepository } from '../src/auth/rate-limit/repositories/authentication-delivery-cooldown.repository';
@@ -129,6 +130,7 @@ describe('Delivery admission, retention and account finalization (PostgreSQL)', 
       module.get(AuthenticationChallengeRequestService),
       module.get(AuthenticationDeliveryAdmissionService),
       module.get(GcraAdmissionConfigService),
+      module.get(AuthenticationOperationTelemetryService),
     );
   }
   beforeEach(() => {

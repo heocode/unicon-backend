@@ -168,6 +168,14 @@ match their observer's key versions. No profile retires v1 or changes production
 secrets. The isolated fixture prevents state from being lost between phases;
 the common launcher deletes only the completed invocation's copy.
 
+`npm run test:load:telemetry-failure` is also isolated-only. Its closed private
+fixtures are `throw`, `reject` and `pending`; the process constructor and child
+both reject fixtures outside that scenario or lifecycle. Only the telemetry
+receiver is replaced: admission, receipts, quotas, cooldowns and workers remain
+real. A temporary receipt trigger proves a confirmed PostgreSQL abort. All stages
+share one copy without refunds or resets, and the common launcher removes the
+copy after completion. No external telemetry service or live Resend is contacted.
+
 `test/utils/test-database-runtime.ts` is the test-only destination policy shared
 by Jest setup, load observers and compiled replicas. It checks local role/endpoint,
 run UUID, mode, exact expected database and equality of both database settings.

@@ -17,6 +17,7 @@ import {
   authenticationOperationWindow,
 } from '../utils/authentication-operation-id.util';
 import { AuthenticationOperationService } from './authentication-operation.service';
+import { AuthenticationOperationTelemetryService } from './authentication-operation-telemetry.service';
 import type { AuthenticationOperationRequest } from '../types/authentication-operation.type';
 
 const now = 1_800_000_000_123_000n;
@@ -88,16 +89,19 @@ function setup() {
     timeoutSeconds: 5,
     maxWaitSeconds: 2,
   } as GcraAdmissionConfigService;
+  const telemetry = { record: jest.fn<void | Promise<void>, [unknown]>() };
   const service = new AuthenticationOperationService(
     prisma as unknown as PrismaService,
     repository as unknown as AuthenticationOperationRepository,
     requests as unknown as AuthenticationChallengeRequestService,
     deliveries as unknown as AuthenticationDeliveryAdmissionService,
     bounds,
+    telemetry as unknown as AuthenticationOperationTelemetryService,
   );
   return {
     id,
     service,
+    telemetry,
     prisma,
     repository,
     requests,
@@ -110,6 +114,51 @@ function setup() {
 }
 
 describe('AuthenticationOperationService (unit)', () => {
+  it.each(['throw', 'reject', 'pending'] as const)(
+    'keeps a committed result/replay outside a %s telemetry receiver',
+    async (mode) => {
+      const { id, service, telemetry, repository, requests } = setup();
+      telemetry.record.mockImplementation(() => {
+        if (mode === 'throw') throw new Error('Synthetic telemetry failure.');
+        if (mode === 'reject')
+          return Promise.reject(new Error('Synthetic telemetry failure.'));
+        return new Promise<void>(() => {});
+      });
+      const first = await service.execute(id, request);
+      const replay = await service.execute(id, request);
+      expect(first.replayed).toBe(false);
+      expect(replay).toEqual({ ...first, replayed: true });
+      expect(repository.insert).toHaveBeenCalledTimes(1);
+      expect(requests.requestSignInInTransaction).toHaveBeenCalledTimes(1);
+      expect(telemetry.record).toHaveBeenCalledTimes(2);
+      expect(telemetry.record.mock.calls[0][0]).toMatchObject({
+        operation: 'SIGN_IN_REQUEST',
+        outcome: 'CREATED',
+        replayed: false,
+      });
+      expect(telemetry.record.mock.calls[1][0]).toMatchObject({
+        outcome: 'CREATED',
+        replayed: true,
+      });
+    },
+  );
+  it('preserves the original technical failure even if telemetry throws', async () => {
+    const { id, service, telemetry, requests, repository } = setup();
+    requests.requestSignInInTransaction.mockRejectedValue(
+      new Error('Database failure.'),
+    );
+    telemetry.record.mockImplementation(() => {
+      throw new Error('Synthetic telemetry failure.');
+    });
+    await expect(service.execute(id, request)).rejects.toMatchObject({
+      reason: 'STATE_UNAVAILABLE',
+    });
+    expect(repository.insert).not.toHaveBeenCalled();
+    expect(telemetry.record.mock.calls[0][0]).toMatchObject({
+      outcome: 'FAILURE',
+      failureReason: 'STATE_UNAVAILABLE',
+    });
+  });
   it('commits a minimal receipt and replays it without another admission', async () => {
     const { id, service, requests, repository } = setup();
     const first = await service.execute(id, request);

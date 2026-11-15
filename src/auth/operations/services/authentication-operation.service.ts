@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { randomUUID, timingSafeEqual } from 'node:crypto';
+import { performance } from 'node:perf_hooks';
 
 import {
   Prisma,
@@ -29,6 +30,7 @@ import {
   assertAuthenticationOperationActive,
 } from '../utils/authentication-operation-id.util';
 import { captureAuthenticationOperation } from '../utils/authentication-operation-request.util';
+import { AuthenticationOperationTelemetryService } from './authentication-operation-telemetry.service';
 
 type CapturedOperation = ReturnType<typeof captureAuthenticationOperation>;
 
@@ -40,6 +42,7 @@ export class AuthenticationOperationService {
     private readonly requests: AuthenticationChallengeRequestService,
     private readonly deliveries: AuthenticationDeliveryAdmissionService,
     private readonly bounds: GcraAdmissionConfigService,
+    private readonly telemetry: AuthenticationOperationTelemetryService,
   ) {}
 
   /** Mint once, before execution/retries; this identifier is not a credential. */
@@ -52,6 +55,54 @@ export class AuthenticationOperationService {
   }
 
   async execute(
+    id: string,
+    request: AuthenticationOperationRequest,
+  ): Promise<AuthenticationOperationResponse> {
+    const started = performance.now();
+    try {
+      const response = await this.executeAuthoritatively(id, request);
+      this.observe(request, started, response);
+      return response;
+    } catch (error) {
+      this.observe(request, started, undefined, error);
+      throw error;
+    }
+  }
+
+  private observe(
+    request: AuthenticationOperationRequest,
+    started: number,
+    response?: AuthenticationOperationResponse,
+    error?: unknown,
+  ): void {
+    try {
+      const result = response?.result;
+      const pending = this.telemetry.record({
+        operation: request?.kind,
+        outcome: result?.outcome ?? 'FAILURE',
+        replayed: response?.replayed ?? false,
+        durationMs: performance.now() - started,
+        ...(result?.outcome === 'DENIED'
+          ? { denial: result.denial, deniedPolicyIds: result.deniedPolicyIds }
+          : {}),
+        ...(!response
+          ? {
+              failureReason:
+                error instanceof AuthenticationOperationError
+                  ? error.reason
+                  : 'UNEXPECTED',
+            }
+          : {}),
+      });
+      // Observation cannot enter business retries/reconciliation, replace a
+      // committed result, or hold it waiting for an exporter that never settles.
+      void Promise.resolve(pending).catch(() => undefined);
+    } catch {
+      // No recursive logging through the same failed receiver.
+    }
+  }
+
+  private async executeAuthoritatively(
     id: string,
     request: AuthenticationOperationRequest,
   ): Promise<AuthenticationOperationResponse> {
